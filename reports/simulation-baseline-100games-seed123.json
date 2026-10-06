@@ -1,0 +1,3815 @@
+{
+  "balanceVersion": "0.1.0",
+  "games": 100,
+  "initialSeed": 123,
+  "maxSeconds": 900,
+  "wins": {
+    "blue": 25,
+    "red": 75
+  },
+  "draws": 0,
+  "averageDurationSeconds": 805.14,
+  "medianDurationSeconds": 803.07,
+  "matches": [
+    {
+      "seed": 123,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 272
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 47,
+        "red": 43
+      },
+      "damage": {
+        "blue": 235,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 124,
+      "winner": "blue",
+      "durationSeconds": 815.07,
+      "firstBarracksSeconds": {
+        "blue": 252,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 257,
+        "red": 269
+      },
+      "firstCombatSeconds": 693,
+      "attacks": {
+        "blue": 44,
+        "red": 49
+      },
+      "damage": {
+        "blue": 220,
+        "red": 245
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 203,
+        "red": 200
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 5,
+        "red": 0
+      }
+    },
+    {
+      "seed": 125,
+      "winner": "red",
+      "durationSeconds": 800.07,
+      "firstBarracksSeconds": {
+        "blue": 240,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 245,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 30,
+        "red": 48
+      },
+      "damage": {
+        "blue": 150,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 188,
+        "red": 185
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 126,
+      "winner": "blue",
+      "durationSeconds": 812.07,
+      "firstBarracksSeconds": {
+        "blue": 252,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 257,
+        "red": 272
+      },
+      "firstCombatSeconds": 693,
+      "attacks": {
+        "blue": 42,
+        "red": 48
+      },
+      "damage": {
+        "blue": 210,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 200,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 15,
+        "red": 0
+      }
+    },
+    {
+      "seed": 127,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 35,
+        "red": 48
+      },
+      "damage": {
+        "blue": 175,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 187,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 60
+      }
+    },
+    {
+      "seed": 128,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 33,
+        "red": 50
+      },
+      "damage": {
+        "blue": 165,
+        "red": 250
+      },
+      "finalUnits": {
+        "blue": 5,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 173,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 129,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 130,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 272
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 131,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 132,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 133,
+      "winner": "blue",
+      "durationSeconds": 815.07,
+      "firstBarracksSeconds": {
+        "blue": 252,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 257,
+        "red": 269
+      },
+      "firstCombatSeconds": 693,
+      "attacks": {
+        "blue": 44,
+        "red": 49
+      },
+      "damage": {
+        "blue": 220,
+        "red": 245
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 203,
+        "red": 200
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 5,
+        "red": 0
+      }
+    },
+    {
+      "seed": 134,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 237,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 242,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 43,
+        "red": 48
+      },
+      "damage": {
+        "blue": 215,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 191,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 15
+      }
+    },
+    {
+      "seed": 135,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 33,
+        "red": 50
+      },
+      "damage": {
+        "blue": 165,
+        "red": 250
+      },
+      "finalUnits": {
+        "blue": 5,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 173,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 136,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 137,
+      "winner": "red",
+      "durationSeconds": 812.07,
+      "firstBarracksSeconds": {
+        "blue": 252,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 257,
+        "red": 269
+      },
+      "firstCombatSeconds": 693,
+      "attacks": {
+        "blue": 42,
+        "red": 51
+      },
+      "damage": {
+        "blue": 210,
+        "red": 255
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 200,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 10
+      }
+    },
+    {
+      "seed": 138,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 33,
+        "red": 50
+      },
+      "damage": {
+        "blue": 165,
+        "red": 250
+      },
+      "finalUnits": {
+        "blue": 5,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 173,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 139,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 37,
+        "red": 47
+      },
+      "damage": {
+        "blue": 185,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 140,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 141,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 142,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 237,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 242,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 43,
+        "red": 48
+      },
+      "damage": {
+        "blue": 215,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 191,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 15
+      }
+    },
+    {
+      "seed": 143,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 240,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 245,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 33,
+        "red": 48
+      },
+      "damage": {
+        "blue": 165,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 191,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 35
+      }
+    },
+    {
+      "seed": 144,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 37,
+        "red": 47
+      },
+      "damage": {
+        "blue": 185,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 145,
+      "winner": "red",
+      "durationSeconds": 801.07,
+      "firstBarracksSeconds": {
+        "blue": 246,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 251,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 29,
+        "red": 48
+      },
+      "damage": {
+        "blue": 145,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 189,
+        "red": 190
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 55
+      }
+    },
+    {
+      "seed": 146,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 261
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 266
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 147,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 148,
+      "winner": "blue",
+      "durationSeconds": 812.07,
+      "firstBarracksSeconds": {
+        "blue": 252,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 257,
+        "red": 272
+      },
+      "firstCombatSeconds": 693,
+      "attacks": {
+        "blue": 42,
+        "red": 48
+      },
+      "damage": {
+        "blue": 210,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 200,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 15,
+        "red": 0
+      }
+    },
+    {
+      "seed": 149,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 28,
+        "red": 48
+      },
+      "damage": {
+        "blue": 140,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 180,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 85
+      }
+    },
+    {
+      "seed": 150,
+      "winner": "red",
+      "durationSeconds": 808.07,
+      "firstBarracksSeconds": {
+        "blue": 252,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 257,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 36,
+        "red": 48
+      },
+      "damage": {
+        "blue": 180,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 196,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 30
+      }
+    },
+    {
+      "seed": 151,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 152,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 37,
+        "red": 47
+      },
+      "damage": {
+        "blue": 185,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 153,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 272
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 154,
+      "winner": "blue",
+      "durationSeconds": 812.07,
+      "firstBarracksSeconds": {
+        "blue": 252,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 257,
+        "red": 272
+      },
+      "firstCombatSeconds": 693,
+      "attacks": {
+        "blue": 42,
+        "red": 48
+      },
+      "damage": {
+        "blue": 210,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 200,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 15,
+        "red": 0
+      }
+    },
+    {
+      "seed": 155,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 28,
+        "red": 48
+      },
+      "damage": {
+        "blue": 140,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 180,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 85
+      }
+    },
+    {
+      "seed": 156,
+      "winner": "red",
+      "durationSeconds": 808.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 35,
+        "red": 48
+      },
+      "damage": {
+        "blue": 175,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 196,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 35
+      }
+    },
+    {
+      "seed": 157,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 158,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 33,
+        "red": 50
+      },
+      "damage": {
+        "blue": 165,
+        "red": 250
+      },
+      "finalUnits": {
+        "blue": 5,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 173,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 159,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 160,
+      "winner": "red",
+      "durationSeconds": 811.07,
+      "firstBarracksSeconds": {
+        "blue": 252,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 257,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 38,
+        "red": 48
+      },
+      "damage": {
+        "blue": 190,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 199,
+        "red": 200
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 25
+      }
+    },
+    {
+      "seed": 161,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 162,
+      "winner": "red",
+      "durationSeconds": 800.07,
+      "firstBarracksSeconds": {
+        "blue": 240,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 245,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 30,
+        "red": 48
+      },
+      "damage": {
+        "blue": 150,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 188,
+        "red": 185
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 163,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 164,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 165,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 261
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 266
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 166,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 272
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 167,
+      "winner": "red",
+      "durationSeconds": 800.07,
+      "firstBarracksSeconds": {
+        "blue": 240,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 245,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 30,
+        "red": 48
+      },
+      "damage": {
+        "blue": 150,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 188,
+        "red": 185
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 168,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 169,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 37,
+        "red": 47
+      },
+      "damage": {
+        "blue": 185,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 170,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 240,
+        "red": 261
+      },
+      "firstMilitarySeconds": {
+        "blue": 245,
+        "red": 266
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 33,
+        "red": 48
+      },
+      "damage": {
+        "blue": 165,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 191,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 35
+      }
+    },
+    {
+      "seed": 171,
+      "winner": "red",
+      "durationSeconds": 812.07,
+      "firstBarracksSeconds": {
+        "blue": 246,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 251,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 42,
+        "red": 48
+      },
+      "damage": {
+        "blue": 210,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 200,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 10
+      }
+    },
+    {
+      "seed": 172,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 33,
+        "red": 50
+      },
+      "damage": {
+        "blue": 165,
+        "red": 250
+      },
+      "finalUnits": {
+        "blue": 5,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 173,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 173,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 174,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 237,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 242,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 26,
+        "red": 48
+      },
+      "damage": {
+        "blue": 130,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 187,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 65
+      }
+    },
+    {
+      "seed": 175,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 237,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 242,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 41,
+        "red": 48
+      },
+      "damage": {
+        "blue": 205,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 191,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 25
+      }
+    },
+    {
+      "seed": 176,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 177,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 178,
+      "winner": "red",
+      "durationSeconds": 801.07,
+      "firstBarracksSeconds": {
+        "blue": 249,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 254,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 29,
+        "red": 48
+      },
+      "damage": {
+        "blue": 145,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 189,
+        "red": 190
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 55
+      }
+    },
+    {
+      "seed": 179,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 237,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 242,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 43,
+        "red": 48
+      },
+      "damage": {
+        "blue": 215,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 191,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 15
+      }
+    },
+    {
+      "seed": 180,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 240,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 245,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 33,
+        "red": 48
+      },
+      "damage": {
+        "blue": 165,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 191,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 35
+      }
+    },
+    {
+      "seed": 181,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 33,
+        "red": 50
+      },
+      "damage": {
+        "blue": 165,
+        "red": 250
+      },
+      "finalUnits": {
+        "blue": 5,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 173,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 182,
+      "winner": "blue",
+      "durationSeconds": 815.07,
+      "firstBarracksSeconds": {
+        "blue": 252,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 257,
+        "red": 269
+      },
+      "firstCombatSeconds": 693,
+      "attacks": {
+        "blue": 44,
+        "red": 49
+      },
+      "damage": {
+        "blue": 220,
+        "red": 245
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 203,
+        "red": 200
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 5,
+        "red": 0
+      }
+    },
+    {
+      "seed": 183,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 184,
+      "winner": "red",
+      "durationSeconds": 814.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 42,
+        "red": 48
+      },
+      "damage": {
+        "blue": 210,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 202,
+        "red": 203
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 10
+      }
+    },
+    {
+      "seed": 185,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 186,
+      "winner": "red",
+      "durationSeconds": 801.07,
+      "firstBarracksSeconds": {
+        "blue": 246,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 251,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 29,
+        "red": 48
+      },
+      "damage": {
+        "blue": 145,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 189,
+        "red": 190
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 55
+      }
+    },
+    {
+      "seed": 187,
+      "winner": "blue",
+      "durationSeconds": 812.07,
+      "firstBarracksSeconds": {
+        "blue": 249,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 254,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 42,
+        "red": 45
+      },
+      "damage": {
+        "blue": 210,
+        "red": 225
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 200,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 15,
+        "red": 0
+      }
+    },
+    {
+      "seed": 188,
+      "winner": "red",
+      "durationSeconds": 812.07,
+      "firstBarracksSeconds": {
+        "blue": 246,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 251,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 42,
+        "red": 48
+      },
+      "damage": {
+        "blue": 210,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 200,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 10
+      }
+    },
+    {
+      "seed": 189,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 33,
+        "red": 50
+      },
+      "damage": {
+        "blue": 165,
+        "red": 250
+      },
+      "finalUnits": {
+        "blue": 5,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 173,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 190,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 37,
+        "red": 47
+      },
+      "damage": {
+        "blue": 185,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 191,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 192,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 193,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 194,
+      "winner": "red",
+      "durationSeconds": 812.07,
+      "firstBarracksSeconds": {
+        "blue": 249,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 254,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 42,
+        "red": 48
+      },
+      "damage": {
+        "blue": 210,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 200,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 10
+      }
+    },
+    {
+      "seed": 195,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 240,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 245,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 33,
+        "red": 46
+      },
+      "damage": {
+        "blue": 165,
+        "red": 230
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 191,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 230,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 35
+      }
+    },
+    {
+      "seed": 196,
+      "winner": "red",
+      "durationSeconds": 812.07,
+      "firstBarracksSeconds": {
+        "blue": 246,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 251,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 42,
+        "red": 48
+      },
+      "damage": {
+        "blue": 210,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 200,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 10
+      }
+    },
+    {
+      "seed": 197,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 28,
+        "red": 48
+      },
+      "damage": {
+        "blue": 140,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 180,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 85
+      }
+    },
+    {
+      "seed": 198,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 240,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 245,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 33,
+        "red": 48
+      },
+      "damage": {
+        "blue": 165,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 191,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 35
+      }
+    },
+    {
+      "seed": 199,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 240,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 245,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 33,
+        "red": 48
+      },
+      "damage": {
+        "blue": 165,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 191,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 35
+      }
+    },
+    {
+      "seed": 200,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 201,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 202,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 203,
+      "winner": "blue",
+      "durationSeconds": 812.07,
+      "firstBarracksSeconds": {
+        "blue": 252,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 257,
+        "red": 272
+      },
+      "firstCombatSeconds": 693,
+      "attacks": {
+        "blue": 42,
+        "red": 48
+      },
+      "damage": {
+        "blue": 210,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 200,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 15,
+        "red": 0
+      }
+    },
+    {
+      "seed": 204,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 37,
+        "red": 47
+      },
+      "damage": {
+        "blue": 185,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 205,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 206,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 237,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 242,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 27,
+        "red": 46
+      },
+      "damage": {
+        "blue": 135,
+        "red": 230
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 187,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 230,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 60
+      }
+    },
+    {
+      "seed": 207,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 35,
+        "red": 48
+      },
+      "damage": {
+        "blue": 175,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 187,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 60
+      }
+    },
+    {
+      "seed": 208,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 209,
+      "winner": "red",
+      "durationSeconds": 814.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 42,
+        "red": 48
+      },
+      "damage": {
+        "blue": 210,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 202,
+        "red": 203
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 10
+      }
+    },
+    {
+      "seed": 210,
+      "winner": "red",
+      "durationSeconds": 812.07,
+      "firstBarracksSeconds": {
+        "blue": 249,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 254,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 42,
+        "red": 48
+      },
+      "damage": {
+        "blue": 210,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 200,
+        "red": 197
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 10
+      }
+    },
+    {
+      "seed": 211,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 37,
+        "red": 47
+      },
+      "damage": {
+        "blue": 185,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 212,
+      "winner": "blue",
+      "durationSeconds": 815.07,
+      "firstBarracksSeconds": {
+        "blue": 252,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 257,
+        "red": 269
+      },
+      "firstCombatSeconds": 693,
+      "attacks": {
+        "blue": 44,
+        "red": 49
+      },
+      "damage": {
+        "blue": 220,
+        "red": 245
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 203,
+        "red": 200
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 5,
+        "red": 0
+      }
+    },
+    {
+      "seed": 213,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 214,
+      "winner": "red",
+      "durationSeconds": 799.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 28,
+        "red": 48
+      },
+      "damage": {
+        "blue": 140,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 180,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 85
+      }
+    },
+    {
+      "seed": 215,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 216,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 37,
+        "red": 47
+      },
+      "damage": {
+        "blue": 185,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 217,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 218,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 269
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 32,
+        "red": 47
+      },
+      "damage": {
+        "blue": 160,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 70
+      }
+    },
+    {
+      "seed": 219,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 37,
+        "red": 47
+      },
+      "damage": {
+        "blue": 185,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 220,
+      "winner": "blue",
+      "durationSeconds": 809.07,
+      "firstBarracksSeconds": {
+        "blue": 258,
+        "red": 264
+      },
+      "firstMilitarySeconds": {
+        "blue": 263,
+        "red": 269
+      },
+      "firstCombatSeconds": 698,
+      "attacks": {
+        "blue": 46,
+        "red": 43
+      },
+      "damage": {
+        "blue": 230,
+        "red": 215
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 197,
+        "red": 194
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 30,
+        "red": 0
+      }
+    },
+    {
+      "seed": 221,
+      "winner": "red",
+      "durationSeconds": 803.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 267
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 272
+      },
+      "firstCombatSeconds": 768,
+      "attacks": {
+        "blue": 37,
+        "red": 47
+      },
+      "damage": {
+        "blue": 185,
+        "red": 235
+      },
+      "finalUnits": {
+        "blue": 7,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 184,
+        "red": 188
+      },
+      "finalWood": {
+        "blue": 210,
+        "red": 210
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 45
+      }
+    },
+    {
+      "seed": 222,
+      "winner": "red",
+      "durationSeconds": 802.07,
+      "firstBarracksSeconds": {
+        "blue": 296,
+        "red": 241
+      },
+      "firstMilitarySeconds": {
+        "blue": 301,
+        "red": 246
+      },
+      "firstCombatSeconds": 764,
+      "attacks": {
+        "blue": 32,
+        "red": 48
+      },
+      "damage": {
+        "blue": 160,
+        "red": 240
+      },
+      "finalUnits": {
+        "blue": 6,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 183,
+        "red": 191
+      },
+      "finalWood": {
+        "blue": 190,
+        "red": 230
+      },
+      "baseHp": {
+        "blue": 0,
+        "red": 75
+      }
+    }
+  ]
+}

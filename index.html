@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RTS V1</title>
+  </head>
+  <body>
+    <main id="game" aria-label="Mapa RTS V1"></main>
+    <div id="hud">
+      <strong>RTS V1 <span>· MAPA DE TESTE 01</span></strong>
+      <p>Clique: selecionar · arraste esquerdo: caixa · Shift: adicionar/remover</p>
+      <p>Clique direito: mover, minerar ou coletar · arraste direito/meio ou use WASD/setas: pan · roda: zoom</p>
+      <p>Zoom: <span id="zoom-value">125%</span> · 200 × 200 células</p>
+      <p id="team-status"></p>
+      <p id="fog-status"></p>
+      <p><b id="selection-count">Nenhuma seleção</b> · <span id="selection-details">Clique em uma unidade ou base azul.</span></p>
+      <div id="action-bar" hidden></div>
+      <p id="command-feedback"></p>
+      <p id="inspect" hidden>Debug: clique em uma célula para inspecionar.</p>
+    </div>
+    <section id="game-result" role="dialog" aria-modal="true" aria-labelledby="result-title" hidden>
+      <div class="result-card">
+        <h1 id="result-title"></h1>
+        <p id="result-summary"></p>
+        <dl id="result-stats"></dl>
+        <button id="restart-game" type="button">Jogar novamente</button>
+      </div>
+    </section>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

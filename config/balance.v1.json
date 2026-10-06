@@ -1,0 +1,116 @@
+{
+  "version": "0.1.0",
+  "map": {
+    "width": 200,
+    "height": 200,
+    "unitCapPerTeam": 60
+  },
+  "startingState": {
+    "coins": 100,
+    "wood": 50,
+    "workers": 2,
+    "bases": 1
+  },
+  "economy": {
+    "passiveCoinsPerFreeWorkerPerSecond": 1,
+    "mine": {
+      "cycleSeconds": 30,
+      "coinsPerCycle": 50,
+      "maxWorkersPerMine": 4
+    },
+    "wood": {
+      "workerCapacity": 20,
+      "gatherPerSecond": 2
+    }
+  },
+  "units": {
+    "worker": {
+      "hp": 10,
+      "damage": 0,
+      "range": 0,
+      "vision": 5,
+      "movement": 5,
+      "cooldownSeconds": 3,
+      "coins": 150,
+      "wood": 0,
+      "productionSeconds": 6
+    },
+    "soldier": {
+      "hp": 18,
+      "damage": 5,
+      "range": 2,
+      "vision": 5,
+      "movement": 3,
+      "cooldownSeconds": 3,
+      "coins": 100,
+      "wood": 0,
+      "productionSeconds": 5
+    },
+    "shieldbearer": {
+      "hp": 25,
+      "damage": 0,
+      "range": 1,
+      "vision": 3,
+      "movement": 2,
+      "cooldownSeconds": 3,
+      "coins": 150,
+      "wood": 0,
+      "productionSeconds": 7,
+      "reflectionPercent": 80,
+      "reflectionMaxDistance": 1
+    },
+    "scout": {
+      "hp": 8,
+      "damage": 0,
+      "range": 0,
+      "vision": 8,
+      "movement": 6,
+      "cooldownSeconds": 5,
+      "coins": 200,
+      "wood": 0,
+      "productionSeconds": 6,
+      "stealthDetectionDistance": 5
+    },
+    "archer": {
+      "hp": 10,
+      "damage": 8,
+      "range": 4,
+      "vision": 6,
+      "movement": 2,
+      "cooldownSeconds": 4,
+      "coins": 180,
+      "wood": 0,
+      "productionSeconds": 7
+    }
+  },
+  "buildings": {
+    "base": {
+      "width": 4,
+      "height": 4,
+      "hp": 150,
+      "vision": 5,
+      "coins": 0,
+      "wood": 0,
+      "buildSeconds": 0,
+      "maxPerTeam": 1
+    },
+    "house": {
+      "width": 2,
+      "height": 2,
+      "hp": 60,
+      "vision": 5,
+      "coins": 150,
+      "wood": 100,
+      "buildSeconds": 8
+    },
+    "barracks": {
+      "width": 3,
+      "height": 3,
+      "hp": 80,
+      "vision": 5,
+      "coins": 200,
+      "wood": 120,
+      "buildSeconds": 12
+    }
+  }
+}
