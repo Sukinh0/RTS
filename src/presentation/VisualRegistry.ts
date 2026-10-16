@@ -33,11 +33,11 @@ export const UNIT_VISUALS: Record<UnitKind, UnitVisualDefinition> = {
     idle: { file: 'Archer_Idle', frames: 6 }, move: { file: 'Archer_Run', frames: 4 },
     attack: { file: 'Archer_Shoot', frames: 8 },
   } },
-  shieldbearer: { family: 'Lancer', size: 40, states: {
-    idle: { file: 'Lancer_Idle', frames: 12, frameSize: 320 },
-    move: { file: 'Lancer_Run', frames: 6, frameSize: 320 },
-    guard: { file: 'Lancer_Down_Defence', frames: 6, frameSize: 320 },
-    attack: { file: 'Lancer_Down_Attack', frames: 3, frameSize: 320 },
+  shieldbearer: { family: 'Warrior', size: 36, states: {
+    idle: { file: 'Warrior_Idle', frames: 8 },
+    move: { file: 'Warrior_Run', frames: 6 },
+    guard: { file: 'Warrior_Guard', frames: 6 },
+    attack: { file: 'Warrior_Attack1', frames: 4 },
   } },
   // Monk is a readable temporary scout; the pack has no mounted reconnaissance unit.
   scout: { family: 'Monk', size: 36, states: {

@@ -26,7 +26,7 @@ O ZIP tem 410 PNGs utilizáveis, além de arquivos `.aseprite` e metadados do ma
 | Construtor | Pawn | idle, run, hammer | O estado vem de `ConstructionSystem.taskFor`. |
 | Soldado | Warrior | idle, run, attack, guard disponível | Ataque visual é disparado por evento de combate. |
 | Arqueiro | Archer + Arrow | idle, run, shoot, projétil | O projétil percorre a duração visual de 180 ms; dano e cooldown já foram resolvidos pelo core. |
-| Escudeiro | Lancer | idle, run, defence, attack | Melhor leitura defensiva e maior conjunto de direções do pack. Usa uma direção de defesa nesta versão. |
+| Escudeiro | Warrior | idle, run, guard, attack | Warrior Guard mantém proporção consistente com as demais tropas; Lancer ficou reservado para uma futura variante visual mais alta. |
 | Batedor | Monk | idle, run | Placeholder sem montaria; nenhum poder de cura foi adicionado. |
 
 | Jogo | Tiny Swords | Âncora visual |
