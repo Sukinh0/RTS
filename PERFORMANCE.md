@@ -1,5 +1,9 @@
 # Performance do RTS V1.1/V1.1.1
 
+## Integração Tiny Swords (2026-10-16)
+
+O benchmark visual com o pack instalado foi executado separadamente para 100 unidades no Chromium headless/SwiftShader: idle 16,8 FPS, movimento 14,4 FPS, formação 15,6 FPS, combate 17,5 FPS e churn 16,5 FPS. O baseline anterior registrava 31,6 / 26,0 / 22,9 / 31,1 FPS nos quatro cenários equivalentes. A simulação, o pathfinding e os testes de regras não foram alterados; esta diferença é uma pendência da camada de apresentação e deve ser reavaliada em GPU física. Os perfis locais `reports/performance/tiny-swords-*` não são versionados.
+
 ## Problema e auditoria
 
 O jogo simula a 30 passos por segundo em `Simulation` e desenha com Phaser 3 (WebGL quando disponível). Já existiam acumulador de tempo, separação entre lógica e apresentação, interpolação do movimento e decisões estratégicas da IA a cada 30 passos. O acumulador não tinha limite, portanto um frame atrasado podia executar uma quantidade ilimitada de passos. A apresentação redesenhava entidades quando a lógica avançava e o minimapa já mantinha um buffer de terreno.

@@ -63,6 +63,10 @@ npm run test:e2e
 
 O estado de implementação está em `PROGRESS.md`.
 
+### Visual provisório Tiny Swords
+
+O jogo usa o pack [Tiny Swords, de Pixel Frog](https://pixelfrog-assets.itch.io/tiny-swords) como visual provisório. Coloque o ZIP obtido na página oficial em `external-assets/Tiny Swords (Free Pack).zip` e execute `npm run assets:install` antes de abrir o jogo. O ZIP e os PNGs extraídos ficam fora do Git por restrição de redistribuição do pack; sem eles, o jogo continua executando com formas simples. Mapeamentos, escala, placeholders e licença estão em [docs/ASSET_INTEGRATION.md](docs/ASSET_INTEGRATION.md).
+
 Para simular 100 partidas IA vs IA sem abrir o navegador e gerar relatórios em `reports/`:
 
 ```sh

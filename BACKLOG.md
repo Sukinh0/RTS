@@ -1,5 +1,11 @@
 # Backlog antes do aceite da V1
 
+## Visual provisório Tiny Swords
+
+- Playtest humano ainda deve validar leitura de seleção, facções e unidades em zoom mínimo e combate denso.
+- Integrar transições de água/elevação e um asset de barricada dedicado quando houver arte compatível, sem mudar o mapa lógico.
+- Medir o novo render em GPU física e preservar comparação com o benchmark V1.1; consultar `docs/ASSET_INTEGRATION.md`.
+
 Origem: playtest humano de 2026-10-06. Os seis itens foram implementados e passaram pelas verificações automatizadas e pela inspeção visual no navegador. Estado: **aguardando novo aceite humano da experiência**.
 
 ## 1. Investigar unidades inimigas que somem ou parecem teleportar — P0

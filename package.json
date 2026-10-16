@@ -13,7 +13,8 @@
     "test:e2e": "playwright test",
     "simulate": "node scripts/simulate.mjs",
     "benchmark": "node scripts/performance.mjs",
-    "benchmark:browser": "node scripts/performance-browser.mjs"
+    "benchmark:browser": "node scripts/performance-browser.mjs",
+    "assets:install": "powershell -ExecutionPolicy Bypass -File scripts/install-tiny-swords.ps1"
   },
   "dependencies": {
     "phaser": "^3.90.0"

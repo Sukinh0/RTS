@@ -21,6 +21,7 @@ import {
   type FormationUnitInfo,
 } from '../core/formations/FormationGeometry';
 import { computeLineCells } from '../core/construction/LineGeometry';
+import { availableUnitKey, buildingKey, frameCount, preloadTinySwords, UNIT_VISUALS, type UnitVisualState } from './VisualRegistry';
 
 const CELL_SIZE = 12;
 const PAN_SPEED = 500;
@@ -87,16 +88,18 @@ interface AttackEffect {
   color: number;
   elapsedMs: number;
   totalMs: number;
+  projectile?: Phaser.GameObjects.Image;
 }
 
 interface WorldEffect {
-  kind: 'ring' | 'spark' | 'dust';
+  kind: 'ring' | 'spark' | 'dust' | 'explosion';
   x: number;
   y: number;
   team: Team;
   color: number;
   elapsedMs: number;
   totalMs: number;
+  sprite?: Phaser.GameObjects.Image;
 }
 
 /** Map rendering and camera input; logical terrain remains in MapGrid. */
@@ -112,6 +115,13 @@ export class MapScene extends Phaser.Scene {
   private dragMode: 'pan' | 'select' | 'barricade' | null = null;
   private mapGraphics!: Phaser.GameObjects.Graphics;
   private terrainTexture?: Phaser.GameObjects.RenderTexture;
+  private terrainTiles?: Phaser.GameObjects.TileSprite;
+  private readonly entitySprites = new Map<string, Phaser.GameObjects.Image>();
+  private readonly spriteVisualCache = new Map<string, { key: string; frame: number; x: number; y: number; size: number }>();
+  private readonly terrainDetails: Phaser.GameObjects.Image[] = [];
+  private readonly attackVisualUntil = new Map<string, number>();
+  private lastDetailBounds = '';
+  private detailsDirty = true;
   private readonly lastEntityView = { x: NaN, y: NaN, width: NaN, height: NaN };
   private selectionGraphics!: Phaser.GameObjects.Graphics;
   private selectionBoxGraphics!: Phaser.GameObjects.Graphics;
@@ -134,6 +144,8 @@ export class MapScene extends Phaser.Scene {
   private readonly motionTracks = new Map<string, MotionTrack>();
   private readonly attackEffects: AttackEffect[] = [];
   private readonly worldEffects: WorldEffect[] = [];
+  private readonly effectPool: Phaser.GameObjects.Image[] = [];
+  private readonly projectilePool: Phaser.GameObjects.Image[] = [];
   private lastAmbientSecond = 0;
   private readonly soundSystem = new SoundSystem();
   private lastBlueWood = BALANCE.startingState.wood;
@@ -155,6 +167,10 @@ export class MapScene extends Phaser.Scene {
     super('Map');
   }
 
+  preload(): void {
+    preloadTinySwords(this);
+  }
+
   create(): void {
     if (new URLSearchParams(window.location.search).has('perf')) this.events.once('create', () => this.installDiagnostics());
     const worldWidth = this.map.width * CELL_SIZE;
@@ -167,17 +183,28 @@ export class MapScene extends Phaser.Scene {
       if (entity.category === 'unit') this.displayPositions.set(entity.id, { x: entity.x, y: entity.y });
     }
     this.visualFog.update(this.displayPositions);
+    const tiles = this.textures.get('tiny-terrain');
+    if (tiles?.key !== '__MISSING') {
+      tiles.add('grass', 0, 64, 64, 64, 64);
+    }
     this.drawMap();
     this.fogGraphics = this.add.graphics();
     this.drawFog();
     this.entityGraphics = this.add.graphics();
+    this.entityGraphics.setDepth(3);
     this.combatGraphics = this.add.graphics();
+    this.combatGraphics.setDepth(4);
     this.worldGraphics = this.add.graphics();
+    this.worldGraphics.setDepth(5);
     this.drawEntities();
     this.selectionGraphics = this.add.graphics();
+    this.selectionGraphics.setDepth(6);
     this.selectionBoxGraphics = this.add.graphics();
+    this.selectionBoxGraphics.setDepth(7);
     this.placementGhostGraphics = this.add.graphics();
+    this.placementGhostGraphics.setDepth(7);
     this.formationPreviewGraphics = this.add.graphics();
+    this.formationPreviewGraphics.setDepth(7);
     this.refreshSelection();
     this.refreshTeamStatus();
     this.input.mouse?.disableContextMenu();
@@ -1048,6 +1075,7 @@ export class MapScene extends Phaser.Scene {
 
     const combatEvents = this.simulation.combat.drainEvents();
     for (const event of combatEvents) {
+      this.attackVisualUntil.set(event.attackerId, this.time.now + 420);
       const target = this.simulation.entities.get(event.targetId);
       const attacker = this.simulation.entities.get(event.attackerId);
       if (event.targetId === 'blue-base') {
@@ -1060,6 +1088,9 @@ export class MapScene extends Phaser.Scene {
         this.soundSystem.play('meleeAttack');
       }
 
+      const arrowKey = event.attackerTeam === 'blue' ? 'tiny-arrowYellow' : 'tiny-arrowRed';
+      const projectile = attacker?.category === 'unit' && attacker.kind === 'archer' && this.textures.exists(arrowKey)
+        ? this.acquireProjectile(arrowKey) : undefined;
       this.attackEffects.push({
         fromX: (event.attackerX + 0.5) * CELL_SIZE,
         fromY: (event.attackerY + 0.5) * CELL_SIZE,
@@ -1068,6 +1099,7 @@ export class MapScene extends Phaser.Scene {
         color: event.attackerTeam === 'blue' ? 0x9bdbff : 0xffada9,
         elapsedMs: 0,
         totalMs: 180,
+        projectile,
       });
       if (event.reflectedDamage > 0) {
         this.attackEffects.push({
@@ -1085,6 +1117,9 @@ export class MapScene extends Phaser.Scene {
 
     for (const unitId of this.displayPositions.keys()) {
       if (!this.simulation.entities.get(unitId)) {
+        const last = this.displayPositions.get(unitId);
+        if (last) this.addWorldEffect('explosion', (last.x + 0.5) * CELL_SIZE,
+          (last.y + 0.5) * CELL_SIZE, unitId.startsWith('red-') ? 'red' : 'blue', 0xffffff, 260);
         this.displayPositions.delete(unitId);
         this.soundSystem.play('unitDeath');
       }
@@ -1117,6 +1152,7 @@ export class MapScene extends Phaser.Scene {
     const visionChanged = this.visualFog.update(this.displayPositions, dirtyMapCells.length > 0);
     const dirtyCells = this.visualFog.drainDirtyTerrain();
     if (dirtyCells.length > 0) {
+      this.detailsDirty = true;
       for (const [x, y] of dirtyCells) {
         const terrain = this.visualFog.cellAt(x, y)?.terrain;
         if (terrain) this.renderTerrainCell(x, y, terrain);
@@ -1309,26 +1345,27 @@ export class MapScene extends Phaser.Scene {
 
   private drawMap(): void {
     const width = this.map.width * CELL_SIZE, height = this.map.height * CELL_SIZE;
+    if (this.textures.exists('tiny-terrain')) {
+      this.terrainTiles = this.add.tileSprite(0, 0, width, height, 'tiny-terrain', 'grass').setOrigin(0);
+      this.terrainTiles.setTileScale(CELL_SIZE / 64);
+      if (this.terrainTexture) {
+        this.terrainTexture.draw(this.terrainTiles);
+        this.terrainTiles.setVisible(false);
+      }
+    }
     const renderer = this.game.renderer;
     const supported = !(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer)
       || renderer.gl.getParameter(renderer.gl.MAX_TEXTURE_SIZE) >= Math.max(width, height);
     if (supported) this.terrainTexture = this.add.renderTexture(0, 0, width, height).setOrigin(0);
     this.mapGraphics = this.add.graphics();
     if (this.terrainTexture) this.mapGraphics.setVisible(false);
-    this.mapGraphics.fillStyle(0x09141a).fillRect(0, 0, this.map.width * CELL_SIZE, this.map.height * CELL_SIZE);
-    for (const [x, y] of this.visualFog.drainDirtyTerrain()) {
+    if (!this.terrainTiles) this.mapGraphics.fillStyle(0x09141a).fillRect(0, 0, width, height);
+    const dirty = this.visualFog.drainDirtyTerrain();
+    for (const [x, y] of dirty) {
       const terrain = this.visualFog.cellAt(x, y)?.terrain;
       if (terrain) this.renderTerrainCell(x, y, terrain);
     }
 
-    this.mapGraphics.lineStyle(1, 0x38505a, 0.55);
-    for (let x = 0; x <= this.map.width; x += 1) {
-      this.mapGraphics.lineBetween(x * CELL_SIZE, 0, x * CELL_SIZE, this.map.height * CELL_SIZE);
-    }
-    for (let y = 0; y <= this.map.height; y += 1) {
-      this.mapGraphics.lineBetween(0, y * CELL_SIZE, this.map.width * CELL_SIZE, y * CELL_SIZE);
-    }
-    this.mapGraphics.lineStyle(3, 0x8ba7ad, 1).strokeRect(0, 0, this.map.width * CELL_SIZE, this.map.height * CELL_SIZE);
     this.flushTerrain();
   }
 
@@ -1339,18 +1376,16 @@ export class MapScene extends Phaser.Scene {
   }
 
   private renderTerrainCell(x: number, y: number, terrain: Terrain): void {
-    this.mapGraphics.fillStyle(COLORS[terrain]).fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-    if (terrain === 'stone') {
-      this.mapGraphics.fillStyle(0xb5bcc4).fillRect(x * CELL_SIZE + 2, y * CELL_SIZE + 2, 4, 3);
-      this.mapGraphics.fillStyle(0x565c63).fillRect(x * CELL_SIZE + 6, y * CELL_SIZE + 6, 4, 3);
-    } else if (terrain === 'mine') {
-      this.mapGraphics.fillStyle(0xffe28a).fillRect(x * CELL_SIZE + 3, y * CELL_SIZE + 3, 5, 5);
+    if (!this.terrainTiles || terrain === 'water' || terrain === 'mountain') {
+      this.mapGraphics.fillStyle(COLORS[terrain]).fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
     }
   }
 
   private drawEntities(): void {
     const graphics = this.entityGraphics;
     graphics.clear();
+    this.drawTerrainDetails();
+    for (const sprite of this.entitySprites.values()) sprite.setVisible(false);
     Object.assign(this.lastEntityView, this.cameras.main.worldView);
     for (const entity of this.visualFog.visibleEntities()) {
       const position = entity.category === 'unit' ? this.displayPositions.get(entity.id) ?? entity : entity;
@@ -1358,9 +1393,16 @@ export class MapScene extends Phaser.Scene {
       const color = entity.team === 'blue' ? 0x9bdbff : 0xffada9;
       if (entity.category === 'unit') {
         const position = this.displayPositions.get(entity.id) ?? entity;
-        graphics.fillStyle(color).fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
-        graphics.fillStyle(UNIT_COLORS[entity.kind]).fillRect(position.x * CELL_SIZE + 3, position.y * CELL_SIZE + 3, CELL_SIZE - 6, CELL_SIZE - 6);
-        if (entity.kind === 'builder') {
+        const sprite = this.updateUnitSprite(entity, position.x, position.y);
+        if (sprite) {
+          graphics.lineStyle(1, entity.team === 'blue' ? 0x3a9f67 : 0xa84b4c, 0.9);
+          graphics.strokeEllipse((position.x + 0.5) * CELL_SIZE, (position.y + 0.88) * CELL_SIZE, 10, 4);
+        }
+        if (!sprite) {
+          graphics.fillStyle(color).fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+          graphics.fillStyle(UNIT_COLORS[entity.kind]).fillRect(position.x * CELL_SIZE + 3, position.y * CELL_SIZE + 3, CELL_SIZE - 6, CELL_SIZE - 6);
+        }
+        if (!sprite && entity.kind === 'builder') {
           graphics.fillStyle(0xffe600, 1).fillRect(position.x * CELL_SIZE + 3, position.y * CELL_SIZE + 1, CELL_SIZE - 6, 2.5);
           graphics.fillStyle(0xffffff, 0.9).fillRect(position.x * CELL_SIZE + 5, position.y * CELL_SIZE + 4, 2, 3);
         }
@@ -1372,6 +1414,12 @@ export class MapScene extends Phaser.Scene {
             .fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE - 3, Math.max(1, barW * hpPct), 2);
         }
       } else {
+        const sprite = this.updateBuildingSprite(entity);
+        if (sprite && !entity.underConstruction) {
+          graphics.lineStyle(1, entity.team === 'blue' ? 0x3a9f67 : 0xa84b4c, 0.8);
+          graphics.strokeRect(entity.x * CELL_SIZE, entity.y * CELL_SIZE,
+            entity.width * CELL_SIZE, entity.height * CELL_SIZE);
+        }
         if (entity.underConstruction) {
           graphics.lineStyle(2, 0xeccf74, 0.85).strokeRect(
             entity.x * CELL_SIZE + 2, entity.y * CELL_SIZE + 2,
@@ -1391,11 +1439,11 @@ export class MapScene extends Phaser.Scene {
             (entity.width * CELL_SIZE - 6) * pct, 3,
           );
         } else {
-          graphics.lineStyle(2, color, 1).strokeRect(
+          if (!sprite) graphics.lineStyle(2, color, 1).strokeRect(
             entity.x * CELL_SIZE + 2, entity.y * CELL_SIZE + 2,
             entity.width * CELL_SIZE - 4, entity.height * CELL_SIZE - 4,
           );
-          if (entity.kind === 'barricade') {
+          if (!sprite && entity.kind === 'barricade') {
             graphics.fillStyle(0x7a634e, 0.9).fillRect(
               entity.x * CELL_SIZE + 2, entity.y * CELL_SIZE + 2,
               entity.width * CELL_SIZE - 4, entity.height * CELL_SIZE - 4,
@@ -1413,7 +1461,7 @@ export class MapScene extends Phaser.Scene {
             graphics.fillStyle(0x231810, 1).fillRect((entity.x + 1) * CELL_SIZE - 5, entity.y * CELL_SIZE + 3, 2, 2);
             graphics.fillStyle(0x231810, 1).fillRect(entity.x * CELL_SIZE + 3, (entity.y + 1) * CELL_SIZE - 5, 2, 2);
             graphics.fillStyle(0x231810, 1).fillRect((entity.x + 1) * CELL_SIZE - 5, (entity.y + 1) * CELL_SIZE - 5, 2, 2);
-          } else if (entity.kind === 'tower') {
+          } else if (!sprite && entity.kind === 'tower') {
             graphics.fillStyle(0x4a5568, 0.95).fillRect(
               entity.x * CELL_SIZE + 2, entity.y * CELL_SIZE + 2,
               entity.width * CELL_SIZE - 4, entity.height * CELL_SIZE - 4,
@@ -1430,7 +1478,7 @@ export class MapScene extends Phaser.Scene {
               (entity.x + entity.width / 2) * CELL_SIZE,
               (entity.y + entity.height / 2) * CELL_SIZE, 1.5,
             );
-          } else {
+          } else if (!sprite) {
             graphics.fillStyle(color).fillRect(
               (entity.x + entity.width / 2) * CELL_SIZE - 3,
               (entity.y + entity.height / 2) * CELL_SIZE - 3, 6, 6,
@@ -1470,6 +1518,118 @@ export class MapScene extends Phaser.Scene {
       const position = this.displayPositions.get(entity.id) ?? entity;
       return `${entity.id}:${position.x.toFixed(2)},${position.y.toFixed(2)}`;
     }).join(';'));
+    for (const [id, sprite] of this.entitySprites) {
+      if (!this.simulation.entities.get(id)) {
+        sprite.destroy();
+        this.entitySprites.delete(id);
+        this.spriteVisualCache.delete(id);
+        this.attackVisualUntil.delete(id);
+      }
+    }
+  }
+
+  private updateUnitSprite(unit: UnitEntity, x: number, y: number): Phaser.GameObjects.Image | null {
+    let state: UnitVisualState = unit.kind === 'shieldbearer' ? 'guard' : 'idle';
+    const motion = this.motionTracks.get(unit.id);
+    if (motion) state = unit.carriedWood > 0 ? 'carryWood' : unit.carriedStone > 0 ? 'carryStone' : 'move';
+    else if (unit.kind === 'worker') {
+      const task = this.simulation.economy.taskFor(unit.id);
+      if (task?.kind === 'mine' && task.phase === 'working') state = 'mine';
+      else if (task?.kind === 'gather' && task.phase === 'gathering') state = task.resourceKind === 'stone' ? 'gatherStone' : 'gatherWood';
+    } else if (unit.kind === 'builder') {
+      const task = this.simulation.construction.taskFor(unit.id);
+      if (task?.phase === 'building' || task?.phase === 'repairing') state = 'build';
+    }
+    if ((this.attackVisualUntil.get(unit.id) ?? 0) > this.time.now) state = 'attack';
+    const key = availableUnitKey(this, unit.team, unit.kind, state);
+    if (!key) return null;
+    let sprite = this.entitySprites.get(unit.id);
+    if (!sprite) {
+      sprite = this.add.image(0, 0, key).setDepth(2);
+      this.entitySprites.set(unit.id, sprite);
+    } else if (sprite.texture.key !== key) sprite.setTexture(key);
+    const frame = Math.floor(this.time.now / (state === 'attack' ? 85 : 130)) % frameCount(unit.kind, state);
+    const size = UNIT_VISUALS[unit.kind].size;
+    const px = (x + 0.5) * CELL_SIZE;
+    const py = (y + 0.5) * CELL_SIZE;
+    const cached = this.spriteVisualCache.get(unit.id);
+    if (!cached || cached.key !== key || cached.frame !== frame) sprite.setFrame(frame);
+    if (!cached || cached.size !== size) sprite.setDisplaySize(size, size);
+    if (!cached || cached.x !== px || cached.y !== py) sprite.setPosition(px, py);
+    if (motion && motion.path.length > 1) {
+      sprite.setFlipX(motion.path[motion.path.length - 1][0] < motion.path[0][0]);
+    }
+    sprite.setVisible(true).setAlpha(1);
+    this.spriteVisualCache.set(unit.id, { key, frame, x: px, y: py, size });
+    return sprite;
+  }
+
+  private updateBuildingSprite(building: BuildingEntity): Phaser.GameObjects.Image | null {
+    const key = buildingKey(building.team, building.kind);
+    if (!this.textures.exists(key)) return null;
+    let sprite = this.entitySprites.get(building.id);
+    if (!sprite) {
+      sprite = this.add.image(0, 0, key).setDepth(2).setOrigin(0.5, 1);
+      this.entitySprites.set(building.id, sprite);
+    } else if (sprite.texture.key !== key) sprite.setTexture(key);
+    const width = building.kind === 'barricade' ? CELL_SIZE : building.width * CELL_SIZE + 4;
+    const height = building.kind === 'barricade' ? CELL_SIZE : width * sprite.texture.source[0].height / sprite.texture.source[0].width;
+    const px = (building.x + building.width / 2) * CELL_SIZE;
+    const py = (building.y + building.height) * CELL_SIZE;
+    const cached = this.spriteVisualCache.get(building.id);
+    if (!cached || cached.size !== width) sprite.setDisplaySize(width, height);
+    if (!cached || cached.x !== px || cached.y !== py) sprite.setPosition(px, py);
+    this.spriteVisualCache.set(building.id, { key, frame: 0, x: px, y: py, size: width });
+    sprite.setVisible(true).setAlpha(building.underConstruction ? 0.52 : 1);
+    return sprite;
+  }
+
+  private drawTerrainDetails(): void {
+    const view = this.cameras.main.worldView;
+    const minX = Math.max(0, Math.floor(view.x / CELL_SIZE) - 2);
+    const minY = Math.max(0, Math.floor(view.y / CELL_SIZE) - 2);
+    const maxX = Math.min(this.map.width - 1, Math.ceil(view.right / CELL_SIZE) + 2);
+    const maxY = Math.min(this.map.height - 1, Math.ceil(view.bottom / CELL_SIZE) + 2);
+    const bounds = `${minX},${minY},${maxX},${maxY}`;
+    if (!this.detailsDirty && bounds === this.lastDetailBounds) return;
+    this.detailsDirty = false;
+    this.lastDetailBounds = bounds;
+    let used = 0;
+    for (let y = minY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        const terrain = this.visualFog.rawTerrain(x, y);
+        if (!terrain) continue;
+        const hash = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+        let key = '';
+        let frame = 0;
+        let width = 0;
+        let height = 0;
+        if (terrain === 'forest') {
+          key = hash % 3 === 0 ? (hash % 2 ? 'tiny-tree1' : 'tiny-tree2') : 'tiny-bush';
+          width = key === 'tiny-bush' ? 13 : 21;
+          height = key === 'tiny-bush' ? 13 : 27;
+          frame = key === 'tiny-bush' ? hash % 8 : 0;
+        } else if (terrain === 'mine') { key = 'tiny-gold'; width = 14; height = 14; }
+        else if (terrain === 'stone') { key = 'tiny-stone'; width = 12; height = 12; }
+        else if (terrain === 'mountain' && hash % 4 === 0) { key = 'tiny-stone'; width = 13; height = 13; }
+        else if (terrain === 'water' && hash % 79 === 0) { key = 'tiny-waterRock'; width = 12; height = 12; frame = hash % 16; }
+        else if (terrain === 'plain' && hash % 29 === 0) { key = 'tiny-bush'; width = 10; height = 10; frame = hash % 8; }
+        else continue;
+        if (!this.textures.exists(key)) continue;
+        let sprite = this.terrainDetails[used];
+        if (!sprite) {
+          sprite = this.add.image(0, 0, key).setDepth(1).setOrigin(0.5, 1);
+          this.terrainDetails.push(sprite);
+        }
+        if (sprite.texture.key !== key) sprite.setTexture(key);
+        if (sprite.frame.name !== String(frame)) sprite.setFrame(frame);
+        sprite.setDisplaySize(width, height);
+        sprite.setPosition((x + 0.5) * CELL_SIZE, (y + 1) * CELL_SIZE);
+        sprite.setVisible(true);
+        used += 1;
+      }
+    }
+    for (let i = used; i < this.terrainDetails.length; i += 1) this.terrainDetails[i].setVisible(false);
   }
 
   private intersectsViewport(x: number, y: number, width: number, height: number): boolean {
@@ -1485,14 +1645,28 @@ export class MapScene extends Phaser.Scene {
       const fx = this.attackEffects[i];
       fx.elapsedMs += delta;
       if (fx.elapsedMs >= fx.totalMs) {
+        if (fx.projectile) {
+          fx.projectile.setVisible(false);
+          this.projectilePool.push(fx.projectile);
+        }
         this.attackEffects.splice(i, 1);
         continue;
       }
       if (this.visualFog.stateAt(Math.floor(fx.fromX / CELL_SIZE), Math.floor(fx.fromY / CELL_SIZE)) !== 'visible'
-        || this.visualFog.stateAt(Math.floor(fx.toX / CELL_SIZE), Math.floor(fx.toY / CELL_SIZE)) !== 'visible') continue;
+        || this.visualFog.stateAt(Math.floor(fx.toX / CELL_SIZE), Math.floor(fx.toY / CELL_SIZE)) !== 'visible') {
+        fx.projectile?.setVisible(false);
+        continue;
+      }
       const alpha = 1 - (fx.elapsedMs / fx.totalMs);
-      this.combatGraphics.lineStyle(2, fx.color, alpha);
-      this.combatGraphics.lineBetween(fx.fromX, fx.fromY, fx.toX, fx.toY);
+      if (fx.projectile) {
+        const progress = fx.elapsedMs / fx.totalMs;
+        fx.projectile.setPosition(Phaser.Math.Linear(fx.fromX, fx.toX, progress), Phaser.Math.Linear(fx.fromY, fx.toY, progress));
+        fx.projectile.setRotation(Math.atan2(fx.toY - fx.fromY, fx.toX - fx.fromX));
+        fx.projectile.setVisible(true);
+      } else {
+        this.combatGraphics.lineStyle(2, fx.color, alpha);
+        this.combatGraphics.lineBetween(fx.fromX, fx.fromY, fx.toX, fx.toY);
+      }
       this.combatGraphics.fillStyle(0xffffff, alpha);
       this.combatGraphics.fillCircle(fx.toX, fx.toY, 2.5);
       this.combatGraphics.lineStyle(1.5, fx.color, alpha * 0.8);
@@ -1502,8 +1676,31 @@ export class MapScene extends Phaser.Scene {
 
   private addWorldEffect(kind: WorldEffect['kind'], x: number, y: number,
     team: Team, color: number, totalMs: number): void {
-    if (this.worldEffects.length >= 100) this.worldEffects.shift();
-    this.worldEffects.push({ kind, x, y, team, color, elapsedMs: 0, totalMs });
+    if (this.worldEffects.length >= 100) {
+      const removed = this.worldEffects.shift();
+      if (removed?.sprite) this.releaseEffect(removed.sprite);
+    }
+    const key = kind === 'dust' ? 'tiny-dust' : kind === 'explosion' ? 'tiny-explosion' : '';
+    const sprite = key && this.textures.exists(key) ? this.acquireEffect(key) : undefined;
+    if (sprite) sprite.setPosition(x, y).setDisplaySize(kind === 'dust' ? 15 : 20, kind === 'dust' ? 15 : 20);
+    this.worldEffects.push({ kind, x, y, team, color, elapsedMs: 0, totalMs, sprite });
+  }
+
+  private acquireEffect(key: string): Phaser.GameObjects.Image {
+    const sprite = this.effectPool.pop() ?? this.add.image(0, 0, key).setDepth(5);
+    if (sprite.texture.key !== key) sprite.setTexture(key);
+    return sprite.setVisible(true);
+  }
+
+  private releaseEffect(sprite: Phaser.GameObjects.Image): void {
+    sprite.setVisible(false);
+    this.effectPool.push(sprite);
+  }
+
+  private acquireProjectile(key: string): Phaser.GameObjects.Image {
+    const sprite = this.projectilePool.pop() ?? this.add.image(0, 0, key).setDepth(5);
+    if (sprite.texture.key !== key) sprite.setTexture(key);
+    return sprite.setDisplaySize(10, 10).setVisible(true);
   }
 
   private addAmbientEffects(): void {
@@ -1536,14 +1733,21 @@ export class MapScene extends Phaser.Scene {
       const effect = this.worldEffects[index];
       effect.elapsedMs += delta;
       if (effect.elapsedMs >= effect.totalMs) {
+        if (effect.sprite) this.releaseEffect(effect.sprite);
         this.worldEffects.splice(index, 1);
         continue;
       }
       if (effect.team === 'red' && this.visualFog.stateAt(Math.floor(effect.x / CELL_SIZE),
-        Math.floor(effect.y / CELL_SIZE)) !== 'visible') continue;
+        Math.floor(effect.y / CELL_SIZE)) !== 'visible') {
+        effect.sprite?.setVisible(false);
+        continue;
+      }
       const progress = effect.elapsedMs / effect.totalMs;
       const alpha = 1 - progress;
-      if (effect.kind === 'ring') {
+      if (effect.sprite) {
+        effect.sprite.setFrame(Math.min(7, Math.floor(progress * 8)));
+        effect.sprite.setAlpha(alpha).setVisible(true);
+      } else if (effect.kind === 'ring') {
         this.worldGraphics.lineStyle(1.5, effect.color, alpha);
         this.worldGraphics.strokeCircle(effect.x, effect.y, 2 + progress * 10);
       } else if (effect.kind === 'spark') {

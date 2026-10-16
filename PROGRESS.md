@@ -1,5 +1,13 @@
 # Progresso
 
+## Integração visual provisória — Tiny Swords (Free Pack)
+
+- Inventariados os 410 PNGs do ZIP local, variantes de equipe, tamanhos de frames, FX, UI e ausência de licença separada no arquivo. Condições consultadas na página oficial de Pixel Frog; assets extraídos ficam fora do Git.
+- `VisualRegistry` centraliza caminhos, frames e mapeamento das seis classes. Yellow/verde identifica o time lógico azul; Red/bordô, a IA. Pawn compartilha texturas entre operário e construtor.
+- Terreno, vegetação, recursos, edifícios, unidades, projétil do arqueiro e efeitos curtos foram integrados na apresentação. Fog, seleção, escala, ocupação e regras permanecem no core existente.
+- TileSprite de grama e pools de sprites evitam desenho de cada tile a cada frame. Barricada usa rocha e batedor usa Monk como placeholders documentados.
+- Ver `docs/ASSET_INTEGRATION.md` para instalação, mapeamento, limitações e substituição futura.
+
 ## Fase 0 — Fundação: concluída
 
 - Projeto TypeScript, Vite e Phaser criado neste diretório.
@@ -775,7 +783,6 @@
 - **Vitest**: 244/244 testes passando (`npm test` — 31 suítes).
 - **Playwright E2E**: 42/42 testes passando (`npm run test:e2e` — 14 suítes).
 - **Build de Produção**: 100% funcional (`npm run build`).
-
 
 
 

@@ -3,3 +3,6 @@ dist/
 test-results/
 playwright-report/
 debug.log
+external-assets/
+public/assets/tiny-swords/
+reports/performance/tiny-swords*

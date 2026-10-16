@@ -14,7 +14,7 @@ body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; al
 #selection-status dt { color: #8caab3; }
 #selection-status dd { margin: 0; color: #e4edf0; overflow-wrap: anywhere; }
 #hud .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; }
-#hud .legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 5px; background: var(--unit-color); border: 1px solid #9bdbff; }
+#hud .legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 5px; background: var(--unit-color); border: 1px solid #3a9f67; }
 .worker { --unit-color: #e8bb77; }.builder { --unit-color: #dd8833; }.soldier { --unit-color: #f27769; }.archer { --unit-color: #a4d96c; }.shieldbearer { --unit-color: #b69ce3; }.scout { --unit-color: #69d7d5; }
 #hud strong { font-size: 16px; letter-spacing: 0.08em; }
 #hud strong span { color: #8caab3; font-size: 11px; }
@@ -418,4 +418,3 @@ body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; al
   font-weight: bold;
   text-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
 }
-
