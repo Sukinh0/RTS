@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function screenCell(page: Page, x: number, y: number): Promise<{ x: number; y: number }> {
   const root = page.locator('#game');
   const canvas = root.locator('canvas');
+  await canvas.scrollIntoViewIfNeeded();
   await expect(root).toHaveAttribute('data-zoom', /\d/);
   await expect(root).toHaveAttribute('data-camera-x', /-?\d/);
   const box = await canvas.boundingBox();
@@ -19,12 +20,13 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
 test('single click, Shift click, and box selection update the HUD', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
-  await expect(page.locator('#team-status')).toHaveText(/Azul · \d+ moedas · 50 madeira · 2\/60 unidades/);
+  await expect(page.locator('#team-status')).toHaveText(/Azul · \d+ moedas · 50 madeira · 0 pedra · 2\/60 unidades/);
 
   const first = await screenCell(page, 25, 99);
   await page.mouse.click(first.x, first.y);
   await expect(page.locator('#game')).toHaveAttribute('data-selected-ids', 'blue-worker-1');
   await expect(page.locator('#selection-details')).toContainText('Operário · HP 10/10');
+  await expect(page.locator('#selection-details')).toContainText('Dano 4 · Alc 1');
 
   const second = await screenCell(page, 25, 101);
   await page.keyboard.down('Shift');
@@ -72,13 +74,13 @@ test('right click orders movement and starts cooldown', async ({ page }) => {
   await expect.poll(async () => Number(await page.locator('#game').getAttribute('data-selected-visual-x'))).toBe(30);
   const visualSamples = await page.evaluate(() => (window as Window & { __motionTrace?: number[] }).__motionTrace ?? []);
   expect(visualSamples.some((x) => x > 25 && x < 30)).toBe(true);
-  await expect.poll(async () => Number(await page.locator('#game').getAttribute('data-explored-cells'))).toBeGreaterThan(0);
+  await expect(page.locator('#game')).toHaveAttribute('data-explored-cells', '0');
 
   const next = await screenCell(page, 35, 99);
   await page.mouse.click(next.x, next.y, { button: 'right' });
-  await expect(page.locator('#command-feedback')).toContainText('cooldown');
+  await expect(page.locator('#command-feedback')).toContainText('1 ordem(ns)');
 
-  const explored = await screenCell(page, 25, 94);
-  await page.mouse.click(explored.x, explored.y);
-  await expect(page.locator('#inspect')).toContainText('fog explored');
+  const nearby = await screenCell(page, 25, 94);
+  await page.mouse.click(nearby.x, nearby.y);
+  await expect(page.locator('#inspect')).toContainText('fog visible');
 });

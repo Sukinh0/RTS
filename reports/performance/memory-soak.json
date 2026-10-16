@@ -1,0 +1,75 @@
+{
+  "date": "2026-10-09T18:56:15.329Z",
+  "node": "v22.5.1",
+  "seed": 123,
+  "explicitGC": true,
+  "scope": "Headless entity replacement; not a GPU or hidden-enemy memory test",
+  "samples": [
+    {
+      "replacements": 0,
+      "heapUsedBytes": 6278824,
+      "externalBytes": 3360058,
+      "entities": 56
+    },
+    {
+      "replacements": 1000,
+      "heapUsedBytes": 6654168,
+      "externalBytes": 3361220,
+      "entities": 56
+    },
+    {
+      "replacements": 2000,
+      "heapUsedBytes": 6657688,
+      "externalBytes": 3361220,
+      "entities": 56
+    },
+    {
+      "replacements": 3000,
+      "heapUsedBytes": 6685352,
+      "externalBytes": 3361220,
+      "entities": 56
+    },
+    {
+      "replacements": 4000,
+      "heapUsedBytes": 6700232,
+      "externalBytes": 3361220,
+      "entities": 56
+    },
+    {
+      "replacements": 5000,
+      "heapUsedBytes": 6703360,
+      "externalBytes": 3361220,
+      "entities": 56
+    },
+    {
+      "replacements": 6000,
+      "heapUsedBytes": 6743584,
+      "externalBytes": 3361220,
+      "entities": 56
+    },
+    {
+      "replacements": 7000,
+      "heapUsedBytes": 6743688,
+      "externalBytes": 3361220,
+      "entities": 56
+    },
+    {
+      "replacements": 8000,
+      "heapUsedBytes": 6796472,
+      "externalBytes": 3361220,
+      "entities": 56
+    },
+    {
+      "replacements": 9000,
+      "heapUsedBytes": 6833016,
+      "externalBytes": 3361220,
+      "entities": 56
+    },
+    {
+      "replacements": 10000,
+      "heapUsedBytes": 6665256,
+      "externalBytes": 3361220,
+      "entities": 56
+    }
+  ]
+}

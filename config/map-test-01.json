@@ -35,6 +35,8 @@
     { "terrain": "forest", "x": 91, "y": 54, "width": 5, "height": 5, "mirrorX": true },
     { "terrain": "forest", "x": 91, "y": 139, "width": 5, "height": 5, "mirrorX": true },
     { "terrain": "mine", "x": 58, "y": 62, "width": 1, "height": 1, "mirrorX": true },
-    { "terrain": "mine", "x": 58, "y": 137, "width": 1, "height": 1, "mirrorX": true }
+    { "terrain": "mine", "x": 58, "y": 137, "width": 1, "height": 1, "mirrorX": true },
+    { "terrain": "stone", "x": 42, "y": 70, "width": 5, "height": 5, "mirrorX": true },
+    { "terrain": "stone", "x": 45, "y": 125, "width": 5, "height": 5, "mirrorX": true }
   ]
 }

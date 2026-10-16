@@ -2,34 +2,81 @@ import Phaser from 'phaser';
 import { MAP_DEFINITION } from '../config/map';
 import { BALANCE } from '../config/balance';
 import { Simulation } from '../core/game/Simulation';
-import { dispatchGroupMove } from '../core/commands/dispatchGroupMove';
+import { dispatchGroupMove, dispatchGroupAttackMove } from '../core/commands/dispatchGroupMove';
 import { dispatchGroupAttack } from '../core/commands/dispatchGroupAttack';
+import type { CommandResult } from '../core/commands/MoveCommand';
 import type { BuildingEntity, GameEntity, UnitEntity, UnitKind } from '../core/entities/EntityStore';
 import type { MovementEvent } from '../core/systems/MovementSystem';
 import { TICKS_PER_SECOND } from '../config/runtime';
 import { SelectionModel } from '../input/SelectionModel';
-import type { Terrain } from '../map/MapGrid';
+import type { Point, Team, Terrain } from '../map/MapGrid';
+import { VisualFog } from './VisualFog';
+import { Minimap } from './Minimap';
+import { SoundSystem } from './SoundSystem';
+import {
+  assignFormationSlots,
+  getMarchDirection,
+  isMilitaryKind,
+  type FormationType,
+  type FormationUnitInfo,
+} from '../core/formations/FormationGeometry';
+import { computeLineCells } from '../core/construction/LineGeometry';
 
 const CELL_SIZE = 12;
 const PAN_SPEED = 500;
 const MIN_ZOOM = 0.38;
 const MAX_ZOOM = 2.5;
-const MOTION_MS_PER_CELL = 90;
+const UNIT_COLORS: Record<UnitKind, number> = {
+  worker: 0xe8bb77, soldier: 0xf27769, archer: 0xa4d96c,
+  shieldbearer: 0xb69ce3, scout: 0x69d7d5, builder: 0xdd8833,
+};
 const COLORS: Record<Terrain, number> = {
   plain: 0x17252c,
   water: 0x286276,
   mountain: 0x68727a,
   forest: 0x346b51,
   mine: 0xd5a64e,
+  stone: 0x828b94,
 };
 const LABELS: Record<string, string> = {
-  base: 'Base', worker: 'Operário', soldier: 'Soldado', shieldbearer: 'Escudeiro',
-  scout: 'Batedor', archer: 'Arqueiro', house: 'Casa', barracks: 'Quartel',
+  base: 'Base', worker: 'Operário', builder: 'Construtor', soldier: 'Soldado', shieldbearer: 'Escudeiro',
+  scout: 'Batedor', archer: 'Arqueiro', house: 'Casa', barracks: 'Quartel', barricade: 'Barricada',
+  tower: 'Torre de Vigilância',
 };
+const REJECTION_REASONS: Record<string, string> = {
+  cooldown: 'aguarde a próxima ação',
+  'no-path': 'não há caminho livre',
+  'invalid-destination': 'destino bloqueado ou ocupado',
+  'already-there': 'a unidade já está no destino',
+  'insufficient-coins': 'moedas insuficientes',
+  'insufficient-wood': 'madeira insuficiente',
+  'insufficient-stone': 'pedra insuficiente',
+  'target-not-visible': 'alvo fora da visão',
+  'target-not-found': 'alvo não existe mais',
+  'out-of-range': 'alvo fora do alcance',
+  'out-of-build-range': 'construção a mais de 80 casas da base',
+  'cannot-attack': 'esta unidade não ataca',
+  'unit-cap': 'limite de população atingido',
+  'unit-cap-reached': 'limite global de 60 unidades atingido',
+  'civilian-capacity-reached': 'capacidade civil esgotada (construa Casas)',
+  'military-capacity-reached': 'capacidade militar esgotada (construa Quartéis)',
+  'not-builder': 'somente construtores podem construir barricadas, torres ou reparar',
+  'building-limit-reached': 'limite de construções atingido',
+  'building-at-max-hp': 'construção já com vida máxima',
+};
+function rejection(reason: string | undefined): string {
+  return reason ? `${REJECTION_REASONS[reason] ?? reason} (${reason})` : 'motivo desconhecido';
+}
+
+function formatMatchTime(ticks: number): string {
+  const seconds = Math.floor(ticks / TICKS_PER_SECOND);
+  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+}
 
 interface MotionTrack {
   path: MovementEvent['path'];
   elapsedMs: number;
+  durationMs: number;
 }
 
 interface AttackEffect {
@@ -42,58 +89,123 @@ interface AttackEffect {
   totalMs: number;
 }
 
+interface WorldEffect {
+  kind: 'ring' | 'spark' | 'dust';
+  x: number;
+  y: number;
+  team: Team;
+  color: number;
+  elapsedMs: number;
+  totalMs: number;
+}
+
 /** Map rendering and camera input; logical terrain remains in MapGrid. */
 export class MapScene extends Phaser.Scene {
   private readonly simulation = new Simulation(123, !new URLSearchParams(window.location.search).has('noai'));
   private readonly map = this.simulation.map;
   private readonly selection = new SelectionModel(this.simulation.entities, 'blue');
+  private readonly visualFog = new VisualFog(this.map, this.simulation.entities, 'blue');
+  private readonly minimap = new Minimap({ map: this.map, entities: this.simulation.entities, fog: this.visualFog, playerTeam: 'blue' });
   private dragStart: { x: number; y: number; worldX: number; worldY: number } | null = null;
   private lastPointer: { x: number; y: number } | null = null;
   private dragged = false;
-  private dragMode: 'pan' | 'select' | null = null;
+  private dragMode: 'pan' | 'select' | 'barricade' | null = null;
   private mapGraphics!: Phaser.GameObjects.Graphics;
+  private terrainTexture?: Phaser.GameObjects.RenderTexture;
+  private readonly lastEntityView = { x: NaN, y: NaN, width: NaN, height: NaN };
   private selectionGraphics!: Phaser.GameObjects.Graphics;
   private selectionBoxGraphics!: Phaser.GameObjects.Graphics;
   private entityGraphics!: Phaser.GameObjects.Graphics;
   private combatGraphics!: Phaser.GameObjects.Graphics;
+  private worldGraphics!: Phaser.GameObjects.Graphics;
   private fogGraphics!: Phaser.GameObjects.Graphics;
   private placementGhostGraphics!: Phaser.GameObjects.Graphics;
-  private placementMode: { kind: 'house' | 'barracks'; width: number; height: number } | null = null;
+  private formationPreviewGraphics!: Phaser.GameObjects.Graphics;
+  private placementMode: { kind: 'house' | 'barracks' | 'barricade' | 'tower'; width: number; height: number } | null = null;
+  private barricadeDragStart: Point | null = null;
+  private barricadeLineCells: Point[] = [];
+  private barricadeLastEndCell: Point | null = null;
+  private barricadeLineValidation: { valid: boolean; reason?: string } | null = null;
+  private attackMoveMode = false;
+  private rallyPlacementMode = false;
+  private rallyBuildingId: string | null = null;
   private currentActionBarMode = 'none';
   private readonly displayPositions = new Map<string, { x: number; y: number }>();
   private readonly motionTracks = new Map<string, MotionTrack>();
   private readonly attackEffects: AttackEffect[] = [];
+  private readonly worldEffects: WorldEffect[] = [];
+  private lastAmbientSecond = 0;
+  private readonly soundSystem = new SoundSystem();
+  private lastBlueWood = BALANCE.startingState.wood;
+  private lastBlueCoins = BALANCE.startingState.coins;
+  private lastBlueStone = BALANCE.startingState.stone ?? 0;
+  private readonly lastVisibleEnemies = new Set<string>();
+  private readonly underConstructionBuildingIds = new Set<string>();
   private keys: Record<string, Phaser.Input.Keyboard.Key> = {};
   private readonly debug = new URLSearchParams(window.location.search).has('debug');
   private resultShown = false;
+  private lastVisibleCount = -1;
+  private lastExploredCount = -1;
+  private lastCamX = '';
+  private lastCamY = '';
+  private lastZoom = '';
+  private lastPerformanceFrame = 0;
 
   constructor() {
     super('Map');
   }
 
   create(): void {
+    if (new URLSearchParams(window.location.search).has('perf')) this.events.once('create', () => this.installDiagnostics());
     const worldWidth = this.map.width * CELL_SIZE;
     const worldHeight = this.map.height * CELL_SIZE;
     this.cameras.main.setBackgroundColor('#101a20');
     this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
     this.cameras.main.setZoom(1.25);
     this.cameras.main.centerOn((MAP_DEFINITION.teamStarts.blue.base[0] + 10) * CELL_SIZE, (MAP_DEFINITION.teamStarts.blue.base[1] + 2) * CELL_SIZE);
+    for (const entity of this.simulation.entities.all()) {
+      if (entity.category === 'unit') this.displayPositions.set(entity.id, { x: entity.x, y: entity.y });
+    }
+    this.visualFog.update(this.displayPositions);
     this.drawMap();
     this.fogGraphics = this.add.graphics();
     this.drawFog();
     this.entityGraphics = this.add.graphics();
     this.combatGraphics = this.add.graphics();
-    for (const entity of this.simulation.entities.all()) {
-      if (entity.category === 'unit') this.displayPositions.set(entity.id, { x: entity.x, y: entity.y });
-    }
+    this.worldGraphics = this.add.graphics();
     this.drawEntities();
     this.selectionGraphics = this.add.graphics();
     this.selectionBoxGraphics = this.add.graphics();
     this.placementGhostGraphics = this.add.graphics();
+    this.formationPreviewGraphics = this.add.graphics();
     this.refreshSelection();
     this.refreshTeamStatus();
     this.input.mouse?.disableContextMenu();
     (window as Window & { __simulation?: Simulation }).__simulation = this.simulation;
+
+    const minimapCanvas = document.querySelector<HTMLCanvasElement>('#minimap');
+    if (minimapCanvas) {
+      this.minimap.attach(minimapCanvas, (cellX, cellY) => {
+        this.centerCameraOn(cellX, cellY);
+      });
+    }
+    this.events.on('shutdown', () => {
+      this.minimap.detach();
+    });
+
+    const soundBtn = document.querySelector<HTMLButtonElement>('#btn-sound-toggle');
+    const updateSoundBtn = () => {
+      if (!soundBtn) return;
+      const on = this.soundSystem.isEnabled();
+      soundBtn.textContent = on ? '🔊 Som: ON' : '🔇 Som: OFF';
+      soundBtn.classList.toggle('muted', !on);
+    };
+    updateSoundBtn();
+    soundBtn?.addEventListener('click', () => {
+      this.soundSystem.unlock();
+      this.soundSystem.toggle();
+      updateSoundBtn();
+    });
 
     const keyboard = this.input.keyboard;
     if (keyboard) {
@@ -103,16 +215,110 @@ export class MapScene extends Phaser.Scene {
     }
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.soundSystem.unlock();
       if (this.simulation.result) return;
       const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
       this.dragStart = { x: pointer.x, y: pointer.y, worldX: world.x, worldY: world.y };
       this.lastPointer = { x: pointer.x, y: pointer.y };
       this.dragged = false;
+
+      if (this.placementMode?.kind === 'barricade' && pointer.button === 0) {
+        const gx = Math.floor(world.x / CELL_SIZE);
+        const gy = Math.floor(world.y / CELL_SIZE);
+        this.barricadeDragStart = [gx, gy];
+        this.barricadeLastEndCell = [gx, gy];
+        this.barricadeLineCells = computeLineCells([gx, gy], [gx, gy], { width: this.map.width, height: this.map.height });
+        const builder = this.selection.selectedEntities.find(
+          (e): e is UnitEntity => e.category === 'unit' && e.kind === 'builder' && e.team === 'blue',
+        );
+        this.barricadeLineValidation = builder
+          ? this.simulation.construction.validateBuildLine({
+              type: 'build-line',
+              team: 'blue',
+              builderId: builder.id,
+              buildingKind: 'barricade',
+              cells: this.barricadeLineCells,
+            }, this.simulation.clock.ticks)
+          : { valid: false, reason: 'unknown-unit' };
+        this.dragMode = 'barricade';
+        return;
+      }
+
       this.dragMode = pointer.button === 0 ? 'select' : 'pan';
     });
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
       if (this.simulation.result) return;
       if (this.placementMode) {
+        if (this.placementMode.kind === 'barricade') {
+          const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+          const gx = Math.floor(world.x / CELL_SIZE);
+          const gy = Math.floor(world.y / CELL_SIZE);
+          const builder = this.selection.selectedEntities.find(
+            (e): e is UnitEntity => e.category === 'unit' && e.kind === 'builder' && e.team === 'blue',
+          );
+
+          if (this.barricadeDragStart) {
+            if (!this.barricadeLastEndCell || this.barricadeLastEndCell[0] !== gx || this.barricadeLastEndCell[1] !== gy) {
+              this.barricadeLastEndCell = [gx, gy];
+              this.barricadeLineCells = computeLineCells(this.barricadeDragStart, [gx, gy], { width: this.map.width, height: this.map.height });
+              this.barricadeLineValidation = builder
+                ? this.simulation.construction.validateBuildLine({
+                    type: 'build-line',
+                    team: 'blue',
+                    builderId: builder.id,
+                    buildingKind: 'barricade',
+                    cells: this.barricadeLineCells,
+                  }, this.simulation.clock.ticks)
+                : { valid: false, reason: 'unknown-unit' };
+            }
+          } else {
+            this.barricadeLineCells = [[gx, gy]];
+            this.barricadeLineValidation = builder
+              ? this.simulation.construction.validateBuildLine({
+                  type: 'build-line',
+                  team: 'blue',
+                  builderId: builder.id,
+                  buildingKind: 'barricade',
+                  cells: this.barricadeLineCells,
+                }, this.simulation.clock.ticks)
+              : { valid: false, reason: 'unknown-unit' };
+          }
+
+          this.placementGhostGraphics.clear();
+          const base = this.simulation.entities.get('blue-base');
+          if (base && base.category === 'building') {
+            const baseCenterPxX = (base.x + base.width / 2) * CELL_SIZE;
+            const baseCenterPxY = (base.y + base.height / 2) * CELL_SIZE;
+            this.placementGhostGraphics.lineStyle(1.5, 0x6da2b5, 0.35);
+            this.placementGhostGraphics.strokeCircle(baseCenterPxX, baseCenterPxY, BALANCE.construction.maxDistanceFromBase * CELL_SIZE);
+          }
+
+          const isValid = this.barricadeLineValidation?.valid ?? false;
+          const color = isValid ? 0x44dd88 : 0xdd4444;
+
+          this.placementGhostGraphics.fillStyle(color, 0.35);
+          this.placementGhostGraphics.lineStyle(2, color, 1);
+          for (const [cx, cy] of this.barricadeLineCells) {
+            this.placementGhostGraphics.fillRect(cx * CELL_SIZE, cy * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            this.placementGhostGraphics.strokeRect(cx * CELL_SIZE, cy * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+          }
+
+          const count = this.barricadeLineCells.length;
+          const woodCost = count * BALANCE.buildings.barricade.wood;
+          const stoneCost = count * (BALANCE.buildings.barricade.stone ?? 0);
+          const fb = document.querySelector('#command-feedback');
+          if (fb) {
+            if (this.barricadeDragStart) {
+              fb.textContent = isValid
+                ? `Linha de ${count} barricada(s) válida. Custo: ${woodCost} madeira, ${stoneCost} pedra.`
+                : `Linha de ${count} barricada(s) inválida: ${rejection(this.barricadeLineValidation?.reason)} (Custo: ${woodCost}m, ${stoneCost}p).`;
+            } else {
+              fb.textContent = `Construir Barricada (${woodCost}m, ${stoneCost}p). Clique e arraste para traçar linha.`;
+            }
+          }
+          return;
+        }
+
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
         const gx = Math.floor(world.x / CELL_SIZE);
         const gy = Math.floor(world.y / CELL_SIZE);
@@ -120,24 +326,139 @@ export class MapScene extends Phaser.Scene {
         const config = BALANCE.buildings[kind];
         const stock = this.simulation.teams.blue;
         let valid = this.simulation.entities.isAreaFreeForBuilding(gx, gy, width, height)
-          && stock.coins >= config.coins && stock.wood >= config.wood;
+          && stock.coins >= config.coins && stock.wood >= config.wood && stock.stone >= ((config as { stone?: number }).stone ?? 0);
+        const base = this.simulation.entities.get('blue-base');
+        let outOfBuildRange = false;
+        if (base && base.category === 'building') {
+          const baseCenterX = base.x + (base.width - 1) / 2;
+          const baseCenterY = base.y + (base.height - 1) / 2;
+          const buildCenterX = gx + (width - 1) / 2;
+          const buildCenterY = gy + (height - 1) / 2;
+          if (Math.hypot(buildCenterX - baseCenterX, buildCenterY - baseCenterY)
+            > BALANCE.construction.maxDistanceFromBase) {
+            valid = false;
+            outOfBuildRange = true;
+          }
+        }
         for (let y = gy; y < gy + height; y += 1) {
           for (let x = gx; x < gx + width; x += 1) {
             if (this.simulation.fog.stateAt('blue', x, y) === 'unknown') valid = false;
           }
         }
         this.placementGhostGraphics.clear();
+        if (base && base.category === 'building') {
+          const baseCenterPxX = (base.x + base.width / 2) * CELL_SIZE;
+          const baseCenterPxY = (base.y + base.height / 2) * CELL_SIZE;
+          this.placementGhostGraphics.lineStyle(1.5, 0x6da2b5, 0.35);
+          this.placementGhostGraphics.strokeCircle(baseCenterPxX, baseCenterPxY, BALANCE.construction.maxDistanceFromBase * CELL_SIZE);
+        }
+        const ghostCenterPxX = (gx + width / 2) * CELL_SIZE;
+        const ghostCenterPxY = (gy + height / 2) * CELL_SIZE;
+        this.placementGhostGraphics.lineStyle(1, valid ? 0x44dd88 : 0xdd4444, 0.35);
+        if (this.placementMode.kind === 'tower') {
+          const halfSpan = 9;
+          this.placementGhostGraphics.strokeRect(
+            (gx - halfSpan) * CELL_SIZE,
+            (gy - halfSpan) * CELL_SIZE,
+            20 * CELL_SIZE,
+            20 * CELL_SIZE,
+          );
+        } else {
+          this.placementGhostGraphics.strokeCircle(ghostCenterPxX, ghostCenterPxY, config.vision * CELL_SIZE);
+        }
         this.placementGhostGraphics.fillStyle(valid ? 0x44dd88 : 0xdd4444, 0.35);
         this.placementGhostGraphics.fillRect(gx * CELL_SIZE, gy * CELL_SIZE, width * CELL_SIZE, height * CELL_SIZE);
         this.placementGhostGraphics.lineStyle(2, valid ? 0x44dd88 : 0xdd4444, 1);
         this.placementGhostGraphics.strokeRect(gx * CELL_SIZE, gy * CELL_SIZE, width * CELL_SIZE, height * CELL_SIZE);
+        if (outOfBuildRange) {
+          const fb = document.querySelector('#command-feedback');
+          if (fb && fb.textContent !== 'Posição além do limite de 80 casas da Base.') {
+            fb.textContent = 'Posição além do limite de 80 casas da Base.';
+          }
+        }
       }
+      if (this.attackMoveMode) {
+        this.placementGhostGraphics.clear();
+        const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        const gx = Math.floor(world.x / CELL_SIZE);
+        const gy = Math.floor(world.y / CELL_SIZE);
+        const cx = (gx + 0.5) * CELL_SIZE;
+        const cy = (gy + 0.5) * CELL_SIZE;
+        this.placementGhostGraphics.lineStyle(2, 0xff4444, 0.85);
+        this.placementGhostGraphics.strokeCircle(cx, cy, CELL_SIZE * 0.6);
+        this.placementGhostGraphics.lineStyle(1.5, 0xff4444, 0.9);
+        this.placementGhostGraphics.lineBetween(cx - CELL_SIZE * 0.8, cy, cx + CELL_SIZE * 0.8, cy);
+        this.placementGhostGraphics.lineBetween(cx, cy - CELL_SIZE * 0.8, cx, cy + CELL_SIZE * 0.8);
+        this.placementGhostGraphics.fillStyle(0xff4444, 0.2);
+        this.placementGhostGraphics.fillRect(gx * CELL_SIZE, gy * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+      }
+      if (this.rallyPlacementMode) {
+        this.placementGhostGraphics.clear();
+        const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        const gx = Math.floor(world.x / CELL_SIZE);
+        const gy = Math.floor(world.y / CELL_SIZE);
+        const cx = (gx + 0.5) * CELL_SIZE;
+        const cy = (gy + 0.5) * CELL_SIZE;
+        this.placementGhostGraphics.lineStyle(2, 0xfacc15, 0.9);
+        this.placementGhostGraphics.strokeCircle(cx, cy, CELL_SIZE * 0.5);
+        this.placementGhostGraphics.fillStyle(0xfacc15, 0.25);
+        this.placementGhostGraphics.fillRect(gx * CELL_SIZE, gy * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        this.placementGhostGraphics.lineStyle(2, 0xffffff, 0.9);
+        this.placementGhostGraphics.lineBetween(cx, cy + 4, cx, cy - 10);
+        this.placementGhostGraphics.fillStyle(0xfacc15, 0.95);
+        this.placementGhostGraphics.fillTriangle(cx, cy - 10, cx + 8, cy - 7, cx, cy - 4);
+      }
+
+      // Render tactical formation preview when military units are selected
+      const militaryUnits = this.selection.selectedEntities.filter(
+        (e): e is UnitEntity => e.category === 'unit' && e.team === 'blue' && isMilitaryKind(e.kind) && e.hp > 0,
+      );
+      if (militaryUnits.length >= 2 && this.selection.formation !== null && !this.placementMode && !this.rallyPlacementMode && !this.dragged) {
+        this.formationPreviewGraphics.clear();
+        const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        const gx = Math.floor(world.x / CELL_SIZE);
+        const gy = Math.floor(world.y / CELL_SIZE);
+        if (this.map.contains(gx, gy)) {
+          let sumX = 0;
+          let sumY = 0;
+          for (const u of militaryUnits) {
+            sumX += u.x;
+            sumY += u.y;
+          }
+          const cx = Math.round(sumX / militaryUnits.length);
+          const cy = Math.round(sumY / militaryUnits.length);
+          const dir = getMarchDirection([cx, cy], [gx, gy]);
+          const unitInfos: FormationUnitInfo[] = militaryUnits.map((u) => ({
+            id: u.id,
+            kind: u.kind,
+            movement: u.movement,
+            x: u.x,
+            y: u.y,
+          }));
+          const slots = assignFormationSlots(unitInfos, this.selection.formation, [gx, gy], dir);
+          for (const slot of slots) {
+            const [sx, sy] = slot.destination;
+            if (!this.map.contains(sx, sy)) continue;
+            const px = sx * CELL_SIZE;
+            const py = sy * CELL_SIZE;
+            const isVanguard = slot.role === 'vanguard';
+            const color = isVanguard ? 0x38bdf8 : 0x0284c7;
+            this.formationPreviewGraphics.fillStyle(color, 0.28);
+            this.formationPreviewGraphics.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+            this.formationPreviewGraphics.lineStyle(1, color, 0.7);
+            this.formationPreviewGraphics.strokeRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+          }
+        }
+      } else {
+        this.formationPreviewGraphics.clear();
+      }
+
       if (!pointer.isDown || !this.dragStart || !this.lastPointer) return;
       if (Math.hypot(pointer.x - this.dragStart.x, pointer.y - this.dragStart.y) > 4) this.dragged = true;
       if (this.dragged && this.dragMode === 'pan') {
         this.cameras.main.scrollX -= (pointer.x - this.lastPointer.x) / this.cameras.main.zoom;
         this.cameras.main.scrollY -= (pointer.y - this.lastPointer.y) / this.cameras.main.zoom;
-      } else if (this.dragged && this.dragMode === 'select' && !this.placementMode) {
+      } else if (this.dragged && this.dragMode === 'select' && !this.placementMode && !this.attackMoveMode && !this.rallyPlacementMode) {
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
         this.drawSelectionBox(this.dragStart.worldX, this.dragStart.worldY, world.x, world.y);
       }
@@ -145,26 +466,145 @@ export class MapScene extends Phaser.Scene {
     });
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       if (this.simulation.result) return;
+      if (this.rallyPlacementMode) {
+        if (pointer.button === 0 && !this.dragged) {
+          const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+          const destination: Point = [Math.floor(world.x / CELL_SIZE), Math.floor(world.y / CELL_SIZE)];
+          if (this.rallyBuildingId) {
+            const b = this.simulation.entities.get(this.rallyBuildingId);
+            const bLabel = b && b.category === 'building' ? LABELS[b.kind] : 'Construção';
+            const res = this.simulation.issueCommand({
+              type: 'set-rally-point',
+              team: 'blue',
+              buildingId: this.rallyBuildingId,
+              point: destination,
+            });
+            if (res.accepted) this.soundSystem.play('order');
+            const feedback = document.querySelector('#command-feedback');
+            if (feedback) {
+              feedback.textContent = res.accepted
+                ? `Ponto de reunião da ${bLabel} definido para (${destination.join(', ')}).`
+                : `Ponto de reunião indisponível: ${rejection(res.reason)}.`;
+            }
+          }
+        } else if (pointer.button === 2) {
+          const feedback = document.querySelector('#command-feedback');
+          if (feedback) feedback.textContent = 'Definição de ponto de reunião cancelada.';
+        }
+        this.rallyPlacementMode = false;
+        this.rallyBuildingId = null;
+        this.placementGhostGraphics.clear();
+        this.dragStart = null;
+        this.lastPointer = null;
+        this.dragMode = null;
+        this.selectionBoxGraphics.clear();
+        this.refreshSelection();
+        this.refreshTeamStatus();
+        return;
+      }
+      if (this.attackMoveMode) {
+        if (pointer.button === 0 && !this.dragged) {
+          const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+          const destination: [number, number] = [Math.floor(world.x / CELL_SIZE), Math.floor(world.y / CELL_SIZE)];
+          const results = dispatchGroupAttackMove(this.simulation, 'blue', this.selection.selectedIds, destination, this.selection.formation);
+          const accepted = results.filter((item) => item.result.accepted).length;
+          if (accepted > 0) {
+            this.soundSystem.play('order');
+            this.addWorldEffect('ring', (destination[0] + 0.5) * CELL_SIZE, (destination[1] + 0.5) * CELL_SIZE, 'blue', 0xff4d4f, 500);
+          }
+          const feedback = document.querySelector('#command-feedback');
+          if (feedback) {
+            feedback.textContent = results.length === 0
+              ? 'Selecione uma unidade azul para Attack Move.'
+              : accepted > 0
+                ? `${accepted} ordem(ns) de Attack Move enviada(s) para (${destination.join(', ')}).`
+                : `Attack Move indisponível: ${results[0].result.accepted ? '' : rejection(results[0].result.reason)}.`;
+          }
+        } else if (pointer.button === 2) {
+          const feedback = document.querySelector('#command-feedback');
+          if (feedback) feedback.textContent = 'Modo Attack Move cancelado.';
+        }
+        this.attackMoveMode = false;
+        this.placementGhostGraphics.clear();
+        this.formationPreviewGraphics.clear();
+        this.dragStart = null;
+        this.lastPointer = null;
+        this.dragMode = null;
+        this.selectionBoxGraphics.clear();
+        this.refreshSelection();
+        this.refreshTeamStatus();
+        return;
+      }
       if (this.placementMode) {
+        if (this.placementMode.kind === 'barricade') {
+          if (pointer.button === 0) {
+            const builder = this.selection.selectedEntities.find(
+              (e): e is UnitEntity => e.category === 'unit' && e.kind === 'builder' && e.team === 'blue',
+            );
+            if (builder && this.barricadeLineCells.length > 0) {
+              if (this.barricadeLineValidation?.valid) {
+                const result = this.simulation.issueCommand({
+                  type: 'build-line',
+                  team: 'blue',
+                  builderId: builder.id,
+                  buildingKind: 'barricade',
+                  cells: this.barricadeLineCells,
+                });
+                if (result.accepted) this.soundSystem.play('order');
+                const feedback = document.querySelector('#command-feedback');
+                if (feedback) {
+                  feedback.textContent = result.accepted
+                    ? (this.barricadeLineCells.length === 1
+                        ? 'Construção de Barricada iniciada.'
+                        : `Construção de ${this.barricadeLineCells.length} barricadas iniciada!`)
+                    : `Construção indisponível: ${rejection(result.reason)}.`;
+                }
+              } else {
+                const feedback = document.querySelector('#command-feedback');
+                if (feedback) {
+                  feedback.textContent = `Linha de barricadas inválida: ${rejection(this.barricadeLineValidation?.reason)}. Ordem cancelada.`;
+                }
+              }
+            }
+          } else if (pointer.button === 2) {
+            const feedback = document.querySelector('#command-feedback');
+            if (feedback) feedback.textContent = 'Modo de construção de barricada cancelado.';
+          }
+          this.placementMode = null;
+          this.barricadeDragStart = null;
+          this.barricadeLineCells = [];
+          this.barricadeLastEndCell = null;
+          this.barricadeLineValidation = null;
+          this.placementGhostGraphics.clear();
+          this.dragStart = null;
+          this.lastPointer = null;
+          this.dragMode = null;
+          this.selectionBoxGraphics.clear();
+          this.refreshSelection();
+          this.refreshTeamStatus();
+          return;
+        }
+
         if (pointer.button === 0 && !this.dragged) {
           const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
           const gx = Math.floor(world.x / CELL_SIZE);
           const gy = Math.floor(world.y / CELL_SIZE);
-          const worker = this.selection.selectedEntities.find(
-            (e): e is UnitEntity => e.category === 'unit' && e.kind === 'worker' && e.team === 'blue',
+          const builder = this.selection.selectedEntities.find(
+            (e): e is UnitEntity => e.category === 'unit' && (e.kind === 'builder' || e.kind === 'worker') && e.team === 'blue',
           );
-          if (worker) {
+          if (builder) {
             const result = this.simulation.issueCommand({
               type: 'build',
               team: 'blue',
-              builderId: worker.id,
+              builderId: builder.id,
               buildingKind: this.placementMode.kind,
               position: [gx, gy],
             });
+            if (result.accepted) this.soundSystem.play('order');
             const feedback = document.querySelector('#command-feedback');
             if (feedback) feedback.textContent = result.accepted
               ? `Construção de ${LABELS[this.placementMode.kind]} iniciada em (${gx}, ${gy}).`
-              : `Construção indisponível: ${result.reason}.`;
+              : `Construção indisponível: ${rejection(result.reason)}.`;
           }
         } else if (pointer.button === 2) {
           const feedback = document.querySelector('#command-feedback');
@@ -193,20 +633,22 @@ export class MapScene extends Phaser.Scene {
           this.selection.selectAt(Math.floor(world.x / CELL_SIZE), Math.floor(world.y / CELL_SIZE), shift);
           if (this.debug) this.inspect(pointer);
         }
+        this.soundSystem.play('click');
         this.refreshSelection();
       } else if (this.dragMode === 'pan' && !this.dragged && pointer.button === 2) {
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
         const destination: [number, number] = [Math.floor(world.x / CELL_SIZE), Math.floor(world.y / CELL_SIZE)];
         const clickedEntity = this.simulation.entities.atCell(destination[0], destination[1]);
-        const isEnemyVisible = clickedEntity && clickedEntity.team !== 'blue' && this.simulation.fog.isEntityVisible('blue', clickedEntity);
+        const isEnemyVisible = clickedEntity && clickedEntity.team !== 'blue' && this.visualFog.isEntityVisible(clickedEntity);
         if (isEnemyVisible && clickedEntity) {
           const results = dispatchGroupAttack(this.simulation, 'blue', this.selection.selectedIds, clickedEntity.id);
           const accepted = results.filter((item) => item.result.accepted).length;
+          if (accepted > 0) this.soundSystem.play('order');
           const feedback = document.querySelector('#command-feedback');
           if (feedback) feedback.textContent = results.length === 0
-            ? 'Selecione uma unidade militar azul para atacar.'
+            ? 'Selecione uma unidade azul para atacar.'
             : accepted > 0 ? `${accepted} ordem(ns) de ataque contra ${LABELS[clickedEntity.kind]} enviada(s).`
-              : `Ataque indisponível: ${results[0].result.accepted ? '' : results[0].result.reason}.`;
+              : `Ataque indisponível: ${results[0].result.accepted ? '' : rejection(results[0].result.reason)}.`;
           this.refreshSelection();
           this.refreshTeamStatus();
           this.dragStart = null;
@@ -216,26 +658,91 @@ export class MapScene extends Phaser.Scene {
           return;
         }
 
-        const terrain = this.map.cellAt(destination[0], destination[1])?.terrain;
-        const known = this.simulation.fog.stateAt('blue', destination[0], destination[1]) !== 'unknown';
-        const workType = known && terrain === 'mine' ? 'mine' : known && terrain === 'forest' ? 'gather' : null;
+        const selectedUnits = this.selection.selectedIds
+          .map((id) => this.simulation.entities.get(id))
+          .filter((e): e is UnitEntity => e?.category === 'unit' && e.team === 'blue');
+        const builders = selectedUnits.filter((u) => u.kind === 'builder');
+        if (clickedEntity && clickedEntity.team === 'blue' && clickedEntity.category === 'building' && builders.length > 0) {
+          if (clickedEntity.hp < clickedEntity.maxHp && !clickedEntity.underConstruction) {
+            let acceptedCount = 0;
+            let lastFailure: CommandResult = { accepted: true };
+            for (const b of builders) {
+              const res = this.simulation.issueCommand({
+                type: 'repair', team: 'blue', builderId: b.id, buildingId: clickedEntity.id,
+              });
+              if (res.accepted) {
+                acceptedCount += 1;
+              } else {
+                lastFailure = res;
+              }
+            }
+            if (acceptedCount > 0) this.soundSystem.play('order');
+            const feedback = document.querySelector('#command-feedback');
+            if (feedback) feedback.textContent = acceptedCount > 0
+              ? `${acceptedCount > 1 ? `${acceptedCount} construtores iniciando reparo` : 'Reparo'} de ${LABELS[clickedEntity.kind]} iniciado.`
+              : `Reparo indisponível: ${lastFailure.accepted ? '' : rejection(lastFailure.reason)}.`;
+            this.refreshSelection();
+            this.refreshTeamStatus();
+            this.dragStart = null;
+            this.lastPointer = null;
+            this.dragMode = null;
+            this.selectionBoxGraphics.clear();
+            return;
+          }
+        }
+
+        const selectedBuilding = this.selection.selectedEntities.find(
+          (e): e is BuildingEntity => e.category === 'building' && e.team === 'blue' && (e.kind === 'house' || e.kind === 'barracks'),
+        );
+        if (selectedBuilding && selectedUnits.length === 0) {
+          const res = this.simulation.issueCommand({
+            type: 'set-rally-point',
+            team: 'blue',
+            buildingId: selectedBuilding.id,
+            point: destination,
+          });
+          if (res.accepted) this.soundSystem.play('order');
+          const feedback = document.querySelector('#command-feedback');
+          if (feedback) {
+            feedback.textContent = res.accepted
+              ? `Ponto de reunião da ${LABELS[selectedBuilding.kind]} definido para (${destination.join(', ')}).`
+              : `Ponto de reunião indisponível: ${rejection(res.reason)}.`;
+          }
+          this.refreshSelection();
+          this.dragStart = null;
+          this.lastPointer = null;
+          this.dragMode = null;
+          this.selectionBoxGraphics.clear();
+          return;
+        }
+
+        const terrain = this.visualFog.cellAt(destination[0], destination[1])?.terrain;
+        const known = this.visualFog.stateAt(destination[0], destination[1]) !== 'unknown';
+        const hasWorker = selectedUnits.some((u) => u.kind === 'worker');
+        const workType = hasWorker && known && terrain === 'mine' ? 'mine' : hasWorker && known && (terrain === 'forest' || terrain === 'stone') ? 'gather' : null;
         const results = workType
           ? this.selection.selectedIds.map((unitId) => ({ unitId, result: this.simulation.issueCommand({
             type: workType, team: 'blue', unitId, target: destination,
           }) }))
-          : dispatchGroupMove(this.simulation, 'blue', this.selection.selectedIds, destination);
+          : dispatchGroupMove(this.simulation, 'blue', this.selection.selectedIds, destination, false, this.selection.formation);
         const accepted = results.filter((item) => item.result.accepted).length;
+        if (accepted > 0) {
+          this.soundSystem.play('order');
+          this.addWorldEffect('ring', (destination[0] + 0.5) * CELL_SIZE, (destination[1] + 0.5) * CELL_SIZE, 'blue', workType ? 0xfacc15 : 0x55ff55, 400);
+        }
         const feedback = document.querySelector('#command-feedback');
+        const workLabel = workType === 'mine' ? 'mina' : workType === 'gather' ? (terrain === 'stone' ? 'coleta de pedra' : 'coleta') : 'movimento';
         if (feedback) feedback.textContent = results.length === 0
           ? 'Selecione uma unidade azul para mover.'
-          : accepted > 0 ? `${accepted} ordem(ns) de ${workType === 'mine' ? 'mina' : workType === 'gather' ? 'coleta' : 'movimento'} recebida(s) para (${destination.join(', ')}).`
-            : `Ordem indisponível: ${results[0].result.accepted ? '' : results[0].result.reason}.`;
+          : accepted > 0 ? `${accepted} ordem(ns) de ${workLabel} recebida(s) para (${destination.join(', ')}).`
+            : `Ordem indisponível: ${results[0].result.accepted ? '' : rejection(results[0].result.reason)}.`;
         this.refreshSelection();
       }
       this.dragStart = null;
       this.lastPointer = null;
       this.dragMode = null;
       this.selectionBoxGraphics.clear();
+      this.formationPreviewGraphics.clear();
     });
     this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _objects: unknown, _dx: number, dy: number) => {
       if (this.simulation.result) return;
@@ -243,19 +750,316 @@ export class MapScene extends Phaser.Scene {
       camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy < 0 ? 1.15 : 1 / 1.15), MIN_ZOOM, MAX_ZOOM));
     });
 
+    this.input.keyboard?.on('keydown-A', () => {
+      if (this.simulation.result) return;
+      const blueUnits = this.selection.selectedEntities.filter((e): e is UnitEntity => e.category === 'unit' && e.team === 'blue');
+      if (blueUnits.length > 0) {
+        this.toggleAttackMoveMode();
+      }
+    });
+
+    const onEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        this.handleEscape();
+      }
+    };
+    window.addEventListener('keydown', onEscapeKey);
+    this.events.on('shutdown', () => {
+      window.removeEventListener('keydown', onEscapeKey);
+    });
+
+    this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+      if (this.simulation.result) return;
+      const key = event.key;
+      if (key >= '1' && key <= '9') {
+        const digit = parseInt(key, 10);
+        if (event.ctrlKey) {
+          const recorded = this.selection.recordControlGroup(digit);
+          const feedback = document.querySelector('#command-feedback');
+          if (feedback) {
+            feedback.textContent = recorded
+              ? `Grupo de controle ${digit} gravado (${this.selection.getControlGroup(digit).length} tropas).`
+              : `Grupo de controle ${digit} limpo.`;
+          }
+          if (recorded) this.soundSystem.play('click');
+        } else {
+          const selected = this.selection.selectControlGroup(digit, event.shiftKey);
+          if (selected) {
+            this.soundSystem.play('click');
+            const feedback = document.querySelector('#command-feedback');
+            if (feedback) {
+              feedback.textContent = `Grupo ${digit} selecionado (${this.selection.selectedIds.length} tropas).`;
+            }
+            this.refreshSelection();
+          }
+        }
+      }
+    });
+
     document.querySelector('#game')?.setAttribute('data-ready', 'true');
     document.querySelector('#inspect')?.toggleAttribute('hidden', !this.debug);
+    document.querySelector('#ai-debug')?.toggleAttribute('hidden', !this.debug);
+    this.setupSandboxControls();
+  }
+
+  private setupSandboxControls(): void {
+    const isSandboxQuery = new URLSearchParams(window.location.search).has('sandbox')
+      || new URLSearchParams(window.location.search).has('test')
+      || window.location.port === '5174';
+
+    const panel = document.querySelector<HTMLElement>('#sandbox-section');
+    const toggleBtn = document.querySelector<HTMLButtonElement>('#btn-toggle-sandbox');
+    const feedback = document.querySelector<HTMLElement>('#command-feedback');
+
+    const setMsg = (text: string) => {
+      if (feedback) feedback.textContent = text;
+    };
+
+    const togglePanel = (show?: boolean) => {
+      if (!panel || !toggleBtn) return;
+      const willShow = show ?? panel.hasAttribute('hidden');
+      if (willShow) {
+        panel.removeAttribute('hidden');
+        toggleBtn.classList.add('active');
+      } else {
+        panel.setAttribute('hidden', '');
+        toggleBtn.classList.remove('active');
+      }
+    };
+
+    toggleBtn?.addEventListener('click', () => togglePanel());
+
+    if (isSandboxQuery) {
+      togglePanel(true);
+      this.simulation.addResources('blue', 10000, 10000, 10000);
+      this.refreshTeamStatus();
+      setMsg('Ambiente de Testes / Sandbox carregado! Recursos extras liberados.');
+    }
+
+    // 1. Recursos
+    document.querySelector('#sb-add-res')?.addEventListener('click', () => {
+      this.simulation.addResources('blue', 5000, 5000, 5000);
+      this.refreshTeamStatus();
+      setMsg('Sandbox: +5.000 moedas, madeira e pedra adicionados!');
+    });
+
+    document.querySelector('#sb-inf-res')?.addEventListener('click', () => {
+      this.simulation.teams.blue.coins = 99999;
+      this.simulation.teams.blue.wood = 99999;
+      this.simulation.teams.blue.stone = 99999;
+      this.refreshTeamStatus();
+      setMsg('Sandbox: Recursos definidos para 99.999!');
+    });
+
+    // 2. Produção e Obra Instantânea
+    const fastProd = document.querySelector<HTMLInputElement>('#sb-fast-prod');
+    fastProd?.addEventListener('change', () => {
+      this.simulation.production.instantProduction = !!fastProd.checked;
+      setMsg(`Sandbox: Treino instantâneo ${fastProd.checked ? 'ATIVADO' : 'desativado'}.`);
+    });
+
+    const fastBuild = document.querySelector<HTMLInputElement>('#sb-fast-build');
+    fastBuild?.addEventListener('change', () => {
+      this.simulation.construction.instantBuild = !!fastBuild.checked;
+      setMsg(`Sandbox: Obra instantânea ${fastBuild.checked ? 'ATIVADA' : 'desativada'}.`);
+    });
+
+    // 3. Velocidade
+    const speedButtons = [
+      { id: '#sb-speed-1', speed: 1 },
+      { id: '#sb-speed-2', speed: 2 },
+      { id: '#sb-speed-4', speed: 4 },
+    ];
+    for (const { id, speed } of speedButtons) {
+      document.querySelector(id)?.addEventListener('click', (e) => {
+        this.simulation.gameSpeed = speed;
+        document.querySelectorAll('.btn-speed').forEach((btn) => btn.classList.remove('active'));
+        (e.currentTarget as HTMLElement)?.classList.add('active');
+        setMsg(`Sandbox: Velocidade ajustada para ${speed}x.`);
+      });
+    }
+
+    // 4. Spawns Instantâneos (Azul)
+    const unitSpawns: Array<{ id: string; kind: import('../core/entities/EntityStore').UnitKind }> = [
+      { id: '#sb-spawn-soldier', kind: 'soldier' },
+      { id: '#sb-spawn-archer', kind: 'archer' },
+      { id: '#sb-spawn-shield', kind: 'shieldbearer' },
+      { id: '#sb-spawn-scout', kind: 'scout' },
+      { id: '#sb-spawn-builder', kind: 'builder' },
+      { id: '#sb-spawn-worker', kind: 'worker' },
+    ];
+    for (const { id, kind } of unitSpawns) {
+      document.querySelector(id)?.addEventListener('click', () => {
+        const u = this.simulation.instantSpawn('blue', kind);
+        if (u) {
+          this.displayPositions.set(u.id, { x: u.x, y: u.y });
+          this.drawEntities();
+          this.refreshTeamStatus();
+          setMsg(`Sandbox: ${LABELS[kind]} azul gerado em (${u.x}, ${u.y})!`);
+        }
+      });
+    }
+
+    document.querySelector('#sb-spawn-squad')?.addEventListener('click', () => {
+      for (let i = 0; i < 5; i++) {
+        const u = this.simulation.instantSpawn('blue', 'soldier');
+        if (u) this.displayPositions.set(u.id, { x: u.x, y: u.y });
+      }
+      this.drawEntities();
+      this.refreshTeamStatus();
+      setMsg('Sandbox: Esquadrão de 5 soldados azuis gerado na base!');
+    });
+
+    document.querySelector('#sb-spawn-mixed-army')?.addEventListener('click', () => {
+      const kinds: import('../core/entities/EntityStore').UnitKind[] = [
+        'shieldbearer', 'shieldbearer',
+        'soldier', 'soldier', 'soldier', 'soldier',
+        'archer', 'archer',
+        'scout', 'scout',
+      ];
+      for (const kind of kinds) {
+        const u = this.simulation.instantSpawn('blue', kind);
+        if (u) this.displayPositions.set(u.id, { x: u.x, y: u.y });
+      }
+      this.drawEntities();
+      this.refreshTeamStatus();
+      setMsg('Sandbox: Exército misto de 10 tropas (2 escudeiros, 4 soldados, 2 arqueiros, 2 batedores) gerado!');
+    });
+
+    // 5. Inimigos & IA
+    document.querySelector('#sb-spawn-enemy-squad')?.addEventListener('click', () => {
+      for (let i = 0; i < 3; i++) {
+        const u = this.simulation.instantSpawn('red', 'soldier', 90, 98 + i);
+        if (u) this.displayPositions.set(u.id, { x: u.x, y: u.y });
+      }
+      this.drawEntities();
+      setMsg('Sandbox: 3 soldados inimigos vermelhos gerados no centro do mapa!');
+    });
+
+    const aiToggleBtn = document.querySelector<HTMLButtonElement>('#sb-toggle-ai');
+    aiToggleBtn?.addEventListener('click', () => {
+      this.simulation.aiPaused = !this.simulation.aiPaused;
+      if (aiToggleBtn) {
+        aiToggleBtn.textContent = this.simulation.aiPaused ? 'Retomar IA' : 'Pausar IA';
+      }
+      setMsg(`Sandbox: IA Vermelha ${this.simulation.aiPaused ? 'PAUSADA' : 'RETOMADA'}.`);
+    });
+
+    // 6. Revelar Mapa
+    const revealCheck = document.querySelector<HTMLInputElement>('#sb-reveal-map');
+    revealCheck?.addEventListener('change', () => {
+      this.visualFog.revealAll = !!revealCheck.checked;
+      this.drawFog();
+      this.drawEntities();
+      this.minimap.render(this.cameras.main.worldView, CELL_SIZE, this.displayPositions, true);
+      setMsg(`Sandbox: Visão de mapa inteiro ${revealCheck.checked ? 'ATIVADA' : 'desativada'}.`);
+    });
+  }
+
+  private toggleAttackMoveMode(): void {
+    this.placementMode = null;
+    this.rallyPlacementMode = false;
+    this.rallyBuildingId = null;
+    this.attackMoveMode = !this.attackMoveMode;
+    this.placementGhostGraphics.clear();
+    const fb = document.querySelector('#command-feedback');
+    if (fb) {
+      fb.textContent = this.attackMoveMode
+        ? 'Modo Attack Move ativado: clique com botão esquerdo no mapa para definir o destino. Botão direito cancela.'
+        : 'Modo Attack Move cancelado.';
+    }
+    this.refreshSelection();
+  }
+
+  private toggleRallyPlacementMode(buildingId: string): void {
+    if (this.rallyPlacementMode && this.rallyBuildingId === buildingId) {
+      this.rallyPlacementMode = false;
+      this.rallyBuildingId = null;
+      this.placementGhostGraphics.clear();
+      const fb = document.querySelector('#command-feedback');
+      if (fb) fb.textContent = 'Definição de ponto de reunião cancelada.';
+    } else {
+      this.rallyPlacementMode = true;
+      this.rallyBuildingId = buildingId;
+      this.attackMoveMode = false;
+      this.placementMode = null;
+      const building = this.simulation.entities.get(buildingId);
+      const bLabel = building && building.category === 'building' ? LABELS[building.kind] : 'Construção';
+      const fb = document.querySelector('#command-feedback');
+      if (fb) fb.textContent = `Clique no mapa para definir o Ponto de Reunião da ${bLabel}. Botão direito cancela.`;
+    }
+    this.refreshSelection();
+  }
+
+  private drawDashedLine(
+    graphics: Phaser.GameObjects.Graphics,
+    x1: number, y1: number, x2: number, y2: number,
+    dashLength = 6, gapLength = 4,
+  ): void {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const distance = Math.hypot(dx, dy);
+    if (distance === 0) return;
+    const dirX = dx / distance;
+    const dirY = dy / distance;
+    let current = 0;
+    while (current < distance) {
+      const startX = x1 + dirX * current;
+      const startY = y1 + dirY * current;
+      const endDist = Math.min(current + dashLength, distance);
+      const endX = x1 + dirX * endDist;
+      const endY = y1 + dirY * endDist;
+      graphics.lineBetween(startX, startY, endX, endY);
+      current += dashLength + gapLength;
+    }
   }
 
   update(_time: number, delta: number): void {
-    const ticks = this.simulation.advance(delta);
+    if (this.simulation.diagnostics.enabled) {
+      const now = performance.now();
+      if (this.lastPerformanceFrame) this.simulation.diagnostics.record('frameInterval', now - this.lastPerformanceFrame);
+      this.lastPerformanceFrame = now;
+    }
+    const ticks = this.simulation.advance(delta, 5);
+    if (ticks > 0) {
+      const timer = document.querySelector('#match-timer');
+      if (timer) timer.textContent = formatMatchTime(this.simulation.clock.ticks);
+    }
     if (this.simulation.result && !this.resultShown) this.showResult();
     const movementEvents = this.simulation.movement.drainEvents();
-    for (const event of movementEvents) this.motionTracks.set(event.unitId, { path: event.path, elapsedMs: 0 });
+    const movementFailures = this.simulation.movement.drainFailures().filter((event) => this.simulation.entities.get(event.unitId)?.team === 'blue');
+    if (movementFailures.length > 0) {
+      const feedback = document.querySelector('#command-feedback');
+      const failure = movementFailures[0];
+      if (feedback) feedback.textContent = `Marcha interrompida: ${failure.unitId} · ${rejection(failure.reason)}.`;
+    }
+    for (const event of movementEvents) {
+      const unit = this.simulation.entities.get(event.unitId);
+      if (unit?.category !== 'unit') continue;
+      this.motionTracks.set(event.unitId, {
+        path: event.path, elapsedMs: 0,
+        durationMs: unit.movementCooldownSeconds * 1000,
+      });
+      const start = event.path[0];
+      if (start) this.addWorldEffect('dust', (start[0] + 0.5) * CELL_SIZE,
+        (start[1] + 0.5) * CELL_SIZE, unit.team, 0xa6bdc4, 300);
+    }
     this.updateMotion(delta);
 
     const combatEvents = this.simulation.combat.drainEvents();
     for (const event of combatEvents) {
+      const target = this.simulation.entities.get(event.targetId);
+      const attacker = this.simulation.entities.get(event.attackerId);
+      if (event.targetId === 'blue-base') {
+        this.soundSystem.play('baseUnderAttack');
+      } else if (target?.category === 'building') {
+        this.soundSystem.play('buildingAttack');
+      } else if (attacker?.category === 'unit' && attacker.kind === 'archer') {
+        this.soundSystem.play('rangedAttack');
+      } else {
+        this.soundSystem.play('meleeAttack');
+      }
+
       this.attackEffects.push({
         fromX: (event.attackerX + 0.5) * CELL_SIZE,
         fromY: (event.attackerY + 0.5) * CELL_SIZE,
@@ -280,31 +1084,92 @@ export class MapScene extends Phaser.Scene {
     this.updateAttackEffects(delta);
 
     for (const unitId of this.displayPositions.keys()) {
-      if (!this.simulation.entities.get(unitId)) this.displayPositions.delete(unitId);
+      if (!this.simulation.entities.get(unitId)) {
+        this.displayPositions.delete(unitId);
+        this.soundSystem.play('unitDeath');
+      }
     }
     for (const unitId of this.motionTracks.keys()) {
       if (!this.simulation.entities.get(unitId)) this.motionTracks.delete(unitId);
     }
-
-    const dirtyCells = this.map.drainDirtyCells();
-    if (dirtyCells.length > 0) {
-      for (const [x, y] of dirtyCells) {
-        const cell = this.map.cellAt(x, y)!;
-        this.mapGraphics.fillStyle(COLORS[cell.terrain]).fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-        if (cell.structureTeam) {
-          this.mapGraphics.fillStyle(cell.structureTeam === 'blue' ? 0x5aaadb : 0xe07072)
-            .fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    for (const entity of this.simulation.entities.all()) {
+      if (entity.category === 'unit' && !this.displayPositions.has(entity.id)) {
+        this.displayPositions.set(entity.id, { x: entity.x, y: entity.y });
+        this.addWorldEffect('ring', (entity.x + 0.5) * CELL_SIZE,
+          (entity.y + 0.5) * CELL_SIZE, entity.team, UNIT_COLORS[entity.kind], 450);
+        if (entity.team === 'blue') {
+          this.soundSystem.play('unitProduced');
         }
-        this.mapGraphics.lineStyle(1, 0x38505a, 0.55);
-        this.mapGraphics.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+      }
+      if (entity.category === 'building') {
+        if (entity.underConstruction) {
+          this.underConstructionBuildingIds.add(entity.id);
+        } else if (this.underConstructionBuildingIds.has(entity.id)) {
+          this.underConstructionBuildingIds.delete(entity.id);
+          if (entity.team === 'blue') {
+            this.soundSystem.play('buildingComplete');
+          }
+        }
       }
     }
-    if (movementEvents.length > 0 || dirtyCells.length > 0) this.drawFog();
-    if (ticks > 0 || this.motionTracks.size > 0 || movementEvents.length > 0 || dirtyCells.length > 0 || combatEvents.length > 0) {
+
+    const dirtyMapCells = this.map.drainDirtyCells();
+    const visionChanged = this.visualFog.update(this.displayPositions, dirtyMapCells.length > 0);
+    const dirtyCells = this.visualFog.drainDirtyTerrain();
+    if (dirtyCells.length > 0) {
+      for (const [x, y] of dirtyCells) {
+        const terrain = this.visualFog.cellAt(x, y)?.terrain;
+        if (terrain) this.renderTerrainCell(x, y, terrain);
+      }
+      this.flushTerrain();
+    }
+    if (visionChanged) this.drawFog();
+    this.addAmbientEffects();
+
+    const blueStock = this.simulation.teams.blue;
+    if (blueStock.wood > this.lastBlueWood || blueStock.coins > this.lastBlueCoins || blueStock.stone > this.lastBlueStone) {
+      this.soundSystem.play('resourceDeposited');
+      const base = this.simulation.entities.get('blue-base');
+      if (base?.category === 'building') {
+        const fxColor = blueStock.stone > this.lastBlueStone ? 0xb5bcc4 : blueStock.coins > this.lastBlueCoins ? 0xefce87 : 0xa4d96c;
+        this.addWorldEffect('ring',
+          (base.x + base.width / 2) * CELL_SIZE, (base.y + base.height / 2) * CELL_SIZE,
+          'blue', fxColor, 550);
+      }
+    }
+    this.lastBlueWood = blueStock.wood;
+    this.lastBlueCoins = blueStock.coins;
+    this.lastBlueStone = blueStock.stone;
+
+    const visibleEnemies = this.visualFog.visibleEntities().filter((e) => e.team === 'red');
+    let newEnemySpotted = false;
+    for (const enemy of visibleEnemies) {
+      if (!this.lastVisibleEnemies.has(enemy.id)) {
+        this.lastVisibleEnemies.add(enemy.id);
+        newEnemySpotted = true;
+      }
+    }
+    for (const id of Array.from(this.lastVisibleEnemies)) {
+      if (!visibleEnemies.some((e) => e.id === id)) {
+        this.lastVisibleEnemies.delete(id);
+      }
+    }
+    if (newEnemySpotted) {
+      this.soundSystem.play('enemySpotted');
+    }
+    this.updateWorldEffects(delta);
+    const motionActive = this.motionTracks.size > 0;
+    const view = this.cameras.main.worldView;
+    const cameraChanged = view.x !== this.lastEntityView.x || view.y !== this.lastEntityView.y || view.width !== this.lastEntityView.width || view.height !== this.lastEntityView.height;
+    if (ticks > 0 || motionActive || movementEvents.length > 0 || dirtyCells.length > 0 || combatEvents.length > 0 || cameraChanged) {
       this.drawEntities();
-      this.refreshSelection();
+      this.drawSelectionVisuals();
+    }
+    if (ticks > 0 || combatEvents.length > 0) {
+      this.refreshSelectionDOM();
       this.refreshTeamStatus();
     }
+    this.minimap.render(this.cameras.main.worldView, CELL_SIZE, this.displayPositions, visionChanged);
     if (this.simulation.result) return;
     const camera = this.cameras.main;
     const movement = PAN_SPEED * delta / 1000 / camera.zoom;
@@ -314,12 +1179,79 @@ export class MapScene extends Phaser.Scene {
     if (this.keys.S?.isDown || this.keys.DOWN?.isDown) camera.scrollY += movement;
 
     const root = document.querySelector('#game');
-    root?.setAttribute('data-ticks', String(this.simulation.clock.ticks));
-    root?.setAttribute('data-zoom', camera.zoom.toFixed(2));
-    root?.setAttribute('data-camera-x', camera.scrollX.toFixed(1));
-    root?.setAttribute('data-camera-y', camera.scrollY.toFixed(1));
-    const zoomLabel = document.querySelector('#zoom-value');
-    if (zoomLabel) zoomLabel.textContent = `${Math.round(camera.zoom * 100)}%`;
+    if (ticks > 0) {
+      root?.setAttribute('data-ticks', String(this.simulation.clock.ticks));
+      if (this.debug) {
+        const redAI = this.simulation.redAI;
+        if (redAI) {
+          const dbg = redAI.getDebugState();
+          root?.setAttribute('data-ai-red-decision', dbg.decision);
+          root?.setAttribute('data-ai-red-priority', String(dbg.priority));
+          root?.setAttribute('data-ai-red-goal', dbg.goal);
+          root?.setAttribute('data-ai-red-action', dbg.chosenAction);
+          root?.setAttribute('data-ai-red-desired', `${dbg.desiredResources.coins},${dbg.desiredResources.wood},${dbg.desiredResources.stone}`);
+
+          const aiDebugEl = document.querySelector('#ai-debug');
+          if (aiDebugEl) {
+            aiDebugEl.textContent = `IA Vermelha: ${dbg.decision} (P:${dbg.priority}) · ${dbg.goal} · Desejado: C:${dbg.desiredResources.coins} M:${dbg.desiredResources.wood} P:${dbg.desiredResources.stone} · Ação: ${dbg.chosenAction}`;
+          }
+        }
+      }
+    }
+
+    const curZoom = camera.zoom.toFixed(2);
+    const curCamX = camera.scrollX.toFixed(1);
+    const curCamY = camera.scrollY.toFixed(1);
+    if (curCamX !== this.lastCamX || curCamY !== this.lastCamY || curZoom !== this.lastZoom) {
+      this.lastCamX = curCamX;
+      this.lastCamY = curCamY;
+      this.lastZoom = curZoom;
+      root?.setAttribute('data-zoom', curZoom);
+      root?.setAttribute('data-camera-x', curCamX);
+      root?.setAttribute('data-camera-y', curCamY);
+      const zoomLabel = document.querySelector('#zoom-value');
+      if (zoomLabel) zoomLabel.textContent = `${Math.round(camera.zoom * 100)}%`;
+    }
+  }
+
+  private installDiagnostics(): void {
+    const api = {
+      setEnabled: (enabled: boolean) => {
+        this.simulation.setDiagnostics(enabled);
+        this.lastPerformanceFrame = 0;
+        if (!enabled) return;
+        const monitor = this.simulation.diagnostics;
+        const scene = this as unknown as Record<string, unknown>;
+        monitor.watch(this.sys as unknown as Record<string, unknown>, 'sceneUpdate', 'sceneUpdate');
+        for (const name of ['drawEntities', 'drawFog', 'drawSelectionVisuals', 'refreshSelectionDOM', 'refreshTeamStatus']) {
+          monitor.watch(scene, name, name);
+        }
+        monitor.watch(this.visualFog, 'update', 'visualFog');
+        monitor.watch(this.minimap, 'render', 'minimap');
+        let renderStart = 0;
+        const before = () => { renderStart = performance.now(); };
+        const after = () => { monitor.record('rendererCPU', performance.now() - renderStart); };
+        this.game.events.on('prerender', before);
+        this.game.events.on('postrender', after);
+        monitor.onDisable(() => {
+          this.game.events.off('prerender', before);
+          this.game.events.off('postrender', after);
+        });
+      },
+      reset: () => this.simulation.diagnostics.reset(),
+      snapshot: () => ({ ...this.simulation.diagnostics.snapshot(),
+        entities: this.simulation.entities.all().length,
+        units: this.simulation.entities.all().filter(e => e.category === 'unit').length,
+        formations: this.simulation.formations.getAllGroups().length,
+        droppedSimulationMs: this.simulation.clock.droppedMs }),
+    };
+    const host = window as unknown as { rtsPerformance?: typeof api };
+    host.rtsPerformance = api;
+    api.setEnabled(true);
+    this.events.once('shutdown', () => {
+      api.setEnabled(false);
+      if (host.rtsPerformance === api) delete host.rtsPerformance;
+    });
   }
 
   private showResult(): void {
@@ -329,27 +1261,45 @@ export class MapScene extends Phaser.Scene {
     this.placementMode = null;
     this.placementGhostGraphics.clear();
     const victory = result.winner === 'blue';
+    if (victory) {
+      this.soundSystem.play('victory');
+    } else {
+      this.soundSystem.play('defeat');
+    }
     const title = document.querySelector('#result-title');
     const summary = document.querySelector('#result-summary');
-    const stats = document.querySelector('#result-stats');
+    const duration = document.querySelector('#result-duration');
+    const stats = document.querySelector('#result-stats tbody');
     const panel = document.querySelector('#game-result');
     if (title) title.textContent = victory ? 'Vitória!' : 'Derrota';
     if (summary) summary.textContent = victory ? 'Você destruiu a base inimiga.' : 'Sua base foi destruída.';
+    if (duration) duration.textContent = `Duração: ${Math.floor(result.elapsedTicks / TICKS_PER_SECOND / 60)}m ${String(Math.floor(result.elapsedTicks / TICKS_PER_SECOND) % 60).padStart(2, '0')}s`;
     if (stats) {
-      stats.innerHTML = '';
+      stats.replaceChildren();
       const entries = [
-        ['Duração', `${Math.floor(result.elapsedTicks / TICKS_PER_SECOND / 60)}m ${String(Math.floor(result.elapsedTicks / TICKS_PER_SECOND) % 60).padStart(2, '0')}s`],
-        ['Unidades azuis restantes', String(result.blueUnits)],
-        ['Unidades vermelhas restantes', String(result.redUnits)],
-        ['Recursos azuis', `${result.blueCoins} moedas · ${result.blueWood} madeira`],
-        ['Recursos vermelhos', `${result.redCoins} moedas · ${result.redWood} madeira`],
+        ['Tropas produzidas', result.stats.blue.troopsProduced, result.stats.red.troopsProduced],
+        ['Tropas abatidas', result.stats.blue.troopsKilled, result.stats.red.troopsKilled],
+        ['Operários produzidos', result.stats.blue.workersProduced, result.stats.red.workersProduced],
+        ['Operários abatidos', result.stats.blue.workersKilled, result.stats.red.workersKilled],
+        ['Ouro coletado', Math.floor(result.stats.blue.coinsCollected), Math.floor(result.stats.red.coinsCollected)],
+        ['Ouro gasto', Math.floor(result.stats.blue.coinsSpent), Math.floor(result.stats.red.coinsSpent)],
+        ['Madeira coletada', Math.floor(result.stats.blue.woodCollected), Math.floor(result.stats.red.woodCollected)],
+        ['Madeira gasta', Math.floor(result.stats.blue.woodSpent), Math.floor(result.stats.red.woodSpent)],
+        ['Unidades restantes', result.blueUnits, result.redUnits],
+        ['Ouro restante', Math.floor(result.blueCoins), Math.floor(result.redCoins)],
+        ['Madeira restante', Math.floor(result.blueWood), Math.floor(result.redWood)],
       ];
-      for (const [label, value] of entries) {
-        const dt = document.createElement('dt');
-        const dd = document.createElement('dd');
-        dt.textContent = label;
-        dd.textContent = value;
-        stats.append(dt, dd);
+      for (const [label, blue, red] of entries) {
+        const row = document.createElement('tr');
+        const heading = document.createElement('th');
+        heading.scope = 'row';
+        heading.textContent = String(label);
+        const blueCell = document.createElement('td');
+        blueCell.textContent = String(blue);
+        const redCell = document.createElement('td');
+        redCell.textContent = String(red);
+        row.append(heading, blueCell, redCell);
+        stats.append(row);
       }
     }
     panel?.removeAttribute('hidden');
@@ -358,19 +1308,17 @@ export class MapScene extends Phaser.Scene {
   }
 
   private drawMap(): void {
+    const width = this.map.width * CELL_SIZE, height = this.map.height * CELL_SIZE;
+    const renderer = this.game.renderer;
+    const supported = !(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer)
+      || renderer.gl.getParameter(renderer.gl.MAX_TEXTURE_SIZE) >= Math.max(width, height);
+    if (supported) this.terrainTexture = this.add.renderTexture(0, 0, width, height).setOrigin(0);
     this.mapGraphics = this.add.graphics();
-    this.mapGraphics.fillStyle(COLORS.plain).fillRect(0, 0, this.map.width * CELL_SIZE, this.map.height * CELL_SIZE);
-    for (let y = 0; y < this.map.height; y += 1) {
-      for (let x = 0; x < this.map.width; x += 1) {
-        const cell = this.map.cellAt(x, y)!;
-        if (cell.terrain !== 'plain') {
-          this.mapGraphics.fillStyle(COLORS[cell.terrain]).fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-        }
-        if (cell.structureTeam) {
-          this.mapGraphics.fillStyle(cell.structureTeam === 'blue' ? 0x5aaadb : 0xe07072)
-            .fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-        }
-      }
+    if (this.terrainTexture) this.mapGraphics.setVisible(false);
+    this.mapGraphics.fillStyle(0x09141a).fillRect(0, 0, this.map.width * CELL_SIZE, this.map.height * CELL_SIZE);
+    for (const [x, y] of this.visualFog.drainDirtyTerrain()) {
+      const terrain = this.visualFog.cellAt(x, y)?.terrain;
+      if (terrain) this.renderTerrainCell(x, y, terrain);
     }
 
     this.mapGraphics.lineStyle(1, 0x38505a, 0.55);
@@ -381,17 +1329,41 @@ export class MapScene extends Phaser.Scene {
       this.mapGraphics.lineBetween(0, y * CELL_SIZE, this.map.width * CELL_SIZE, y * CELL_SIZE);
     }
     this.mapGraphics.lineStyle(3, 0x8ba7ad, 1).strokeRect(0, 0, this.map.width * CELL_SIZE, this.map.height * CELL_SIZE);
+    this.flushTerrain();
+  }
+
+  private flushTerrain(): void {
+    if (!this.terrainTexture) return;
+    this.terrainTexture.draw([this.mapGraphics]);
+    this.mapGraphics.clear();
+  }
+
+  private renderTerrainCell(x: number, y: number, terrain: Terrain): void {
+    this.mapGraphics.fillStyle(COLORS[terrain]).fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    if (terrain === 'stone') {
+      this.mapGraphics.fillStyle(0xb5bcc4).fillRect(x * CELL_SIZE + 2, y * CELL_SIZE + 2, 4, 3);
+      this.mapGraphics.fillStyle(0x565c63).fillRect(x * CELL_SIZE + 6, y * CELL_SIZE + 6, 4, 3);
+    } else if (terrain === 'mine') {
+      this.mapGraphics.fillStyle(0xffe28a).fillRect(x * CELL_SIZE + 3, y * CELL_SIZE + 3, 5, 5);
+    }
   }
 
   private drawEntities(): void {
     const graphics = this.entityGraphics;
     graphics.clear();
-    for (const entity of this.simulation.fog.visibleEntities('blue')) {
+    Object.assign(this.lastEntityView, this.cameras.main.worldView);
+    for (const entity of this.visualFog.visibleEntities()) {
+      const position = entity.category === 'unit' ? this.displayPositions.get(entity.id) ?? entity : entity;
+      if (!this.intersectsViewport(position.x, position.y, entity.category === 'building' ? entity.width : 1, entity.category === 'building' ? entity.height : 1)) continue;
       const color = entity.team === 'blue' ? 0x9bdbff : 0xffada9;
       if (entity.category === 'unit') {
         const position = this.displayPositions.get(entity.id) ?? entity;
-        graphics.fillStyle(0x10232b).fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
-        graphics.fillStyle(color).fillRect(position.x * CELL_SIZE + 3, position.y * CELL_SIZE + 3, CELL_SIZE - 6, CELL_SIZE - 6);
+        graphics.fillStyle(color).fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+        graphics.fillStyle(UNIT_COLORS[entity.kind]).fillRect(position.x * CELL_SIZE + 3, position.y * CELL_SIZE + 3, CELL_SIZE - 6, CELL_SIZE - 6);
+        if (entity.kind === 'builder') {
+          graphics.fillStyle(0xffe600, 1).fillRect(position.x * CELL_SIZE + 3, position.y * CELL_SIZE + 1, CELL_SIZE - 6, 2.5);
+          graphics.fillStyle(0xffffff, 0.9).fillRect(position.x * CELL_SIZE + 5, position.y * CELL_SIZE + 4, 2, 3);
+        }
         if (entity.hp < entity.maxHp) {
           const hpPct = Math.max(0, entity.hp / entity.maxHp);
           const barW = CELL_SIZE - 2;
@@ -423,10 +1395,47 @@ export class MapScene extends Phaser.Scene {
             entity.x * CELL_SIZE + 2, entity.y * CELL_SIZE + 2,
             entity.width * CELL_SIZE - 4, entity.height * CELL_SIZE - 4,
           );
-          graphics.fillStyle(color).fillRect(
-            (entity.x + entity.width / 2) * CELL_SIZE - 3,
-            (entity.y + entity.height / 2) * CELL_SIZE - 3, 6, 6,
-          );
+          if (entity.kind === 'barricade') {
+            graphics.fillStyle(0x7a634e, 0.9).fillRect(
+              entity.x * CELL_SIZE + 2, entity.y * CELL_SIZE + 2,
+              entity.width * CELL_SIZE - 4, entity.height * CELL_SIZE - 4,
+            );
+            graphics.lineStyle(1.5, 0x3d2c1e, 1);
+            graphics.lineBetween(
+              entity.x * CELL_SIZE + 2, entity.y * CELL_SIZE + 2,
+              (entity.x + 1) * CELL_SIZE - 2, (entity.y + 1) * CELL_SIZE - 2,
+            );
+            graphics.lineBetween(
+              (entity.x + 1) * CELL_SIZE - 2, entity.y * CELL_SIZE + 2,
+              entity.x * CELL_SIZE + 2, (entity.y + 1) * CELL_SIZE - 2,
+            );
+            graphics.fillStyle(0x231810, 1).fillRect(entity.x * CELL_SIZE + 3, entity.y * CELL_SIZE + 3, 2, 2);
+            graphics.fillStyle(0x231810, 1).fillRect((entity.x + 1) * CELL_SIZE - 5, entity.y * CELL_SIZE + 3, 2, 2);
+            graphics.fillStyle(0x231810, 1).fillRect(entity.x * CELL_SIZE + 3, (entity.y + 1) * CELL_SIZE - 5, 2, 2);
+            graphics.fillStyle(0x231810, 1).fillRect((entity.x + 1) * CELL_SIZE - 5, (entity.y + 1) * CELL_SIZE - 5, 2, 2);
+          } else if (entity.kind === 'tower') {
+            graphics.fillStyle(0x4a5568, 0.95).fillRect(
+              entity.x * CELL_SIZE + 2, entity.y * CELL_SIZE + 2,
+              entity.width * CELL_SIZE - 4, entity.height * CELL_SIZE - 4,
+            );
+            graphics.lineStyle(1.5, 0x2d3748, 1).strokeRect(
+              entity.x * CELL_SIZE + 4, entity.y * CELL_SIZE + 4,
+              entity.width * CELL_SIZE - 8, entity.height * CELL_SIZE - 8,
+            );
+            graphics.fillStyle(0x38bdf8, 1).fillCircle(
+              (entity.x + entity.width / 2) * CELL_SIZE,
+              (entity.y + entity.height / 2) * CELL_SIZE, 3.5,
+            );
+            graphics.fillStyle(0xfffbeb, 0.9).fillCircle(
+              (entity.x + entity.width / 2) * CELL_SIZE,
+              (entity.y + entity.height / 2) * CELL_SIZE, 1.5,
+            );
+          } else {
+            graphics.fillStyle(color).fillRect(
+              (entity.x + entity.width / 2) * CELL_SIZE - 3,
+              (entity.y + entity.height / 2) * CELL_SIZE - 3, 6, 6,
+            );
+          }
           if (entity.hp < entity.maxHp) {
             const hpPct = Math.max(0, entity.hp / entity.maxHp);
             const barW = entity.width * CELL_SIZE - 4;
@@ -434,9 +1443,40 @@ export class MapScene extends Phaser.Scene {
             graphics.fillStyle(entity.team === 'blue' ? 0x55ff55 : 0xff5555, 0.95)
               .fillRect(entity.x * CELL_SIZE + 2, entity.y * CELL_SIZE - 3, Math.max(1, barW * hpPct), 3);
           }
+          if (this.simulation.construction.isBeingRepaired(entity.id)) {
+            graphics.lineStyle(2, 0x52c41a, 0.95).strokeRect(
+              entity.x * CELL_SIZE + 1, entity.y * CELL_SIZE + 1,
+              entity.width * CELL_SIZE - 2, entity.height * CELL_SIZE - 2,
+            );
+            graphics.fillStyle(0x52c41a, 1).fillCircle(entity.x * CELL_SIZE + entity.width * CELL_SIZE - 1, entity.y * CELL_SIZE - 1.5, 3);
+            graphics.fillStyle(0xffffff, 1).fillCircle(entity.x * CELL_SIZE + entity.width * CELL_SIZE - 1, entity.y * CELL_SIZE - 1.5, 1.2);
+          }
         }
       }
     }
+    for (const building of this.visualFog.knownBuildings()) {
+      if (this.visualFog.stateAt(building.x, building.y) === 'visible') continue;
+      if (!this.intersectsViewport(building.x, building.y, building.width, building.height)) continue;
+      const color = building.team === 'blue' ? 0x9bdbff : 0xffada9;
+      graphics.lineStyle(1, color, 0.4).strokeRect(
+        building.x * CELL_SIZE + 2, building.y * CELL_SIZE + 2,
+        building.width * CELL_SIZE - 4, building.height * CELL_SIZE - 4,
+      );
+    }
+    const root = document.querySelector('#game');
+    const visibleEnemies = this.visualFog.visibleEntities().filter((entity) => entity.team === 'red');
+    root?.setAttribute('data-visible-enemy-ids', visibleEnemies.map((entity) => entity.id).join(','));
+    root?.setAttribute('data-visible-enemy-positions', visibleEnemies.filter((entity) => entity.category === 'unit').map((entity) => {
+      const position = this.displayPositions.get(entity.id) ?? entity;
+      return `${entity.id}:${position.x.toFixed(2)},${position.y.toFixed(2)}`;
+    }).join(';'));
+  }
+
+  private intersectsViewport(x: number, y: number, width: number, height: number): boolean {
+    const view = this.cameras.main.worldView;
+    // One-cell margin preserves health bars, outlines and fractional interpolation.
+    return (x + width + 1) * CELL_SIZE >= view.x && (x - 1) * CELL_SIZE <= view.right
+      && (y + height + 1) * CELL_SIZE >= view.y && (y - 1) * CELL_SIZE <= view.bottom;
   }
 
   private updateAttackEffects(delta: number): void {
@@ -448,11 +1488,72 @@ export class MapScene extends Phaser.Scene {
         this.attackEffects.splice(i, 1);
         continue;
       }
+      if (this.visualFog.stateAt(Math.floor(fx.fromX / CELL_SIZE), Math.floor(fx.fromY / CELL_SIZE)) !== 'visible'
+        || this.visualFog.stateAt(Math.floor(fx.toX / CELL_SIZE), Math.floor(fx.toY / CELL_SIZE)) !== 'visible') continue;
       const alpha = 1 - (fx.elapsedMs / fx.totalMs);
       this.combatGraphics.lineStyle(2, fx.color, alpha);
       this.combatGraphics.lineBetween(fx.fromX, fx.fromY, fx.toX, fx.toY);
       this.combatGraphics.fillStyle(0xffffff, alpha);
       this.combatGraphics.fillCircle(fx.toX, fx.toY, 2.5);
+      this.combatGraphics.lineStyle(1.5, fx.color, alpha * 0.8);
+      this.combatGraphics.strokeCircle(fx.toX, fx.toY, 2 + (1 - alpha) * 8);
+    }
+  }
+
+  private addWorldEffect(kind: WorldEffect['kind'], x: number, y: number,
+    team: Team, color: number, totalMs: number): void {
+    if (this.worldEffects.length >= 100) this.worldEffects.shift();
+    this.worldEffects.push({ kind, x, y, team, color, elapsedMs: 0, totalMs });
+  }
+
+  private addAmbientEffects(): void {
+    const second = Math.floor(this.simulation.clock.ticks / TICKS_PER_SECOND);
+    if (second <= this.lastAmbientSecond) return;
+    this.lastAmbientSecond = second;
+    for (const entity of this.simulation.entities.all()) {
+      if (entity.category === 'unit' && entity.kind === 'worker') {
+        const task = this.simulation.economy.taskFor(entity.id);
+        if (task?.phase === 'working' || task?.phase === 'gathering') {
+          const position = this.displayPositions.get(entity.id) ?? entity;
+          const offset = ((second + entity.id.length) % 3 - 1) * 3;
+          this.addWorldEffect('spark', (position.x + 0.5) * CELL_SIZE + offset,
+            (position.y + 0.5) * CELL_SIZE - 3, entity.team,
+            task.kind === 'mine' ? 0xefce87 : 0xa4d96c, 450);
+        }
+      } else if (entity.category === 'building' && entity.underConstruction) {
+        this.addWorldEffect('spark', (entity.x + entity.width - 0.3) * CELL_SIZE,
+          (entity.y + 0.3) * CELL_SIZE, entity.team, 0xefce87, 450);
+      } else if (entity.category === 'building' && this.simulation.construction.isBeingRepaired(entity.id)) {
+        this.addWorldEffect('spark', (entity.x + entity.width / 2) * CELL_SIZE,
+          (entity.y + entity.height / 2) * CELL_SIZE, entity.team, 0x52c41a, 400);
+      }
+    }
+  }
+
+  private updateWorldEffects(delta: number): void {
+    this.worldGraphics.clear();
+    for (let index = this.worldEffects.length - 1; index >= 0; index -= 1) {
+      const effect = this.worldEffects[index];
+      effect.elapsedMs += delta;
+      if (effect.elapsedMs >= effect.totalMs) {
+        this.worldEffects.splice(index, 1);
+        continue;
+      }
+      if (effect.team === 'red' && this.visualFog.stateAt(Math.floor(effect.x / CELL_SIZE),
+        Math.floor(effect.y / CELL_SIZE)) !== 'visible') continue;
+      const progress = effect.elapsedMs / effect.totalMs;
+      const alpha = 1 - progress;
+      if (effect.kind === 'ring') {
+        this.worldGraphics.lineStyle(1.5, effect.color, alpha);
+        this.worldGraphics.strokeCircle(effect.x, effect.y, 2 + progress * 10);
+      } else if (effect.kind === 'spark') {
+        this.worldGraphics.lineStyle(1.5, effect.color, alpha);
+        this.worldGraphics.lineBetween(effect.x - 2, effect.y, effect.x + 2, effect.y);
+        this.worldGraphics.lineBetween(effect.x, effect.y - 2, effect.x, effect.y + 2);
+      } else {
+        this.worldGraphics.fillStyle(effect.color, alpha * 0.45);
+        this.worldGraphics.fillCircle(effect.x, effect.y, 1 + progress * 3);
+      }
     }
   }
 
@@ -460,7 +1561,7 @@ export class MapScene extends Phaser.Scene {
     for (const [unitId, track] of this.motionTracks) {
       track.elapsedMs += delta;
       const segments = track.path.length - 1;
-      const progress = Math.min(segments, track.elapsedMs / MOTION_MS_PER_CELL);
+      const progress = Math.min(segments, track.elapsedMs / track.durationMs * segments);
       const segment = Math.min(segments - 1, Math.floor(progress));
       const fraction = Math.min(1, progress - segment);
       const from = track.path[segment];
@@ -479,14 +1580,14 @@ export class MapScene extends Phaser.Scene {
     let visibleCount = 0;
     let exploredCount = 0;
     for (let y = 0; y < this.map.height; y += 1) {
-      let runState = this.simulation.fog.stateAt('blue', 0, y);
+      let runState = this.visualFog.rawState(0, y);
       let runStart = 0;
       for (let x = 0; x <= this.map.width; x += 1) {
-        const state = x < this.map.width ? this.simulation.fog.stateAt('blue', x, y) : null;
-        if (state === 'visible') visibleCount += 1;
-        if (state === 'explored') exploredCount += 1;
+        const state = x < this.map.width ? this.visualFog.rawState(x, y) : -1;
+        if (state === 2) visibleCount += 1;
+        if (state === 1) exploredCount += 1;
         if (state === runState) continue;
-        if (runState === 'unknown') {
+        if (runState === 0) {
           graphics.fillStyle(0x09141a, 1)
             .fillRect(runStart * CELL_SIZE, y * CELL_SIZE, (x - runStart) * CELL_SIZE, CELL_SIZE);
         }
@@ -494,18 +1595,15 @@ export class MapScene extends Phaser.Scene {
         runState = state;
       }
     }
-    graphics.lineStyle(1, 0x35515b, 0.18);
-    for (let x = 0; x <= this.map.width; x += 1) {
-      graphics.lineBetween(x * CELL_SIZE, 0, x * CELL_SIZE, this.map.height * CELL_SIZE);
+    if (visibleCount !== this.lastVisibleCount || exploredCount !== this.lastExploredCount) {
+      this.lastVisibleCount = visibleCount;
+      this.lastExploredCount = exploredCount;
+      const root = document.querySelector('#game');
+      root?.setAttribute('data-visible-cells', String(visibleCount));
+      root?.setAttribute('data-explored-cells', String(exploredCount));
+      const fogStatus = document.querySelector('#fog-status');
+      if (fogStatus) fogStatus.textContent = `Visíveis: ${visibleCount} · exploradas: ${exploredCount}`;
     }
-    for (let y = 0; y <= this.map.height; y += 1) {
-      graphics.lineBetween(0, y * CELL_SIZE, this.map.width * CELL_SIZE, y * CELL_SIZE);
-    }
-    const root = document.querySelector('#game');
-    root?.setAttribute('data-visible-cells', String(visibleCount));
-    root?.setAttribute('data-explored-cells', String(exploredCount));
-    const fogStatus = document.querySelector('#fog-status');
-    if (fogStatus) fogStatus.textContent = `Visíveis: ${visibleCount} · exploradas: ${exploredCount}`;
   }
 
   private drawSelectionBox(x1: number, y1: number, x2: number, y2: number): void {
@@ -518,7 +1616,7 @@ export class MapScene extends Phaser.Scene {
     this.selectionBoxGraphics.lineStyle(1, 0xeccf74, 1).strokeRect(x, y, width, height);
   }
 
-  private refreshSelection(): void {
+  private drawSelectionVisuals(): void {
     this.selectionGraphics.clear();
     const selected = this.selection.selectedEntities;
     for (const entity of selected) {
@@ -529,6 +1627,60 @@ export class MapScene extends Phaser.Scene {
         position.x * CELL_SIZE - 2, position.y * CELL_SIZE - 2,
         width * CELL_SIZE + 4, height * CELL_SIZE + 4,
       );
+      if (entity.category === 'building') {
+        const centerX = (entity.x + entity.width / 2) * CELL_SIZE;
+        const centerY = (entity.y + entity.height / 2) * CELL_SIZE;
+        if (entity.kind === 'tower') {
+          const halfSpan = 9;
+          const minX = entity.x - halfSpan;
+          const minY = entity.y - halfSpan;
+          this.selectionGraphics.lineStyle(1.5, 0x38bdf8, 0.6);
+          this.selectionGraphics.strokeRect(
+            minX * CELL_SIZE, minY * CELL_SIZE,
+            20 * CELL_SIZE, 20 * CELL_SIZE,
+          );
+          this.selectionGraphics.fillStyle(0x38bdf8, 0.05);
+          this.selectionGraphics.fillRect(
+            minX * CELL_SIZE, minY * CELL_SIZE,
+            20 * CELL_SIZE, 20 * CELL_SIZE,
+          );
+        } else {
+          const radius = BALANCE.buildings[entity.kind].vision;
+          this.selectionGraphics.lineStyle(1.5, 0x9bdbff, 0.35);
+          this.selectionGraphics.strokeCircle(centerX, centerY, radius * CELL_SIZE);
+        }
+        if (entity.kind === 'base') {
+          this.selectionGraphics.lineStyle(1.5, 0x6da2b5, 0.3);
+          this.selectionGraphics.strokeCircle(centerX, centerY, BALANCE.construction.maxDistanceFromBase * CELL_SIZE);
+        }
+        if (entity.rallyPoint) {
+          const [rx, ry] = entity.rallyPoint;
+          const targetPxX = (rx + 0.5) * CELL_SIZE;
+          const targetPxY = (ry + 0.5) * CELL_SIZE;
+          this.selectionGraphics.lineStyle(1.5, 0xfacc15, 0.85);
+          this.drawDashedLine(this.selectionGraphics, centerX, centerY, targetPxX, targetPxY, 6, 4);
+
+          this.selectionGraphics.fillStyle(0xfacc15, 0.9);
+          this.selectionGraphics.fillCircle(targetPxX, targetPxY, 4);
+          this.selectionGraphics.lineStyle(2, 0xeab308, 1);
+          this.selectionGraphics.strokeCircle(targetPxX, targetPxY, 7);
+
+          this.selectionGraphics.lineStyle(2, 0xffffff, 0.95);
+          this.selectionGraphics.lineBetween(targetPxX, targetPxY, targetPxX, targetPxY - 14);
+          this.selectionGraphics.fillStyle(0xfacc15, 0.95);
+          this.selectionGraphics.fillTriangle(
+            targetPxX, targetPxY - 14,
+            targetPxX + 10, targetPxY - 10,
+            targetPxX, targetPxY - 6,
+          );
+        }
+      } else if (entity.category === 'unit') {
+        const radius = entity.vision;
+        const centerX = (position.x + 0.5) * CELL_SIZE;
+        const centerY = (position.y + 0.5) * CELL_SIZE;
+        this.selectionGraphics.lineStyle(1.5, 0x9bdbff, 0.35);
+        this.selectionGraphics.strokeCircle(centerX, centerY, radius * CELL_SIZE);
+      }
     }
     const root = document.querySelector('#game');
     root?.setAttribute('data-selected-ids', this.selection.selectedIds.join(','));
@@ -536,6 +1688,13 @@ export class MapScene extends Phaser.Scene {
     const visual = first?.category === 'unit' ? this.displayPositions.get(first.id) ?? first : null;
     if (visual) root?.setAttribute('data-selected-visual-x', visual.x.toFixed(2));
     else root?.removeAttribute('data-selected-visual-x');
+  }
+
+  private refreshSelectionDOM(): void {
+    const selected = this.selection.selectedEntities;
+    const root = document.querySelector('#game');
+    root?.setAttribute('data-selected-ids', this.selection.selectedIds.join(','));
+    const first = selected[0];
     const count = document.querySelector('#selection-count');
     const details = document.querySelector('#selection-details');
     if (count) count.textContent = selected.length === 0 ? 'Nenhuma seleção' : `${selected.length} selecionado${selected.length === 1 ? '' : 's'}`;
@@ -548,29 +1707,117 @@ export class MapScene extends Phaser.Scene {
         const buildTask = entity.category === 'unit' ? this.simulation.construction.taskFor(entity.id) : null;
         const combatTarget = entity.category === 'unit' ? this.simulation.combat.manualTargetFor(entity.id) : null;
         const queue = entity.category === 'building' ? this.simulation.production.queueFor(entity.id) : [];
-        return `${LABELS[entity.kind]} · HP ${entity.hp}/${entity.maxHp} · (${entity.x}, ${entity.y})`
+        return `${LABELS[entity.kind]} · HP ${Math.round(entity.hp)}/${entity.maxHp} · (${entity.x}, ${entity.y})`
           + (entity.category === 'unit' && entity.damage > 0 ? ` · Dano ${entity.damage} · Alc ${entity.range}` : '')
           + (combatTarget ? ` · Alvo (${combatTarget})` : '')
           + (entity.category === 'building' && entity.underConstruction ? ' · em construção' : '')
+          + (entity.kind === 'tower' && !entity.underConstruction ? ' · visão 20×20 células (detecta batedores)' : '')
+          + (entity.category === 'building' && entity.rallyPoint ? ` · Rally (${entity.rallyPoint.join(', ')})` : '')
           + (cooldown > 0 ? ` · cooldown ${Math.ceil(cooldown / TICKS_PER_SECOND)}s` : '')
           + (entity.category === 'unit' && entity.moveTarget ? ` · destino (${entity.moveTarget.join(', ')})` : '')
-          + (entity.category === 'unit' && entity.carriedWood > 0 ? ` · carga ${entity.carriedWood}/${BALANCE.economy.wood.workerCapacity}` : '')
+          + (entity.category === 'unit' && (entity.carriedWood > 0 || entity.carriedStone > 0)
+            ? ` · carga ${Math.floor(entity.carriedStone > 0 ? entity.carriedStone : entity.carriedWood)}/${entity.carriedStone > 0 ? BALANCE.economy.stone.workerCapacity : BALANCE.economy.wood.workerCapacity} ${entity.carriedStone > 0 ? 'pedra' : 'madeira'}`
+            : '')
           + (task ? ` · ${task.kind === 'mine' ? 'mina' : 'coleta'}: ${task.phase}` : '')
           + (buildTask ? ` · construindo: ${buildTask.phase}` : '')
           + (queue.length > 0 ? ` · fila (${queue.length})` : '');
       }).join('  |  ');
 
+    const status = document.querySelector('#selection-status');
+    if (status) {
+      status.replaceChildren();
+      if (first) {
+        const add = (label: string, value: string) => {
+          const dt = document.createElement('dt');
+          const dd = document.createElement('dd');
+          dt.textContent = label;
+          dd.textContent = value;
+          status.append(dt, dd);
+        };
+        add('Unidade', `${LABELS[first.kind]} · ${first.id}`);
+        add('Vida', `${Math.round(first.hp)}/${first.maxHp}`);
+        if (first.category === 'unit') {
+          const engagement = this.simulation.engagements.statusFor(first.id);
+          const task = this.simulation.economy.taskFor(first.id);
+          const buildTask = this.simulation.construction.taskFor(first.id);
+          const target = this.simulation.combat.manualTargetFor(first.id);
+          const movementCooldown = this.simulation.movement.cooldownRemainingTicks(first, this.simulation.clock.ticks);
+          add('Ordem', engagement ? 'Engajar e retomar marcha' : target ? 'Atacar' : buildTask ? 'Construir' : task ? task.kind === 'mine' ? 'Minerar' : 'Coletar' : first.moveTarget ? 'Mover' : 'Aguardar');
+          if (target) add('Alvo', target);
+          if (first.moveTarget || engagement) add('Destino', (engagement?.destination ?? first.moveTarget)!.join(', '));
+          if (movementCooldown > 0) add('Espera', `${Math.ceil(movementCooldown / TICKS_PER_SECOND)}s até próxima ação`);
+          const group = this.simulation.formations.getFormationForUnit(first.id);
+          if (group) {
+            const slot = group.slots.get(first.id);
+            const roleLabels: Record<string, string> = {
+              vanguard: 'Vanguarda (Linha de frente)',
+              frontline: 'Frente secundária',
+              flank: 'Flanco',
+              rear: 'Retaguarda',
+            };
+            const fmtLabels: Record<string, string> = {
+              line: 'Linha',
+              wedge: 'Cunha',
+              block: 'Bloco',
+              'double-rank': 'Duas Fileiras',
+            };
+            add('Formação', `${fmtLabels[group.type]} (${group.state}) · ${roleLabels[slot?.role ?? ''] ?? 'Combatente'}`);
+            add('Velocidade', `${group.collectiveSpeed} casas/s (coletiva)`);
+          }
+          if (task) {
+            if (task.kind === 'gather') {
+              const isStone = task.resourceKind === 'stone';
+              const carried = isStone ? Math.floor(first.carriedStone) : Math.floor(first.carriedWood);
+              const capacity = isStone ? BALANCE.economy.stone.workerCapacity : BALANCE.economy.wood.workerCapacity;
+              const resourceName = isStone ? 'pedra' : 'madeira';
+              add('Trabalho', `${task.phase} · carga ${carried}/${capacity} ${resourceName}`);
+            } else {
+              add('Trabalho', task.phase);
+            }
+          }
+          if (buildTask) add('Construção', buildTask.phase);
+        } else {
+          if (first.kind === 'tower') {
+            add('Visão', '20×20 células (detecta batedores)');
+          } else {
+            add('Visão', `${BALANCE.buildings[first.kind].vision} casas`);
+          }
+          if (first.kind === 'base') {
+            add('Área de construção', `${BALANCE.construction.maxDistanceFromBase} casas`);
+          }
+          if (first.underConstruction) add('Construção', `${Math.round(first.buildProgressTicks / Math.max(1, first.buildTotalTicks) * 100)}%`);
+          const queue = this.simulation.production.queueFor(first.id);
+          if (queue.length > 0) add('Fila', queue.map((item, index) => `${LABELS[item.unitKind]}${index === 0 ? ` ${Math.ceil((item.totalTicks - item.progressTicks) / TICKS_PER_SECOND)}s` : ''}`).join(', '));
+          if (first.kind === 'house' || first.kind === 'barracks') {
+            add('Rally Point', first.rallyPoint ? `(${first.rallyPoint.join(', ')})` : 'Nenhum');
+          }
+        }
+      }
+    }
+
     const actionBar = document.querySelector('#action-bar');
     if (actionBar) {
       let targetMode = 'none';
       const blueBuildings = selected.filter((ent): ent is BuildingEntity => ent.category === 'building' && ent.team === 'blue');
+      const blueBuilders = selected.filter((ent): ent is UnitEntity => ent.category === 'unit' && ent.kind === 'builder' && ent.team === 'blue');
       const blueWorkers = selected.filter((ent): ent is UnitEntity => ent.category === 'unit' && ent.kind === 'worker' && ent.team === 'blue');
+      const blueUnits = selected.filter((ent): ent is UnitEntity => ent.category === 'unit' && ent.team === 'blue');
 
       if (blueBuildings.length > 0) {
         const building = blueBuildings[0];
-        targetMode = `${building.kind}:${building.id}:${building.underConstruction ? 'building' : 'ready'}`;
+        const rallyKey = building.rallyPoint ? `${building.rallyPoint[0]},${building.rallyPoint[1]}` : 'none';
+        const rallyModeKey = this.rallyPlacementMode && this.rallyBuildingId === building.id ? 'active' : 'idle';
+        targetMode = `${building.kind}:${building.id}:${building.underConstruction ? 'building' : 'ready'}:${rallyKey}:${rallyModeKey}`;
+      } else if (blueUnits.some((u) => isMilitaryKind(u.kind))) {
+        const militaryCount = blueUnits.filter((u) => isMilitaryKind(u.kind)).length;
+        targetMode = `units:${blueUnits.length}:${militaryCount}:${this.attackMoveMode ? 'on' : 'off'}:${this.selection.formation ?? 'none'}`;
+      } else if (blueBuilders.length > 0) {
+        targetMode = `builder:${blueBuilders[0].id}:${this.attackMoveMode ? 'on' : 'off'}`;
       } else if (blueWorkers.length > 0) {
-        targetMode = `worker:${blueWorkers[0].id}`;
+        targetMode = `worker:${blueWorkers[0].id}:${this.attackMoveMode ? 'on' : 'off'}`;
+      } else if (blueUnits.length > 0) {
+        const militaryCount = blueUnits.filter((u) => isMilitaryKind(u.kind)).length;
+        targetMode = `units:${blueUnits.length}:${militaryCount}:${this.attackMoveMode ? 'on' : 'off'}:${this.selection.formation ?? 'none'}`;
       }
 
       if (this.currentActionBarMode !== targetMode) {
@@ -578,23 +1825,95 @@ export class MapScene extends Phaser.Scene {
         if (targetMode === 'none') {
           actionBar.setAttribute('hidden', '');
           actionBar.innerHTML = '';
-        } else if (targetMode.startsWith('worker:')) {
+        } else if (targetMode.startsWith('builder:') || targetMode.startsWith('worker:')) {
+          const isBuilder = targetMode.startsWith('builder:');
           actionBar.removeAttribute('hidden');
           actionBar.innerHTML = `
-            <div class="action-bar-header">Operário · Construções</div>
+            <div class="action-bar-header">${isBuilder ? 'Construtor' : 'Operário'} · Construções</div>
             <button id="btn-build-house" type="button">Construir Casa (150m, 100w)</button>
             <button id="btn-build-barracks" type="button">Construir Quartel (200m, 120w)</button>
+            ${isBuilder ? '<button id="btn-build-barricade" type="button">Construir Barricada (10w, 5p)</button>' : ''}
+            ${isBuilder ? '<button id="btn-build-tower" type="button">Construir Torre (200m, 150w, 100p)</button>' : ''}
+            <button id="btn-attack-move" type="button" class="btn-attack-move ${this.attackMoveMode ? 'active' : ''}">Attack Move (A)</button>
           `;
+          document.querySelector('#btn-attack-move')?.addEventListener('click', () => {
+            this.soundSystem.play('click');
+            this.toggleAttackMoveMode();
+          });
           document.querySelector('#btn-build-house')?.addEventListener('click', () => {
+            this.soundSystem.play('click');
             this.placementMode = { kind: 'house', width: 2, height: 2 };
             const fb = document.querySelector('#command-feedback');
             if (fb) fb.textContent = 'Clique no mapa para posicionar a Casa (2×2). Botão direito cancela.';
           });
           document.querySelector('#btn-build-barracks')?.addEventListener('click', () => {
+            this.soundSystem.play('click');
             this.placementMode = { kind: 'barracks', width: 3, height: 3 };
             const fb = document.querySelector('#command-feedback');
             if (fb) fb.textContent = 'Clique no mapa para posicionar o Quartel (3×3). Botão direito cancela.';
           });
+          if (isBuilder) {
+            document.querySelector('#btn-build-barricade')?.addEventListener('click', () => {
+              this.soundSystem.play('click');
+              this.placementMode = { kind: 'barricade', width: 1, height: 1 };
+              const fb = document.querySelector('#command-feedback');
+              if (fb) fb.textContent = 'Clique no mapa para posicionar a Barricada (1×1). Botão direito cancela.';
+            });
+            document.querySelector('#btn-build-tower')?.addEventListener('click', () => {
+              this.soundSystem.play('click');
+              this.placementMode = { kind: 'tower', width: 2, height: 2 };
+              const fb = document.querySelector('#command-feedback');
+              if (fb) fb.textContent = 'Clique no mapa para posicionar a Torre de Vigilância (2×2). Botão direito cancela.';
+            });
+          }
+        } else if (targetMode.startsWith('units:')) {
+          const militaryCount = blueUnits.filter((u) => isMilitaryKind(u.kind)).length;
+          const currentFmt = this.selection.formation;
+          actionBar.removeAttribute('hidden');
+          actionBar.innerHTML = `
+            <div class="action-bar-header">${blueUnits.length > 1 ? `${blueUnits.length} Tropas Selecionadas` : LABELS[blueUnits[0].kind]} · Comandos</div>
+            <button id="btn-attack-move" type="button" class="btn-attack-move ${this.attackMoveMode ? 'active' : ''}">Attack Move (A)</button>
+            ${militaryCount >= 2 ? `
+              <div class="action-bar-header" style="margin-top: 6px;">Formação Tática</div>
+              <div class="formation-buttons">
+                <button id="btn-formation-none" type="button" class="btn-formation btn-formation-none ${currentFmt === null ? 'active' : ''}">Livre (ESC)</button>
+                <button id="btn-formation-line" type="button" class="btn-formation ${currentFmt === 'line' ? 'active' : ''}">Linha</button>
+                <button id="btn-formation-wedge" type="button" class="btn-formation ${currentFmt === 'wedge' ? 'active' : ''}">Cunha</button>
+                <button id="btn-formation-block" type="button" class="btn-formation ${currentFmt === 'block' ? 'active' : ''}">Bloco</button>
+                <button id="btn-formation-double-rank" type="button" class="btn-formation ${currentFmt === 'double-rank' ? 'active' : ''}">2 Fileiras</button>
+              </div>
+            ` : ''}
+          `;
+          document.querySelector('#btn-attack-move')?.addEventListener('click', () => {
+            this.soundSystem.play('click');
+            this.toggleAttackMoveMode();
+          });
+          if (militaryCount >= 2) {
+            document.querySelector('#btn-formation-none')?.addEventListener('click', () => {
+              this.soundSystem.play('click');
+              this.selection.setFormation(null);
+              for (const id of this.selection.selectedIds) {
+                this.simulation.formations.removeUnit(id);
+              }
+              this.formationPreviewGraphics.clear();
+              const fb = document.querySelector('#command-feedback');
+              if (fb) fb.textContent = 'Modo Livre selecionado (sem formação). Movimentação e ataque livres.';
+              this.refreshSelection();
+            });
+            const bindFormation = (id: string, fmt: FormationType, label: string) => {
+              document.querySelector(id)?.addEventListener('click', () => {
+                this.soundSystem.play('click');
+                this.selection.setFormation(fmt);
+                const fb = document.querySelector('#command-feedback');
+                if (fb) fb.textContent = `Formação ${label} selecionada. Clique com o botão direito para movimentar.`;
+                this.refreshSelection();
+              });
+            };
+            bindFormation('#btn-formation-line', 'line', 'Linha');
+            bindFormation('#btn-formation-wedge', 'wedge', 'Cunha');
+            bindFormation('#btn-formation-block', 'block', 'Bloco');
+            bindFormation('#btn-formation-double-rank', 'double-rank', 'Duas Fileiras');
+          }
         } else if (targetMode.startsWith('base:')) {
           actionBar.removeAttribute('hidden');
           actionBar.innerHTML = `
@@ -608,16 +1927,41 @@ export class MapScene extends Phaser.Scene {
             actionBar.innerHTML = '<span id="build-progress-label" class="queue-info"></span>';
           } else {
             actionBar.innerHTML = `
-              <div class="action-bar-header">Casa · Treinamento de Operários</div>
+              <div class="action-bar-header">Casa · Treinamento</div>
               <button id="btn-produce-worker" type="button">Treinar Operário (150m, 6s)</button>
+              <button id="btn-produce-builder" type="button">Treinar Construtor (150m, 6s)</button>
+              <div style="display: flex; gap: 6px; width: 100%; margin-top: 4px;">
+                <button id="btn-set-rally" type="button" class="btn-set-rally ${this.rallyPlacementMode && this.rallyBuildingId === house.id ? 'active' : ''}">Definir Rally Point</button>
+                ${house.rallyPoint ? '<button id="btn-clear-rally" type="button" class="btn-clear-rally">Remover Rally</button>' : ''}
+              </div>
               <div id="queue-info-label" class="queue-info"></div>
             `;
             document.querySelector('#btn-produce-worker')?.addEventListener('click', () => {
               const res = this.simulation.issueCommand({ type: 'produce', team: 'blue', buildingId: house.id, unitKind: 'worker' });
+              if (res.accepted) this.soundSystem.play('order');
               const fb = document.querySelector('#command-feedback');
-              if (fb) fb.textContent = res.accepted ? 'Operário adicionado à fila de produção.' : `Produção indisponível: ${res.reason}.`;
+              if (fb) fb.textContent = res.accepted ? 'Operário adicionado à fila de produção.' : `Produção indisponível: ${rejection(res.reason)}.`;
               this.refreshSelection();
               this.refreshTeamStatus();
+            });
+            document.querySelector('#btn-produce-builder')?.addEventListener('click', () => {
+              const res = this.simulation.issueCommand({ type: 'produce', team: 'blue', buildingId: house.id, unitKind: 'builder' });
+              if (res.accepted) this.soundSystem.play('order');
+              const fb = document.querySelector('#command-feedback');
+              if (fb) fb.textContent = res.accepted ? 'Construtor adicionado à fila de produção.' : `Produção indisponível: ${rejection(res.reason)}.`;
+              this.refreshSelection();
+              this.refreshTeamStatus();
+            });
+            document.querySelector('#btn-set-rally')?.addEventListener('click', () => {
+              this.soundSystem.play('click');
+              this.toggleRallyPlacementMode(house.id);
+            });
+            document.querySelector('#btn-clear-rally')?.addEventListener('click', () => {
+              this.soundSystem.play('click');
+              const res = this.simulation.issueCommand({ type: 'set-rally-point', team: 'blue', buildingId: house.id, point: null });
+              const fb = document.querySelector('#command-feedback');
+              if (fb) fb.textContent = res.accepted ? 'Ponto de reunião removido.' : 'Erro ao remover ponto de reunião.';
+              this.refreshSelection();
             });
           }
         } else if (targetMode.startsWith('barracks:')) {
@@ -627,17 +1971,23 @@ export class MapScene extends Phaser.Scene {
             actionBar.innerHTML = '<span id="build-progress-label" class="queue-info"></span>';
           } else {
             actionBar.innerHTML = `
+              <div class="action-bar-header">Quartel · Treinamento Militar</div>
               <button id="btn-produce-soldier" type="button">Soldado (100m, 5s)</button>
               <button id="btn-produce-archer" type="button">Arqueiro (180m, 7s)</button>
               <button id="btn-produce-shieldbearer" type="button">Escudeiro (150m, 7s)</button>
               <button id="btn-produce-scout" type="button">Batedor (200m, 6s)</button>
+              <div style="display: flex; gap: 6px; width: 100%; margin-top: 4px;">
+                <button id="btn-set-rally" type="button" class="btn-set-rally ${this.rallyPlacementMode && this.rallyBuildingId === barracks.id ? 'active' : ''}">Definir Rally Point</button>
+                ${barracks.rallyPoint ? '<button id="btn-clear-rally" type="button" class="btn-clear-rally">Remover Rally</button>' : ''}
+              </div>
               <div id="queue-info-label" class="queue-info"></div>
             `;
             const bindProduce = (id: string, kind: UnitKind) => {
               document.querySelector(id)?.addEventListener('click', () => {
                 const res = this.simulation.issueCommand({ type: 'produce', team: 'blue', buildingId: barracks.id, unitKind: kind });
+                if (res.accepted) this.soundSystem.play('order');
                 const fb = document.querySelector('#command-feedback');
-                if (fb) fb.textContent = res.accepted ? `${LABELS[kind]} adicionado à fila de produção.` : `Produção indisponível: ${res.reason}.`;
+                if (fb) fb.textContent = res.accepted ? `${LABELS[kind]} adicionado à fila de produção.` : `Produção indisponível: ${rejection(res.reason)}.`;
                 this.refreshSelection();
                 this.refreshTeamStatus();
               });
@@ -646,6 +1996,28 @@ export class MapScene extends Phaser.Scene {
             bindProduce('#btn-produce-archer', 'archer');
             bindProduce('#btn-produce-shieldbearer', 'shieldbearer');
             bindProduce('#btn-produce-scout', 'scout');
+            document.querySelector('#btn-set-rally')?.addEventListener('click', () => {
+              this.soundSystem.play('click');
+              this.toggleRallyPlacementMode(barracks.id);
+            });
+            document.querySelector('#btn-clear-rally')?.addEventListener('click', () => {
+              this.soundSystem.play('click');
+              const res = this.simulation.issueCommand({ type: 'set-rally-point', team: 'blue', buildingId: barracks.id, point: null });
+              const fb = document.querySelector('#command-feedback');
+              if (fb) fb.textContent = res.accepted ? 'Ponto de reunião removido.' : 'Erro ao remover ponto de reunião.';
+              this.refreshSelection();
+            });
+          }
+        } else if (targetMode.startsWith('tower:')) {
+          const tower = (selected.find((e): e is BuildingEntity => e.category === 'building' && e.kind === 'tower' && e.team === 'blue') ?? selected[0]) as BuildingEntity;
+          actionBar.removeAttribute('hidden');
+          if (tower.underConstruction) {
+            actionBar.innerHTML = '<span id="build-progress-label" class="queue-info"></span>';
+          } else {
+            actionBar.innerHTML = `
+              <div class="action-bar-header">Torre de Vigilância</div>
+              <div class="base-info">Estrutura de observação avançada. Revela continuamente uma área de <strong>20×20 células</strong> em tempo real e <strong>detecta batedores inimigos</strong> que entrarem no seu campo de visão. Não ataca.</div>
+            `;
           }
         }
       }
@@ -671,11 +2043,26 @@ export class MapScene extends Phaser.Scene {
     }
   }
 
+  private refreshSelection(): void {
+    this.drawSelectionVisuals();
+    this.refreshSelectionDOM();
+  }
+
   private refreshTeamStatus(): void {
     const team = this.simulation.teams.blue;
     const units = this.simulation.entities.all().filter((entity) => entity.team === 'blue' && entity.category === 'unit').length;
     const teamStatus = document.querySelector('#team-status');
-    if (teamStatus) teamStatus.textContent = `Azul · ${team.coins} moedas · ${team.wood} madeira · ${units}/${BALANCE.map.unitCapPerTeam} unidades`;
+    if (teamStatus) teamStatus.textContent = `Azul · ${Math.floor(team.coins)} moedas · ${Math.floor(team.wood)} madeira · ${Math.floor(team.stone)} pedra · ${units}/${BALANCE.map.unitCapPerTeam} unidades`;
+    const cap = this.simulation.production.getCapacity('blue');
+    const capStatus = document.querySelector('#capacity-status');
+    if (capStatus) {
+      capStatus.textContent = `Civil: ${cap.civilianUnits}/${cap.civilianCapacity} · Militar: ${cap.militaryUnits}/${cap.militaryCapacity} · Total: ${cap.totalUnits}/${cap.maxTotalUnits}`;
+      const isCivilianCapped = cap.civilianCapacity > 0 && cap.civilianUnits >= cap.civilianCapacity;
+      const isMilitaryCapped = cap.militaryCapacity > 0 && cap.militaryUnits >= cap.militaryCapacity;
+      const isTotalCapped = cap.totalUnits >= cap.maxTotalUnits;
+      const isCapped = isCivilianCapped || isMilitaryCapped || isTotalCapped;
+      capStatus.classList.toggle('capacity-warning', isCapped);
+    }
   }
 
   private inspect(pointer: Phaser.Input.Pointer): void {
@@ -689,5 +2076,73 @@ export class MapScene extends Phaser.Scene {
     const fogState = this.simulation.fog.stateAt('blue', x, y);
     if (panel) panel.textContent = `Célula ${x}, ${y} · ${cell.terrain} · fog ${fogState} · ${cell.blocked || occupant ? 'ocupada/bloqueada' : 'livre'}${occupant ? ` · ${occupant.id}` : ''}`;
     document.querySelector('#game')?.setAttribute('data-cell', `${x},${y}`);
+  }
+
+  private lastEscapeTime = 0;
+
+  handleEscape(): void {
+    if (this.simulation.result) return;
+    const now = performance.now();
+    if (now - this.lastEscapeTime < 150) return;
+    this.lastEscapeTime = now;
+
+    let cancelled = false;
+    if (this.placementMode) {
+      this.placementMode = null;
+      this.barricadeDragStart = null;
+      this.barricadeLineCells = [];
+      this.barricadeLastEndCell = null;
+      this.barricadeLineValidation = null;
+      this.placementGhostGraphics.clear();
+      cancelled = true;
+    }
+    if (this.attackMoveMode) {
+      this.attackMoveMode = false;
+      this.placementGhostGraphics.clear();
+      this.formationPreviewGraphics.clear();
+      cancelled = true;
+    }
+    if (this.rallyPlacementMode) {
+      this.rallyPlacementMode = false;
+      this.rallyBuildingId = null;
+      this.placementGhostGraphics.clear();
+      cancelled = true;
+    }
+
+    // If tactical formation is active, cancel it (switch to Free Mode)
+    // and detach selected units from formation constraints so they can move/attack freely
+    if (this.selection.formation !== null) {
+      this.selection.setFormation(null);
+      for (const id of this.selection.selectedIds) {
+        this.simulation.formations.removeUnit(id);
+      }
+      this.formationPreviewGraphics.clear();
+      this.soundSystem.play('click');
+      const fb = document.querySelector('#command-feedback');
+      if (fb) fb.textContent = 'Formação desativada (Modo Livre). Movimentação e ataque livres.';
+      this.refreshSelection();
+      return;
+    }
+
+    if (cancelled) {
+      this.soundSystem.play('click');
+      const fb = document.querySelector('#command-feedback');
+      if (fb) fb.textContent = 'Comando cancelado.';
+      this.refreshSelection();
+      return;
+    }
+
+    // If already in Free Mode and units are selected, clear selection
+    if (this.selection.selectedIds.length > 0) {
+      this.selection.clear();
+      this.soundSystem.play('click');
+      this.refreshSelection();
+    }
+  }
+
+  centerCameraOn(cellX: number, cellY: number): void {
+    const clampedX = Math.max(0, Math.min(this.map.width - 1, cellX));
+    const clampedY = Math.max(0, Math.min(this.map.height - 1, cellY));
+    this.cameras.main.centerOn((clampedX + 0.5) * CELL_SIZE, (clampedY + 0.5) * CELL_SIZE);
   }
 }

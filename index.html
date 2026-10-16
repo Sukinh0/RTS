@@ -1,31 +1,74 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RTS V1</title>
-  </head>
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>RTS V1</title></head>
   <body>
     <main id="game" aria-label="Mapa RTS V1"></main>
-    <div id="hud">
-      <strong>RTS V1 <span>· MAPA DE TESTE 01</span></strong>
-      <p>Clique: selecionar · arraste esquerdo: caixa · Shift: adicionar/remover</p>
-      <p>Clique direito: mover, minerar ou coletar · arraste direito/meio ou use WASD/setas: pan · roda: zoom</p>
-      <p>Zoom: <span id="zoom-value">125%</span> · 200 × 200 células</p>
-      <p id="team-status"></p>
-      <p id="fog-status"></p>
-      <p><b id="selection-count">Nenhuma seleção</b> · <span id="selection-details">Clique em uma unidade ou base azul.</span></p>
-      <div id="action-bar" hidden></div>
-      <p id="command-feedback"></p>
+    <aside id="hud" aria-label="Painel do jogo">
+      <header><div class="header-title"><strong>RTS V1</strong><span>MAPA DE TESTE 01</span></div><div class="header-controls"><button id="btn-sound-toggle" type="button" class="btn-sound-toggle" title="Ativar/Desativar áudio">🔊 Som: ON</button><button id="btn-toggle-sandbox" type="button" class="btn-sandbox-toggle" title="Abrir/Fechar Ambiente de Testes">🧪 Sandbox</button></div></header>
+      <section class="hud-section sandbox-panel" id="sandbox-section" aria-label="Ambiente de Testes / Sandbox" hidden>
+        <div class="sandbox-header">
+          <h2>🧪 Ambiente de Testes</h2>
+          <span class="sandbox-badge">MODO TESTE</span>
+        </div>
+        <div class="sandbox-group">
+          <span class="sb-label">💰 Recursos Rápidos</span>
+          <div class="sandbox-buttons">
+            <button id="sb-add-res" type="button" class="btn-sb">+5.000 Recursos</button>
+            <button id="sb-inf-res" type="button" class="btn-sb">Infinitos (99k)</button>
+          </div>
+        </div>
+        <div class="sandbox-group">
+          <span class="sb-label">⚡ Velocidade & Construção</span>
+          <div class="sandbox-toggles">
+            <label><input type="checkbox" id="sb-fast-prod" /> Treino Instantâneo (1s)</label>
+            <label><input type="checkbox" id="sb-fast-build" /> Obra Instantânea (1s)</label>
+          </div>
+          <div class="sandbox-speed">
+            <span>Velocidade:</span>
+            <div class="speed-btn-group">
+              <button id="sb-speed-1" type="button" class="btn-speed active">1x</button>
+              <button id="sb-speed-2" type="button" class="btn-speed">2x</button>
+              <button id="sb-speed-4" type="button" class="btn-speed">4x</button>
+            </div>
+          </div>
+        </div>
+        <div class="sandbox-group">
+          <span class="sb-label">👥 Spawn Instantâneo (Azul)</span>
+          <div class="sandbox-spawn-grid">
+            <button id="sb-spawn-soldier" type="button" class="btn-sb-unit">Soldado</button>
+            <button id="sb-spawn-archer" type="button" class="btn-sb-unit">Arqueiro</button>
+            <button id="sb-spawn-shield" type="button" class="btn-sb-unit">Escudeiro</button>
+            <button id="sb-spawn-scout" type="button" class="btn-sb-unit">Batedor</button>
+            <button id="sb-spawn-builder" type="button" class="btn-sb-unit">Construtor</button>
+            <button id="sb-spawn-worker" type="button" class="btn-sb-unit">Operário</button>
+          </div>
+          <button id="sb-spawn-squad" type="button" class="btn-sb-accent">⚔️ Spawnar 5 Soldados (Grupo)</button>
+          <button id="sb-spawn-mixed-army" type="button" class="btn-sb-accent" style="margin-top: 4px;">🛡️ Spawnar Exército Misto (10 Tropas)</button>
+        </div>
+        <div class="sandbox-group">
+          <span class="sb-label">🔴 Inimigos & IA (Vermelho)</span>
+          <div class="sandbox-buttons">
+            <button id="sb-spawn-enemy-squad" type="button" class="btn-sb-danger">Spawnar 3 Inimigos no Meio</button>
+            <button id="sb-toggle-ai" type="button" class="btn-sb">Pausar IA</button>
+          </div>
+        </div>
+        <div class="sandbox-group">
+          <span class="sb-label">👁️ Visão</span>
+          <label><input type="checkbox" id="sb-reveal-map" /> Revelar Mapa Inteiro (Sem Fog)</label>
+        </div>
+      </section>
+      <div class="match-clock" aria-label="Tempo de partida"><span>Tempo de partida</span><strong id="match-timer">00:00</strong></div>
+      <section class="hud-section" id="minimap-section" aria-label="Minimapa"><h2>Minimapa</h2><div id="minimap-container"><canvas id="minimap" width="200" height="200" aria-label="Minimapa de navegação e estratégia"></canvas></div></section>
+      <section class="hud-section" aria-label="Recursos"><h2>Colônia azul</h2><p id="team-status"></p><p id="capacity-status"></p><p id="fog-status"></p></section>
+      <section class="hud-section" aria-label="Seleção"><h2 id="selection-count">Nenhuma seleção</h2><p id="selection-details">Clique em uma unidade ou base azul.</p><dl id="selection-status"></dl><div id="action-bar" hidden></div></section>
+      <section class="hud-section" aria-label="Ordens"><h2>Última ordem</h2><p id="command-feedback" role="status">Aguardando comando.</p></section>
+      <section class="hud-section" aria-label="Legenda"><h2>Legenda</h2><div class="legend"><span class="worker">Operário</span><span class="builder">Construtor</span><span class="soldier">Soldado</span><span class="archer">Arqueiro</span><span class="shieldbearer">Escudeiro</span><span class="scout">Batedor</span></div><p>Contorno azul: aliado · vermelho: inimigo · amarelo: seleção.</p></section>
+      <section class="hud-section help"><h2>Controles</h2><p>Clique: selecionar · arraste: seleção em área · Shift: somar seleção</p><p>Ctrl + 1..9: gravar grupo · 1..9: selecionar grupo</p><p>Formações: Linha, Cunha, Bloco, 2 Fileiras</p><p>Clique direito: mover/atacar em formação · A: Attack Move</p><p>Zoom: <span id="zoom-value">125%</span> · 200 × 200 células</p></section>
       <p id="inspect" hidden>Debug: clique em uma célula para inspecionar.</p>
-    </div>
+      <p id="ai-debug" hidden>Debug IA: aguardando ciclo de decisão.</p>
+    </aside>
     <section id="game-result" role="dialog" aria-modal="true" aria-labelledby="result-title" hidden>
-      <div class="result-card">
-        <h1 id="result-title"></h1>
-        <p id="result-summary"></p>
-        <dl id="result-stats"></dl>
-        <button id="restart-game" type="button">Jogar novamente</button>
-      </div>
+      <div class="result-card"><h1 id="result-title"></h1><p id="result-summary"></p><p id="result-duration"></p><div class="result-table-wrap"><table id="result-stats"><thead><tr><th scope="col">Indicador</th><th scope="col">Azul</th><th scope="col">Vermelho</th></tr></thead><tbody></tbody></table></div><p class="result-note">Produção e coleta contam apenas o que foi concluído durante a partida; o saldo inicial aparece em “restante”.</p><button id="restart-game" type="button">Jogar novamente</button></div>
     </section>
     <script type="module" src="/src/main.ts"></script>
   </body>

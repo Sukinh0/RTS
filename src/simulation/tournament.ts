@@ -11,13 +11,18 @@ export interface MatchReport {
   winner: Team | null;
   durationSeconds: number;
   firstBarracksSeconds: Record<Team, number | null>;
+  firstHouseSeconds: Record<Team, number | null>;
   firstMilitarySeconds: Record<Team, number | null>;
+  firstStoneSeconds: Record<Team, number | null>;
+  firstTowerSeconds: Record<Team, number | null>;
+  firstBarricadeSeconds: Record<Team, number | null>;
   firstCombatSeconds: number | null;
   attacks: Record<Team, number>;
   damage: Record<Team, number>;
   finalUnits: Record<Team, number>;
   finalCoins: Record<Team, number>;
   finalWood: Record<Team, number>;
+  finalStone: Record<Team, number>;
   baseHp: Record<Team, number>;
 }
 
@@ -51,13 +56,20 @@ export function runMatch(seed: number, maxSeconds = 900, aiOrder: MatchReport['a
     simulation.enableAI('blue');
   }
   const firstBarracksSeconds: Record<Team, number | null> = { blue: null, red: null };
+  const firstHouseSeconds: Record<Team, number | null> = { blue: null, red: null };
   const firstMilitarySeconds: Record<Team, number | null> = { blue: null, red: null };
+  const firstStoneSeconds: Record<Team, number | null> = { blue: null, red: null };
+  const firstTowerSeconds: Record<Team, number | null> = { blue: null, red: null };
+  const firstBarricadeSeconds: Record<Team, number | null> = { blue: null, red: null };
   const attacks: Record<Team, number> = { blue: 0, red: 0 };
   const damage: Record<Team, number> = { blue: 0, red: 0 };
   let firstCombatSeconds: number | null = null;
 
   for (let second = 1; second <= maxSeconds && !simulation.result; second += 1) {
     simulation.advance(1000);
+    simulation.movement.drainEvents();
+    simulation.movement.drainFailures();
+    simulation.map.drainDirtyCells();
     const elapsed = simulation.clock.ticks / TICKS_PER_SECOND;
     for (const event of simulation.combat.drainEvents()) {
       const team = event.attackerTeam as Team;
@@ -70,8 +82,20 @@ export function runMatch(seed: number, maxSeconds = 900, aiOrder: MatchReport['a
       if (firstBarracksSeconds[team] === null && entities.some((entity) => entity.kind === 'barracks' && entity.category === 'building' && !entity.underConstruction)) {
         firstBarracksSeconds[team] = elapsed;
       }
-      if (firstMilitarySeconds[team] === null && entities.some((entity) => entity.category === 'unit' && entity.kind !== 'worker')) {
+      if (firstHouseSeconds[team] === null && entities.some((entity) => entity.kind === 'house' && entity.category === 'building' && !entity.underConstruction)) {
+        firstHouseSeconds[team] = elapsed;
+      }
+      if (firstMilitarySeconds[team] === null && entities.some((entity) => entity.category === 'unit' && entity.kind !== 'worker' && entity.kind !== 'builder')) {
         firstMilitarySeconds[team] = elapsed;
+      }
+      if (firstStoneSeconds[team] === null && (simulation.teams[team].stone > 0 || simulation.stats.snapshot()[team].stoneCollected > 0)) {
+        firstStoneSeconds[team] = elapsed;
+      }
+      if (firstTowerSeconds[team] === null && entities.some((entity) => entity.kind === 'tower' && entity.category === 'building' && !entity.underConstruction)) {
+        firstTowerSeconds[team] = elapsed;
+      }
+      if (firstBarricadeSeconds[team] === null && entities.some((entity) => entity.kind === 'barricade' && entity.category === 'building' && !entity.underConstruction)) {
+        firstBarricadeSeconds[team] = elapsed;
       }
     }
   }
@@ -84,7 +108,11 @@ export function runMatch(seed: number, maxSeconds = 900, aiOrder: MatchReport['a
     winner: simulation.result?.winner ?? null,
     durationSeconds: rounded(simulation.clock.ticks / TICKS_PER_SECOND),
     firstBarracksSeconds,
+    firstHouseSeconds,
     firstMilitarySeconds,
+    firstStoneSeconds,
+    firstTowerSeconds,
+    firstBarricadeSeconds,
     firstCombatSeconds,
     attacks,
     damage,
@@ -94,6 +122,7 @@ export function runMatch(seed: number, maxSeconds = 900, aiOrder: MatchReport['a
     },
     finalCoins: { blue: simulation.teams.blue.coins, red: simulation.teams.red.coins },
     finalWood: { blue: simulation.teams.blue.wood, red: simulation.teams.red.wood },
+    finalStone: { blue: simulation.teams.blue.stone, red: simulation.teams.red.stone },
     baseHp: { blue: baseHp('blue'), red: baseHp('red') },
   };
 }
@@ -145,13 +174,18 @@ function markdown(report: TournamentReport): string {
     '', '## Marcos médios', '',
     '| Marco | Azul | Vermelho |', '|---|---:|---:|',
     `| Primeiro quartel | ${rounded(average(report.matches.flatMap((m) => m.firstBarracksSeconds.blue === null ? [] : [m.firstBarracksSeconds.blue])))}s | ${rounded(average(report.matches.flatMap((m) => m.firstBarracksSeconds.red === null ? [] : [m.firstBarracksSeconds.red])))}s |`,
+    `| Primeira casa | ${rounded(average(report.matches.flatMap((m) => m.firstHouseSeconds.blue === null ? [] : [m.firstHouseSeconds.blue])))}s | ${rounded(average(report.matches.flatMap((m) => m.firstHouseSeconds.red === null ? [] : [m.firstHouseSeconds.red])))}s |`,
     `| Primeira tropa | ${rounded(average(report.matches.flatMap((m) => m.firstMilitarySeconds.blue === null ? [] : [m.firstMilitarySeconds.blue])))}s | ${rounded(average(report.matches.flatMap((m) => m.firstMilitarySeconds.red === null ? [] : [m.firstMilitarySeconds.red])))}s |`,
+    `| Primeira pedra | ${rounded(average(report.matches.flatMap((m) => m.firstStoneSeconds.blue === null ? [] : [m.firstStoneSeconds.blue])))}s | ${rounded(average(report.matches.flatMap((m) => m.firstStoneSeconds.red === null ? [] : [m.firstStoneSeconds.red])))}s |`,
+    `| Primeira torre | ${rounded(average(report.matches.flatMap((m) => m.firstTowerSeconds.blue === null ? [] : [m.firstTowerSeconds.blue])))}s | ${rounded(average(report.matches.flatMap((m) => m.firstTowerSeconds.red === null ? [] : [m.firstTowerSeconds.red])))}s |`,
+    `| Primeira barricada | ${rounded(average(report.matches.flatMap((m) => m.firstBarricadeSeconds.blue === null ? [] : [m.firstBarricadeSeconds.blue])))}s | ${rounded(average(report.matches.flatMap((m) => m.firstBarricadeSeconds.red === null ? [] : [m.firstBarricadeSeconds.red])))}s |`,
     `| Ataques por partida | ${rounded(average(report.matches.map((m) => m.attacks.blue)))} | ${rounded(average(report.matches.map((m) => m.attacks.red)))} |`,
     `| Dano por partida | ${rounded(average(report.matches.map((m) => m.damage.blue)))} | ${rounded(average(report.matches.map((m) => m.damage.red)))} |`,
+    `| Pedra final média | ${rounded(average(report.matches.map((m) => m.finalStone.blue)))} | ${rounded(average(report.matches.map((m) => m.finalStone.red)))} |`,
     '', '## Partidas', '',
-    '| Seed | Ordem IA | Resultado | Duração | 1ª tropa azul | 1ª tropa vermelha | 1º combate | HP base azul | HP base vermelha |',
-    '|---:|---|---|---:|---:|---:|---:|---:|---:|',
-    ...report.matches.map((m) => `| ${m.seed} | ${m.aiOrder} | ${m.winner ?? 'empate'} | ${m.durationSeconds}s | ${m.firstMilitarySeconds.blue ?? '—'} | ${m.firstMilitarySeconds.red ?? '—'} | ${m.firstCombatSeconds ?? '—'} | ${m.baseHp.blue} | ${m.baseHp.red} |`),
+    '| Seed | Ordem IA | Resultado | Duração | 1ª tropa azul | 1ª tropa vermelha | 1ª pedra azul | 1ª pedra vermelha | 1º combate | HP base azul | HP base vermelha |',
+    '|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|',
+    ...report.matches.map((m) => `| ${m.seed} | ${m.aiOrder} | ${m.winner ?? 'empate'} | ${m.durationSeconds}s | ${m.firstMilitarySeconds.blue ?? '—'} | ${m.firstMilitarySeconds.red ?? '—'} | ${m.firstStoneSeconds.blue ?? '—'} | ${m.firstStoneSeconds.red ?? '—'} | ${m.firstCombatSeconds ?? '—'} | ${m.baseHp.blue} | ${m.baseHp.red} |`),
     '',
   ];
   return lines.join('\n');

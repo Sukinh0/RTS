@@ -65,6 +65,7 @@ describe('Fase 5 economy', () => {
     expect(simulation.teams.blue.coins).toBe(110);
     advanceSeconds(simulation, 40);
     expect(simulation.teams.blue.wood).toBeGreaterThanOrEqual(BALANCE.startingState.wood + BALANCE.economy.wood.workerCapacity);
+    expect(simulation.stats.snapshot().blue.woodCollected).toBe(simulation.teams.blue.wood - BALANCE.startingState.wood);
     expect(simulation.economy.taskFor('blue-worker-1')?.kind).toBe('gather');
     expect(simulation.map.cellAt(54, 84)?.terrain).toBe('plain');
   });
@@ -84,7 +85,8 @@ describe('Fase 5 economy', () => {
 
     // Worker returns to base to deposit, then redirects to another forest cell
     advanceSeconds(simulation, 40);
-    expect(simulation.teams.blue.wood).toBe(BALANCE.startingState.wood + 20);
+    expect(simulation.teams.blue.wood).toBeGreaterThanOrEqual(BALANCE.startingState.wood + 20);
+    expect((simulation.teams.blue.wood - BALANCE.startingState.wood) % 20).toBe(0);
     const task = simulation.economy.taskFor('blue-worker-1');
     expect(task?.kind).toBe('gather');
     expect(simulation.map.cellAt(task!.workCell[0], task!.workCell[1])?.terrain).toBe('forest');
@@ -98,12 +100,69 @@ describe('Fase 5 economy', () => {
 
   it('rejects work orders for hidden or wrong terrain and nonworkers', () => {
     const simulation = new Simulation(1);
-    expect(simulation.issueCommand({ type: 'mine', team: 'blue', unitId: 'blue-worker-1', target: [58, 62] }))
+    simulation.map.setTerrain(100, 20, 'mine');
+    expect(simulation.issueCommand({ type: 'mine', team: 'blue', unitId: 'blue-worker-1', target: [100, 20] }))
       .toEqual({ accepted: false, reason: 'invalid-destination' });
     expect(simulation.issueCommand({ type: 'gather', team: 'blue', unitId: 'blue-worker-1', target: [25, 99] }))
       .toEqual({ accepted: false, reason: 'wrong-terrain' });
     const soldier = simulation.entities.spawnUnit('blue', 'soldier', 27, 99);
     expect(simulation.issueCommand({ type: 'gather', team: 'blue', unitId: soldier.id, target: [25, 99] }))
       .toEqual({ accepted: false, reason: 'not-worker' });
+  });
+
+  it('gathers stone to capacity, returns to base and deposits stone', () => {
+    const simulation = new Simulation(1);
+    // (42, 70) is a stone deposit patch in map-test-01
+    expect(simulation.map.cellAt(42, 70)?.terrain).toBe('stone');
+    expect(simulation.entities.moveUnit('blue-worker-1', 42, 70)).toBe(true);
+    simulation.fog.update();
+    expect(simulation.issueCommand({ type: 'gather', team: 'blue', unitId: 'blue-worker-1', target: [42, 70] }).accepted).toBe(true);
+    
+    // Gathers for 10 seconds (20 stone = capacity)
+    advanceSeconds(simulation, 10);
+    expect(simulation.entities.get('blue-worker-1')).toMatchObject({ carriedStone: BALANCE.economy.stone.workerCapacity });
+    expect(simulation.teams.blue.stone).toBe(BALANCE.startingState.stone);
+    expect(simulation.map.cellAt(42, 70)?.terrain).toBe('plain');
+
+    // Worker returns to base to deposit, then redirects to another stone cell
+    advanceSeconds(simulation, 40);
+    expect(simulation.teams.blue.stone).toBeGreaterThanOrEqual(BALANCE.startingState.stone + BALANCE.economy.stone.workerCapacity);
+    expect(simulation.stats.snapshot().blue.stoneCollected).toBe(simulation.teams.blue.stone - BALANCE.startingState.stone);
+    const task = simulation.economy.taskFor('blue-worker-1');
+    expect(task?.kind).toBe('gather');
+    expect((task as { resourceKind?: string })?.resourceKind).toBe('stone');
+  });
+
+  it('depletes stone cell upon harvest and redirects worker to adjacent stone', () => {
+    const simulation = new Simulation(1);
+    expect(simulation.map.cellAt(45, 125)?.terrain).toBe('stone');
+    simulation.entities.moveUnit('blue-worker-1', 45, 125);
+    simulation.fog.update();
+    expect(simulation.issueCommand({ type: 'gather', team: 'blue', unitId: 'blue-worker-1', target: [45, 125] }).accepted).toBe(true);
+
+    advanceSeconds(simulation, 10);
+    const worker = simulation.entities.get('blue-worker-1');
+    expect(worker?.category === 'unit' && worker.carriedStone).toBe(20);
+    expect(simulation.map.cellAt(45, 125)?.terrain).toBe('plain');
+
+    advanceSeconds(simulation, 40);
+    expect(simulation.teams.blue.stone).toBeGreaterThanOrEqual(20);
+    const task = simulation.economy.taskFor('blue-worker-1');
+    expect(task?.kind).toBe('gather');
+    expect(simulation.map.cellAt(task!.workCell[0], task!.workCell[1])?.terrain).toBe('stone');
+    expect(task!.workCell).not.toEqual([45, 125]);
+  });
+
+  it('garante que todos os recursos permanecem estritamente inteiros ao longo de avanços e coletas', () => {
+    const simulation = new Simulation(1);
+    for (let i = 0; i < 100; i += 1) {
+      simulation.advance(FIXED_STEP_MS);
+      expect(Number.isInteger(simulation.teams.blue.coins)).toBe(true);
+      expect(Number.isInteger(simulation.teams.blue.wood)).toBe(true);
+      expect(Number.isInteger(simulation.teams.blue.stone)).toBe(true);
+      expect(Number.isInteger(simulation.teams.red.coins)).toBe(true);
+      expect(Number.isInteger(simulation.teams.red.wood)).toBe(true);
+      expect(Number.isInteger(simulation.teams.red.stone)).toBe(true);
+    }
   });
 });

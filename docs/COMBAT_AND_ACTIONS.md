@@ -42,3 +42,9 @@ Tem prioridade sobre autoalvo.
 - Reflexão: floor(dano * 0.8).
 - O escudeiro recebe o dano integral.
 - Reflexão não gera nova reflexão em cadeia.
+
+## Marcha ofensiva e resolução simultânea
+
+Soldados e arqueiros em ordem de movimento procuram unidades ou construções inimigas dentro da própria visão, respeitando fog e furtividade. Ao encontrar um alvo, suspendem o destino, aproximam-se até o alcance e atacam. Quando o alvo morre ou deixa a visão, retomam a marcha. Uma ordem manual de ataque tem prioridade. O operário causa 4 de dano a alcance 1 quando recebe ordem manual ou quando um inimigo está adjacente e ele está livre para agir; seu trajeto de coleta não é desviado automaticamente para perseguir inimigos. Escudeiro e batedor continuam sem dano ofensivo.
+
+O movimento tem intervalo de 1s entre ações. O intervalo de ataque permanece no valor da unidade; para o arqueiro são 4s. Ataques iniciados no mesmo tick são aplicados em conjunto antes de remover entidades mortas, evitando vantagem sistemática da equipe processada primeiro.

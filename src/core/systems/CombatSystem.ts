@@ -64,14 +64,13 @@ export class CombatSystem {
   }
 
   update(currentTick: number): number {
-    let attacksExecuted = 0;
+    if (this.isGameOver?.()) return 0;
+    const planned: Array<{ attacker: UnitEntity; target: GameEntity }> = [];
     const attackers = this.entities.all()
       .filter((e): e is UnitEntity => e.category === 'unit' && e.damage > 0 && e.hp > 0)
       .sort((a, b) => a.id.localeCompare(b.id));
 
     for (const attacker of attackers) {
-      if (this.isGameOver?.()) break;
-      if (attacker.hp <= 0 || !this.entities.get(attacker.id)) continue;
       if (currentTick < attacker.cooldownUntilTick) continue;
       if (attacker.moveTarget !== null) continue;
 
@@ -85,15 +84,14 @@ export class CombatSystem {
           this.fog.isEntityVisible(attacker.team, manualTarget) &&
           this.distance(attacker, manualTarget) <= attacker.range
         ) {
-          this.executeAttack(attacker, manualTarget, currentTick);
-          attacksExecuted += 1;
+          planned.push({ attacker, target: manualTarget });
           continue;
         } else {
           this.manualTargets.delete(attacker.id);
         }
       }
 
-      const candidates = this.entities.all().filter((target) => {
+      const candidates = this.entities.nearby(attacker.x, attacker.y, attacker.range).filter((target) => {
         if (target.team === attacker.team || target.hp <= 0) return false;
         if (!this.fog.isEntityVisible(attacker.team, target)) return false;
         return this.distance(attacker, target) <= attacker.range;
@@ -108,12 +106,15 @@ export class CombatSystem {
           return a.id.localeCompare(b.id);
         });
         const bestTarget = candidates[0];
-        this.executeAttack(attacker, bestTarget, currentTick);
-        attacksExecuted += 1;
+        planned.push({ attacker, target: bestTarget });
       }
     }
 
-    return attacksExecuted;
+    for (const { attacker, target } of planned) this.executeAttack(attacker, target, currentTick, true);
+    for (const entity of this.entities.all()) {
+      if (entity.hp <= 0) this.killEntity(entity);
+    }
+    return planned.length;
   }
 
   distance(attacker: UnitEntity, target: GameEntity): number {
@@ -129,7 +130,7 @@ export class CombatSystem {
     return this.events.splice(0);
   }
 
-  private executeAttack(attacker: UnitEntity, target: GameEntity, currentTick: number): void {
+  private executeAttack(attacker: UnitEntity, target: GameEntity, currentTick: number, deferDeath = false): void {
     const damage = attacker.damage;
     target.hp = Math.max(0, target.hp - damage);
     attacker.cooldownUntilTick = currentTick + Math.round(attacker.cooldownSeconds * TICKS_PER_SECOND);
@@ -160,11 +161,9 @@ export class CombatSystem {
       reflectedDamage,
     });
 
-    if (target.hp <= 0) {
-      this.killEntity(target);
-    }
-    if (attacker.hp <= 0) {
-      this.killEntity(attacker);
+    if (!deferDeath) {
+      if (target.hp <= 0) this.killEntity(target);
+      if (attacker.hp <= 0) this.killEntity(attacker);
     }
   }
 

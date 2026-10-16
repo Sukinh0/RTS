@@ -14,6 +14,7 @@ export interface FogCellView {
 
 interface TeamFog {
   state: Uint8Array;
+  visible: Uint8Array;
   terrain: Array<Terrain | null>;
   buildings: Map<number, BuildingMemory>;
 }
@@ -27,6 +28,7 @@ export class FogOfWar {
   constructor(private readonly map: MapGrid, private readonly entities: EntityStore) {
     const makeFog = (): TeamFog => ({
       state: new Uint8Array(map.width * map.height),
+      visible: new Uint8Array(map.width * map.height),
       terrain: Array<Terrain | null>(map.width * map.height).fill(null),
       buildings: new Map(),
     });
@@ -71,8 +73,9 @@ export class FogOfWar {
   isEntityVisible(team: Team, entity: GameEntity): boolean {
     if (entity.team === team) return true;
     if (entity.category === 'unit') {
-      return this.stateAt(team, entity.x, entity.y) === 'visible'
-        && (entity.kind !== 'scout' || this.scoutDetected(entity));
+      if (this.stateAt(team, entity.x, entity.y) !== 'visible') return false;
+      if (entity.kind !== 'scout') return true;
+      return this.isWithinTowerVision(team, entity.x, entity.y) || this.scoutDetected(entity);
     }
     for (let y = entity.y; y < entity.y + entity.height; y += 1) {
       for (let x = entity.x; x < entity.x + entity.width; x += 1) {
@@ -82,9 +85,26 @@ export class FogOfWar {
     return false;
   }
 
+  isWithinTowerVision(team: Team, x: number, y: number): boolean {
+    for (const entity of this.entities.all()) {
+      if (entity.team === team && entity.category === 'building' && entity.kind === 'tower' && !entity.underConstruction) {
+        const halfSpan = 9;
+        const minX = entity.x - halfSpan;
+        const maxX = entity.x + entity.width - 1 + halfSpan;
+        const minY = entity.y - halfSpan;
+        const maxY = entity.y + entity.height - 1 + halfSpan;
+        if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   private updateTeam(team: Team): void {
     const fog = this.teams[team];
-    const visible = new Uint8Array(this.map.width * this.map.height);
+    const visible = fog.visible;
+    visible.fill(0);
     for (const entity of this.entities.all()) {
       if (entity.team !== team) continue;
       if (entity.category === 'unit') {
@@ -95,12 +115,27 @@ export class FogOfWar {
           }
         }
       } else {
-        const radius = BALANCE.buildings[entity.kind].vision;
-        for (let y = Math.max(0, entity.y - radius); y <= Math.min(this.map.height - 1, entity.y + entity.height - 1 + radius); y += 1) {
-          for (let x = Math.max(0, entity.x - radius); x <= Math.min(this.map.width - 1, entity.x + entity.width - 1 + radius); x += 1) {
-            const nearestX = Math.max(entity.x, Math.min(x, entity.x + entity.width - 1));
-            const nearestY = Math.max(entity.y, Math.min(y, entity.y + entity.height - 1));
-            if ((x - nearestX) ** 2 + (y - nearestY) ** 2 <= radius ** 2) visible[this.index(x, y)] = 1;
+        if (entity.kind === 'tower') {
+          if (!entity.underConstruction) {
+            const halfSpan = 9;
+            const minX = Math.max(0, entity.x - halfSpan);
+            const maxX = Math.min(this.map.width - 1, entity.x + entity.width - 1 + halfSpan);
+            const minY = Math.max(0, entity.y - halfSpan);
+            const maxY = Math.min(this.map.height - 1, entity.y + entity.height - 1 + halfSpan);
+            for (let y = minY; y <= maxY; y += 1) {
+              for (let x = minX; x <= maxX; x += 1) {
+                visible[this.index(x, y)] = 1;
+              }
+            }
+          }
+        } else {
+          const radius = BALANCE.buildings[entity.kind].vision;
+          for (let y = Math.max(0, entity.y - radius); y <= Math.min(this.map.height - 1, entity.y + entity.height - 1 + radius); y += 1) {
+            for (let x = Math.max(0, entity.x - radius); x <= Math.min(this.map.width - 1, entity.x + entity.width - 1 + radius); x += 1) {
+              const nearestX = Math.max(entity.x, Math.min(x, entity.x + entity.width - 1));
+              const nearestY = Math.max(entity.y, Math.min(y, entity.y + entity.height - 1));
+              if ((x - nearestX) ** 2 + (y - nearestY) ** 2 <= radius ** 2) visible[this.index(x, y)] = 1;
+            }
           }
         }
       }
@@ -124,7 +159,7 @@ export class FogOfWar {
 
   private scoutDetected(scout: UnitEntity): boolean {
     const maxDistance = BALANCE.units.scout.stealthDetectionDistance;
-    return this.entities.all().some((enemy) => {
+    return this.entities.nearby(scout.x, scout.y, maxDistance).some((enemy) => {
       if (enemy.team === scout.team) return false;
       const nearestX = enemy.category === 'building'
         ? Math.max(enemy.x, Math.min(scout.x, enemy.x + enemy.width - 1)) : enemy.x;

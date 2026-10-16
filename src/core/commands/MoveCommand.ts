@@ -6,6 +6,14 @@ export interface MoveCommand {
   team: Team;
   unitId: string;
   destination: Point;
+  attackMove?: boolean;
+}
+
+export interface AttackMoveCommand {
+  type: 'attack-move';
+  team: Team;
+  unitId: string;
+  destination: Point;
 }
 
 export interface WorkCommand {
@@ -19,8 +27,16 @@ export interface BuildCommand {
   type: 'build';
   team: Team;
   builderId: string;
-  buildingKind: Extract<BuildingKind, 'house' | 'barracks'>;
+  buildingKind: Extract<BuildingKind, 'house' | 'barracks' | 'barricade' | 'tower'>;
   position: Point;
+}
+
+export interface BuildLineCommand {
+  type: 'build-line';
+  team: Team;
+  builderId: string;
+  buildingKind: 'barricade';
+  cells: Point[];
 }
 
 export interface ProduceCommand {
@@ -37,26 +53,57 @@ export interface AttackCommand {
   targetId: string;
 }
 
-export type GameCommand = MoveCommand | WorkCommand | BuildCommand | ProduceCommand | AttackCommand;
+export interface RepairCommand {
+  type: 'repair';
+  team: Team;
+  builderId: string;
+  buildingId: string;
+}
+
+export interface SetRallyPointCommand {
+  type: 'set-rally-point';
+  team: Team;
+  buildingId: string;
+  point: Point | null;
+}
+
+export type GameCommand =
+  | MoveCommand
+  | AttackMoveCommand
+  | WorkCommand
+  | BuildCommand
+  | BuildLineCommand
+  | ProduceCommand
+  | AttackCommand
+  | RepairCommand
+  | SetRallyPointCommand;
 
 export type CommandFailureReason =
   | 'game-over'
   | 'unknown-unit'
   | 'wrong-owner'
+  | 'unsupported-building'
   | 'cooldown'
   | 'invalid-destination'
   | 'no-path'
   | 'already-there'
   | 'not-worker'
+  | 'not-builder'
   | 'wrong-terrain'
   | 'mine-full'
   | 'unknown-building'
   | 'under-construction'
   | 'invalid-unit-kind'
   | 'unit-cap-reached'
+  | 'civilian-capacity-reached'
+  | 'military-capacity-reached'
   | 'insufficient-coins'
   | 'insufficient-wood'
+  | 'insufficient-stone'
+  | 'building-limit-reached'
+  | 'building-at-max-hp'
   | 'invalid-position'
+  | 'out-of-build-range'
   | 'blocked'
   | 'unexplored'
   | 'cannot-attack'

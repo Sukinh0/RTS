@@ -2,17 +2,20 @@
 
 ## Movimento por ação (Fase 3)
 
-Os documentos definem alcance de movimento por ação e cooldown, mas não especificam se uma ordem distante precisa ser repetida manualmente. A implementação atual aplica cada segmento de até `movement` células em um tick e continua a rota automaticamente após cada cooldown. O jogador não pode substituir a ordem durante o cooldown. A apresentação interpola visualmente cada célula da rota em 90 ms, sem alterar a posição lógica ou o cooldown da simulação.
+Os documentos definem alcance de movimento por ação e cooldown, mas não especificam se uma ordem distante precisa ser repetida manualmente. A implementação atual aplica cada segmento de até `movement` células em um tick e continua a rota automaticamente após cada cooldown. O jogador não pode substituir a ordem durante o cooldown. Após o playtest, o intervalo entre ações de movimento é de 1 segundo para todas as unidades; a apresentação interpola o trajeto ao longo desse segundo, sem alterar a posição lógica ou o cooldown da simulação. O cooldown de ataque permanece próprio de cada classe.
 
 Também não há regra explícita para diagonais entre dois bloqueios ortogonais. O A* impede esse corte de quina, para não atravessar células bloqueadas.
 
 Confirmar essas interpretações antes de ajustar IA e cenários de combate nas próximas fases.
 
-## Visão de construções e medida de distância (Fase 4)
+## Visão de construções e medida de distância (Fase 4 e revisão pós-playtest)
 
-Os documentos mencionam visão por construções, mas não forneciam raio para elas. O valor inicial de `vision: 5` foi incluído em `balance.v1.json` para base, casa e quartel; construções aliadas revelam células nesse raio a partir do ponto mais próximo do próprio footprint. Confirmar o valor nos playtests.
+Conforme os ajustes pós-playtest, o raio de visão das construções foi expandido e centralizado em `config/balance.v1.json`:
+- **Base**: visão de 40 células a partir do footprint.
+- **Casa e Quartel**: visão de 30 células a partir do footprint.
+- **Raio de construção**: Casas e Quartéis possuem distância máxima permitida de **80 células** a partir do centro da Base (`BALANCE.construction.maxDistanceFromBase`).
 
-Raio de visão e distância de detecção do batedor usam distância euclidiana entre células. Construções inimigas contam para a proximidade que revela um batedor, usando o ponto mais próximo do footprint. Confirmar essas interpretações antes da IA e do combate.
+Raio de visão e distância de detecção do batedor usam distância euclidiana entre células. Construções inimigas contam para a proximidade que revela um batedor, usando o ponto mais próximo do footprint. Confirmar esses novos alcances em playtest contínuo.
 
 ## Trabalho econômico (Fase 5)
 
@@ -48,6 +51,7 @@ Conforme a especificação de `docs/GAME_RULES.md`, a Base não produz nenhuma u
 - **Memória de Construções e Inimigos**: A IA memoriza posições de minas e florestas vistas no território explorado. Se um edifício inimigo memorizado for revisitado na visão direta e tiver sido destruído, a memória é atualizada e a anotação limpa.
 - **Limiares de Intenção e Composição**:
   - *Defesa*: ativa imediatamente quando qualquer inimigo visível estiver a uma distância <= 30 da base da IA.
-  - *Ataque*: quando o exército atinge o limiar de 4 unidades (se a base inimiga já foi avistada) ou 5 unidades (para marchar em direção ao quadrante inimigo).
+  - *Ataque*: após o playtest, a IA começa a pressionar com 2 unidades capazes de causar dano, mantendo coleta, construção e produção no mesmo ciclo de decisão. Batedores não contam para esse limiar nem recebem ordens de ataque.
   - *Composição*: prioriza manter pelo menos 1 batedor para exploração furtiva, seguido por rotação equilibrada de Soldados, Arqueiros e Escudeiros.
 
+Após o playtest, a IA passou a reservar 150 moedas para Casa e operários depois do primeiro soldado. Ela mantém no máximo um coletor de madeira ativo, procura minas além da primeira floresta e usa operários livres para renda passiva enquanto não encontra mina. A meta inicial é três operários e sobe para quatro após três atacantes. Em invasões, tropas próximas à base defendem, enquanto o grupo distante mantém a marcha. Confirmar esses limiares em novas partidas humanas; a simulação IA vs IA continua limitada pelo número de empates.

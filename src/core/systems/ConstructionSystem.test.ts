@@ -9,6 +9,29 @@ function advanceSeconds(simulation: Simulation, seconds: number): void {
 }
 
 describe('Fase 6 construction', () => {
+  it('limits house and barracks placement to 80 cells from the base center', () => {
+    const simulation = new Simulation(1);
+    simulation.teams.blue.coins = 500;
+    simulation.teams.blue.wood = 500;
+    for (const buildingKind of ['house', 'barracks'] as const) {
+      expect(simulation.issueCommand({
+        type: 'build', team: 'blue', builderId: 'blue-worker-1', buildingKind, position: [102, 101],
+      })).toEqual({ accepted: false, reason: 'out-of-build-range' });
+    }
+    expect(simulation.teams.blue).toEqual({ coins: 500, wood: 500, stone: 0 });
+
+    const candidates: Array<[number, number]> = [[101, 101], [21, 181], [21, 21],
+      [69, 165], [69, 37], [85, 149], [85, 53]];
+    const spot = candidates.find(([x, y]) => simulation.entities.isAreaFreeForBuilding(x, y, 2, 2)
+      && simulation.entities.isFreeForUnit(x - 1, y, 'blue-worker-1'));
+    expect(spot).toBeDefined();
+    expect(simulation.entities.moveUnit('blue-worker-1', spot![0] - 1, spot![1])).toBe(true);
+    simulation.fog.update();
+    expect(simulation.issueCommand({
+      type: 'build', team: 'blue', builderId: 'blue-worker-1', buildingKind: 'house', position: spot!,
+    })).toEqual({ accepted: true });
+  });
+
   it('validates costs and rejects when resources are insufficient', () => {
     const simulation = new Simulation(1);
     simulation.teams.blue.coins = 50;

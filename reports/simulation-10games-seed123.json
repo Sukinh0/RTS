@@ -1,0 +1,605 @@
+{
+  "balanceVersion": "0.1.0",
+  "games": 10,
+  "initialSeed": 123,
+  "maxSeconds": 900,
+  "wins": {
+    "blue": 0,
+    "red": 0
+  },
+  "draws": 10,
+  "averageDurationSeconds": 900,
+  "medianDurationSeconds": 900,
+  "matches": [
+    {
+      "seed": 123,
+      "aiOrder": "blue-first",
+      "winner": null,
+      "durationSeconds": 900,
+      "firstBarracksSeconds": {
+        "blue": 151,
+        "red": 143
+      },
+      "firstHouseSeconds": {
+        "blue": 266,
+        "red": 288
+      },
+      "firstMilitarySeconds": {
+        "blue": 156,
+        "red": 188
+      },
+      "firstStoneSeconds": {
+        "blue": 400,
+        "red": 272
+      },
+      "firstTowerSeconds": {
+        "blue": 649,
+        "red": 641
+      },
+      "firstBarricadeSeconds": {
+        "blue": 527,
+        "red": 519
+      },
+      "firstCombatSeconds": null,
+      "attacks": {
+        "blue": 0,
+        "red": 0
+      },
+      "damage": {
+        "blue": 0,
+        "red": 0
+      },
+      "finalUnits": {
+        "blue": 9,
+        "red": 8
+      },
+      "finalCoins": {
+        "blue": 27,
+        "red": 69
+      },
+      "finalWood": {
+        "blue": 280,
+        "red": 180
+      },
+      "finalStone": {
+        "blue": 230,
+        "red": 390
+      },
+      "baseHp": {
+        "blue": 150,
+        "red": 150
+      }
+    },
+    {
+      "seed": 123,
+      "aiOrder": "red-first",
+      "winner": null,
+      "durationSeconds": 900,
+      "firstBarracksSeconds": {
+        "blue": 143,
+        "red": 151
+      },
+      "firstHouseSeconds": {
+        "blue": 288,
+        "red": 266
+      },
+      "firstMilitarySeconds": {
+        "blue": 188,
+        "red": 156
+      },
+      "firstStoneSeconds": {
+        "blue": 270,
+        "red": 404
+      },
+      "firstTowerSeconds": {
+        "blue": 641,
+        "red": 647
+      },
+      "firstBarricadeSeconds": {
+        "blue": 519,
+        "red": 527
+      },
+      "firstCombatSeconds": null,
+      "attacks": {
+        "blue": 0,
+        "red": 0
+      },
+      "damage": {
+        "blue": 0,
+        "red": 0
+      },
+      "finalUnits": {
+        "blue": 8,
+        "red": 7
+      },
+      "finalCoins": {
+        "blue": 119,
+        "red": 127
+      },
+      "finalWood": {
+        "blue": 180,
+        "red": 260
+      },
+      "finalStone": {
+        "blue": 390,
+        "red": 330
+      },
+      "baseHp": {
+        "blue": 150,
+        "red": 150
+      }
+    },
+    {
+      "seed": 124,
+      "aiOrder": "blue-first",
+      "winner": null,
+      "durationSeconds": 900,
+      "firstBarracksSeconds": {
+        "blue": 143,
+        "red": 143
+      },
+      "firstHouseSeconds": {
+        "blue": 288,
+        "red": 288
+      },
+      "firstMilitarySeconds": {
+        "blue": 188,
+        "red": 188
+      },
+      "firstStoneSeconds": {
+        "blue": 270,
+        "red": 272
+      },
+      "firstTowerSeconds": {
+        "blue": 641,
+        "red": 641
+      },
+      "firstBarricadeSeconds": {
+        "blue": 519,
+        "red": 519
+      },
+      "firstCombatSeconds": null,
+      "attacks": {
+        "blue": 0,
+        "red": 0
+      },
+      "damage": {
+        "blue": 0,
+        "red": 0
+      },
+      "finalUnits": {
+        "blue": 8,
+        "red": 8
+      },
+      "finalCoins": {
+        "blue": 119,
+        "red": 69
+      },
+      "finalWood": {
+        "blue": 180,
+        "red": 180
+      },
+      "finalStone": {
+        "blue": 390,
+        "red": 390
+      },
+      "baseHp": {
+        "blue": 150,
+        "red": 150
+      }
+    },
+    {
+      "seed": 124,
+      "aiOrder": "red-first",
+      "winner": null,
+      "durationSeconds": 900,
+      "firstBarracksSeconds": {
+        "blue": 143,
+        "red": 143
+      },
+      "firstHouseSeconds": {
+        "blue": 288,
+        "red": 288
+      },
+      "firstMilitarySeconds": {
+        "blue": 188,
+        "red": 188
+      },
+      "firstStoneSeconds": {
+        "blue": 270,
+        "red": 272
+      },
+      "firstTowerSeconds": {
+        "blue": 641,
+        "red": 641
+      },
+      "firstBarricadeSeconds": {
+        "blue": 519,
+        "red": 519
+      },
+      "firstCombatSeconds": null,
+      "attacks": {
+        "blue": 0,
+        "red": 0
+      },
+      "damage": {
+        "blue": 0,
+        "red": 0
+      },
+      "finalUnits": {
+        "blue": 8,
+        "red": 8
+      },
+      "finalCoins": {
+        "blue": 119,
+        "red": 69
+      },
+      "finalWood": {
+        "blue": 180,
+        "red": 180
+      },
+      "finalStone": {
+        "blue": 390,
+        "red": 390
+      },
+      "baseHp": {
+        "blue": 150,
+        "red": 150
+      }
+    },
+    {
+      "seed": 125,
+      "aiOrder": "blue-first",
+      "winner": null,
+      "durationSeconds": 900,
+      "firstBarracksSeconds": {
+        "blue": 143,
+        "red": 143
+      },
+      "firstHouseSeconds": {
+        "blue": 288,
+        "red": 288
+      },
+      "firstMilitarySeconds": {
+        "blue": 188,
+        "red": 188
+      },
+      "firstStoneSeconds": {
+        "blue": 270,
+        "red": 272
+      },
+      "firstTowerSeconds": {
+        "blue": 641,
+        "red": 641
+      },
+      "firstBarricadeSeconds": {
+        "blue": 519,
+        "red": 519
+      },
+      "firstCombatSeconds": null,
+      "attacks": {
+        "blue": 0,
+        "red": 0
+      },
+      "damage": {
+        "blue": 0,
+        "red": 0
+      },
+      "finalUnits": {
+        "blue": 8,
+        "red": 8
+      },
+      "finalCoins": {
+        "blue": 119,
+        "red": 69
+      },
+      "finalWood": {
+        "blue": 180,
+        "red": 180
+      },
+      "finalStone": {
+        "blue": 390,
+        "red": 390
+      },
+      "baseHp": {
+        "blue": 150,
+        "red": 150
+      }
+    },
+    {
+      "seed": 125,
+      "aiOrder": "red-first",
+      "winner": null,
+      "durationSeconds": 900,
+      "firstBarracksSeconds": {
+        "blue": 143,
+        "red": 143
+      },
+      "firstHouseSeconds": {
+        "blue": 288,
+        "red": 288
+      },
+      "firstMilitarySeconds": {
+        "blue": 188,
+        "red": 188
+      },
+      "firstStoneSeconds": {
+        "blue": 270,
+        "red": 272
+      },
+      "firstTowerSeconds": {
+        "blue": 641,
+        "red": 641
+      },
+      "firstBarricadeSeconds": {
+        "blue": 519,
+        "red": 519
+      },
+      "firstCombatSeconds": null,
+      "attacks": {
+        "blue": 0,
+        "red": 0
+      },
+      "damage": {
+        "blue": 0,
+        "red": 0
+      },
+      "finalUnits": {
+        "blue": 8,
+        "red": 8
+      },
+      "finalCoins": {
+        "blue": 119,
+        "red": 69
+      },
+      "finalWood": {
+        "blue": 180,
+        "red": 180
+      },
+      "finalStone": {
+        "blue": 390,
+        "red": 390
+      },
+      "baseHp": {
+        "blue": 150,
+        "red": 150
+      }
+    },
+    {
+      "seed": 126,
+      "aiOrder": "blue-first",
+      "winner": null,
+      "durationSeconds": 900,
+      "firstBarracksSeconds": {
+        "blue": 143,
+        "red": 143
+      },
+      "firstHouseSeconds": {
+        "blue": 288,
+        "red": 288
+      },
+      "firstMilitarySeconds": {
+        "blue": 188,
+        "red": 188
+      },
+      "firstStoneSeconds": {
+        "blue": 270,
+        "red": 272
+      },
+      "firstTowerSeconds": {
+        "blue": 641,
+        "red": 641
+      },
+      "firstBarricadeSeconds": {
+        "blue": 519,
+        "red": 519
+      },
+      "firstCombatSeconds": null,
+      "attacks": {
+        "blue": 0,
+        "red": 0
+      },
+      "damage": {
+        "blue": 0,
+        "red": 0
+      },
+      "finalUnits": {
+        "blue": 8,
+        "red": 8
+      },
+      "finalCoins": {
+        "blue": 119,
+        "red": 69
+      },
+      "finalWood": {
+        "blue": 180,
+        "red": 180
+      },
+      "finalStone": {
+        "blue": 390,
+        "red": 390
+      },
+      "baseHp": {
+        "blue": 150,
+        "red": 150
+      }
+    },
+    {
+      "seed": 126,
+      "aiOrder": "red-first",
+      "winner": null,
+      "durationSeconds": 900,
+      "firstBarracksSeconds": {
+        "blue": 143,
+        "red": 143
+      },
+      "firstHouseSeconds": {
+        "blue": 288,
+        "red": 288
+      },
+      "firstMilitarySeconds": {
+        "blue": 188,
+        "red": 188
+      },
+      "firstStoneSeconds": {
+        "blue": 270,
+        "red": 272
+      },
+      "firstTowerSeconds": {
+        "blue": 641,
+        "red": 641
+      },
+      "firstBarricadeSeconds": {
+        "blue": 519,
+        "red": 519
+      },
+      "firstCombatSeconds": null,
+      "attacks": {
+        "blue": 0,
+        "red": 0
+      },
+      "damage": {
+        "blue": 0,
+        "red": 0
+      },
+      "finalUnits": {
+        "blue": 8,
+        "red": 8
+      },
+      "finalCoins": {
+        "blue": 119,
+        "red": 69
+      },
+      "finalWood": {
+        "blue": 180,
+        "red": 180
+      },
+      "finalStone": {
+        "blue": 390,
+        "red": 390
+      },
+      "baseHp": {
+        "blue": 150,
+        "red": 150
+      }
+    },
+    {
+      "seed": 127,
+      "aiOrder": "blue-first",
+      "winner": null,
+      "durationSeconds": 900,
+      "firstBarracksSeconds": {
+        "blue": 143,
+        "red": 143
+      },
+      "firstHouseSeconds": {
+        "blue": 288,
+        "red": 288
+      },
+      "firstMilitarySeconds": {
+        "blue": 188,
+        "red": 188
+      },
+      "firstStoneSeconds": {
+        "blue": 270,
+        "red": 272
+      },
+      "firstTowerSeconds": {
+        "blue": 641,
+        "red": 641
+      },
+      "firstBarricadeSeconds": {
+        "blue": 519,
+        "red": 519
+      },
+      "firstCombatSeconds": null,
+      "attacks": {
+        "blue": 0,
+        "red": 0
+      },
+      "damage": {
+        "blue": 0,
+        "red": 0
+      },
+      "finalUnits": {
+        "blue": 8,
+        "red": 8
+      },
+      "finalCoins": {
+        "blue": 119,
+        "red": 69
+      },
+      "finalWood": {
+        "blue": 180,
+        "red": 180
+      },
+      "finalStone": {
+        "blue": 390,
+        "red": 390
+      },
+      "baseHp": {
+        "blue": 150,
+        "red": 150
+      }
+    },
+    {
+      "seed": 127,
+      "aiOrder": "red-first",
+      "winner": null,
+      "durationSeconds": 900,
+      "firstBarracksSeconds": {
+        "blue": 143,
+        "red": 143
+      },
+      "firstHouseSeconds": {
+        "blue": 288,
+        "red": 288
+      },
+      "firstMilitarySeconds": {
+        "blue": 188,
+        "red": 188
+      },
+      "firstStoneSeconds": {
+        "blue": 270,
+        "red": 272
+      },
+      "firstTowerSeconds": {
+        "blue": 641,
+        "red": 641
+      },
+      "firstBarricadeSeconds": {
+        "blue": 519,
+        "red": 519
+      },
+      "firstCombatSeconds": null,
+      "attacks": {
+        "blue": 0,
+        "red": 0
+      },
+      "damage": {
+        "blue": 0,
+        "red": 0
+      },
+      "finalUnits": {
+        "blue": 8,
+        "red": 8
+      },
+      "finalCoins": {
+        "blue": 119,
+        "red": 69
+      },
+      "finalWood": {
+        "blue": 180,
+        "red": 180
+      },
+      "finalStone": {
+        "blue": 390,
+        "red": 390
+      },
+      "baseHp": {
+        "blue": 150,
+        "red": 150
+      }
+    }
+  ]
+}

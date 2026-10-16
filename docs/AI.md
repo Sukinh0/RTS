@@ -43,6 +43,12 @@ A cada intervalo de decisão, calcular utilidade para intenções como:
 
 A intenção escolhida gera ordens usando o mesmo sistema de comandos do jogador.
 
+Na implementação atual, exploração, economia e produção continuam mesmo quando há uma ordem de ataque. O primeiro quartel prioriza soldados e arqueiros para formar a guarda e a primeira leva; o batedor explora depois. Essas escolhas não concedem recursos nem visão extra à IA.
+
+Após o primeiro soldado, a IA reserva moedas para uma Casa e novos operários. Mantém um coletor de madeira por vez; os demais mineram quando uma mina foi descoberta ou geram moedas passivamente. A exploração dos operários prossegue além da primeira floresta até encontrar uma mina. Com três operários, a produção militar volta a usar o excedente; ao formar três atacantes, a meta econômica sobe para quatro operários. Todas as ordens respeitam fog, custos e cooldowns do jogador.
+
+Na defesa, um atacante fica designado como guarda da base e os demais que estiverem por perto respondem a invasores. Uma leva ofensiva parte com ao menos três atacantes além da guarda. Reforços aguardam outra leva de três; o último sobrevivente de uma leva destruída recebe ordem de recuo. Se a guarda morrer, a IA escolhe uma substituta. Uma unidade em marcha pode receber novo destino durante o intervalo entre passos, sem mover antes do fim desse intervalo.
+
 ## Princípios
 - Decisões determinísticas quando possível.
 - Seed configurável.

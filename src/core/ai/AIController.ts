@@ -1,30 +1,66 @@
 import { BALANCE } from '../../config/balance';
 import type { Point, Team } from '../../map/MapGrid';
 import { dispatchGroupAttack } from '../commands/dispatchGroupAttack';
-import { dispatchGroupMove } from '../commands/dispatchGroupMove';
-import type { BuildingEntity, UnitEntity, UnitKind } from '../entities/EntityStore';
+import { dispatchGroupAttackMove, dispatchGroupMove } from '../commands/dispatchGroupMove';
+import type { BuildingEntity, GameEntity, UnitEntity, UnitKind } from '../entities/EntityStore';
 import type { Simulation } from '../game/Simulation';
 import { AIMemory } from './AIMemory';
 
 export type AIIntent =
   | 'Defend'
+  | 'Repair'
+  | 'BuildTower'
+  | 'BuildBarricade'
   | 'BuildBarracks'
   | 'BuildHouse'
   | 'ProduceMilitary'
   | 'ProduceWorker'
+  | 'ProduceBuilder'
   | 'AttackBase'
   | 'AttackArmy'
   | 'GatherWood'
+  | 'GatherStone'
   | 'Mine'
   | 'Scout'
+  | 'Rally'
   | 'Idle';
+
+export interface AIDebugState {
+  team: Team;
+  decision: string;
+  priority: number;
+  goal: string;
+  desiredResources: {
+    coins: number;
+    wood: number;
+    stone: number;
+  };
+  chosenAction: string;
+}
 
 export class AIController {
   readonly memory: AIMemory;
   private lastDecisionTick = -999;
   private readonly openingForward: number;
   private readonly openingVertical: number;
+  private guardUnitId: string | null = null;
+  private readonly raidUnitIds = new Set<string>();
+  private readonly retreatingUnitIds = new Set<string>();
   currentIntent: AIIntent = 'Idle';
+  currentDecision = 'Idle';
+  currentPriority = 0;
+  currentGoal = 'None';
+  desiredResources = { coins: 0, wood: 0, stone: 0 };
+  chosenAction = 'None';
+  private _desiredStone?: number;
+
+  get desiredStone(): number {
+    return this._desiredStone ?? this.calculateDynamicDesiredStone();
+  }
+
+  set desiredStone(val: number) {
+    this._desiredStone = val;
+  }
 
   constructor(
     readonly simulation: Simulation,
@@ -36,8 +72,19 @@ export class AIController {
     this.openingVertical = -12 + Math.floor(simulation.rng.next() * 5) - 2;
   }
 
+  getDebugState(): AIDebugState {
+    return {
+      team: this.team,
+      decision: this.currentDecision,
+      priority: this.currentPriority,
+      goal: this.currentGoal,
+      desiredResources: { ...this.desiredResources },
+      chosenAction: this.chosenAction,
+    };
+  }
+
   update(currentTick: number): void {
-    // Continuous memory updates
+    // Continuous memory updates strictly adhering to FogOfWar visibility
     this.memory.update(this.simulation.fog, this.simulation.entities, this.simulation.map, currentTick);
 
     // Periodic strategic decision cycle
@@ -49,65 +96,150 @@ export class AIController {
     this.evaluateAndExecute(currentTick);
   }
 
+  private setDecision(
+    intent: AIIntent,
+    priority: number,
+    goal: string,
+    action: string,
+  ): void {
+    this.currentIntent = intent;
+    this.currentDecision = intent;
+    this.currentPriority = priority;
+    this.currentGoal = goal;
+    this.chosenAction = action;
+  }
+
+  private calculateDynamicDesiredStone(): number {
+    const stats = this.simulation.stats.snapshot()[this.team];
+    const ownEntities = this.simulation.entities.all().filter((e) => e.team === this.team);
+    const ownAttackers = ownEntities.filter((e): e is UnitEntity => e.category === 'unit' && e.kind !== 'worker' && e.kind !== 'builder' && e.damage > 0);
+    const hasOpeningTroop = ownAttackers.length > 0 || stats.troopsProduced > 0;
+
+    if (!hasOpeningTroop) return 0;
+
+    const hasDamagedStoneBuilding = ownEntities.some((e) =>
+      e.category === 'building' && e.hp < e.maxHp && (e.kind === 'base' || e.kind === 'tower' || e.kind === 'barracks' || e.kind === 'barricade')
+    );
+    if (hasDamagedStoneBuilding) return 30;
+
+    const ownTowers = ownEntities.filter((e) => e.category === 'building' && e.kind === 'tower');
+    if (ownAttackers.length >= 2 && ownTowers.length < 2) return 100;
+
+    const ownBarricades = ownEntities.filter((e) => e.category === 'building' && e.kind === 'barricade');
+    if (ownBarricades.length < 2) return 15;
+
+    if (stats.troopsProduced >= 3) return 100;
+    return 20;
+  }
+
   private evaluateAndExecute(currentTick: number): void {
+    this.setDecision('Idle', 10, 'Maintain Base Operations', 'Standing by');
     const ownEntities = this.simulation.entities.all().filter((e) => e.team === this.team);
     const ownBase = ownEntities.find((e): e is BuildingEntity => e.category === 'building' && e.kind === 'base');
     if (!ownBase || ownBase.hp <= 0) return;
 
     const ownWorkers = ownEntities.filter((e): e is UnitEntity => e.category === 'unit' && e.kind === 'worker');
+    const ownBuilders = ownEntities.filter((e): e is UnitEntity => e.category === 'unit' && e.kind === 'builder');
     const ownHouses = ownEntities.filter((e): e is BuildingEntity => e.category === 'building' && e.kind === 'house');
     const ownBarracks = ownEntities.filter((e): e is BuildingEntity => e.category === 'building' && e.kind === 'barracks');
-    const ownMilitary = ownEntities.filter((e): e is UnitEntity => e.category === 'unit' && e.kind !== 'worker');
+    const ownBarricades = ownEntities.filter((e): e is BuildingEntity => e.category === 'building' && e.kind === 'barricade');
+    const ownTowers = ownEntities.filter((e): e is BuildingEntity => e.category === 'building' && e.kind === 'tower');
+    const ownMilitary = ownEntities.filter((e): e is UnitEntity => e.category === 'unit' && e.kind !== 'worker' && e.kind !== 'builder');
+    const ownAttackers = ownMilitary.filter((unit) => unit.damage > 0);
+    const hasOpeningTroop = ownMilitary.length > 0 || ownBarracks.some((barracks) =>
+      this.simulation.production.queueFor(barracks.id).length > 0);
 
     const stock = this.simulation.teams[this.team];
+    const capacity = this.simulation.production.getCapacity(this.team);
     const visibleEnemies = this.simulation.fog.visibleEntities(this.team).filter((e) => e.team !== this.team);
 
-    // 1. Defend: Are there visible enemies near own base?
-    const threatToHome = visibleEnemies.filter((e) => {
-      const dist = Math.hypot(e.x - ownBase.x, e.y - ownBase.y);
-      return dist <= 30;
-    });
+    // Calculate desired resources for debug observability and decision weighting
+    const barracksConfig = BALANCE.buildings.barracks;
+    const houseConfig = BALANCE.buildings.house;
+    const wantsMoreMilitary = ownMilitary.length < 25;
+    const hasUnderConstructionBarracks = ownBarracks.some((b) => b.underConstruction);
+    const needsBarracks = ownBarracks.length === 0 || (
+      hasOpeningTroop &&
+      !hasUnderConstructionBarracks &&
+      capacity.militaryUnits + capacity.militaryQueued >= capacity.militaryCapacity &&
+      capacity.totalUnits + capacity.totalQueued < capacity.maxTotalUnits &&
+      wantsMoreMilitary
+    );
 
-    if (threatToHome.length > 0 && ownMilitary.length > 0) {
-      this.currentIntent = 'Defend';
-      const target = threatToHome[0];
-      const militaryIds = ownMilitary.map((u) => u.id);
-      dispatchGroupAttack(this.simulation, this.team, militaryIds, target.id);
-      return;
-    }
+    const workerTarget = ownAttackers.length >= 6 ? 6 : ownAttackers.length >= 3 ? 5 : 3;
+    const queuedWorkers = ownHouses.reduce((total, house) => total
+      + this.simulation.production.queueFor(house.id).filter((item) => item.unitKind === 'worker').length, 0);
+    const needsWorkers = ownWorkers.length + queuedWorkers < workerTarget;
+    const needsHouseForWorkers = needsWorkers && (capacity.civilianUnits + capacity.civilianQueued >= capacity.civilianCapacity);
+    const readyOrBuildingBarracks = ownBarracks.length > 0;
+    const readyOrBuildingHouses = ownHouses.length > 0;
+    const wantsHouse = hasOpeningTroop && readyOrBuildingBarracks && (!readyOrBuildingHouses || needsHouseForWorkers);
 
-    // 2. Attack: Do we have an army ready to assault?
-    const armyThreshold = this.memory.enemyBaseLocation ? 4 : 5;
-    if (ownMilitary.length >= armyThreshold) {
-      if (this.memory.enemyBaseLocation) {
-        this.currentIntent = 'AttackBase';
-        const enemyBase = this.simulation.entities.get(this.team === 'red' ? 'blue-base' : 'red-base');
-        const militaryIds = ownMilitary.map((u) => u.id);
-        if (enemyBase && this.simulation.fog.isEntityVisible(this.team, enemyBase)) {
-          dispatchGroupAttack(this.simulation, this.team, militaryIds, enemyBase.id);
-        } else {
-          dispatchGroupMove(this.simulation, this.team, militaryIds, this.memory.enemyBaseLocation);
-        }
-        return;
-      } else if (visibleEnemies.length > 0) {
-        this.currentIntent = 'AttackArmy';
-        const militaryIds = ownMilitary.map((u) => u.id);
-        dispatchGroupAttack(this.simulation, this.team, militaryIds, visibleEnemies[0].id);
-        return;
-      } else {
-        // March towards estimated enemy side to find them
-        this.currentIntent = 'AttackBase';
-        const targetSide: Point = this.team === 'red' ? [24, 100] : [175, 100];
-        const militaryIds = ownMilitary.map((u) => u.id);
-        dispatchGroupMove(this.simulation, this.team, militaryIds, targetSide);
-        return;
+    this.desiredResources = {
+      coins: needsBarracks ? barracksConfig.coins : wantsHouse ? houseConfig.coins : BALANCE.units.soldier.coins,
+      wood: needsBarracks ? barracksConfig.wood : wantsHouse ? houseConfig.wood : 50,
+      stone: this.desiredStone,
+    };
+
+    // 1. Worker Economy Assignment across Gold, Wood, and Stone
+    this.assignIdleWorkers(ownWorkers, stock.wood, stock.stone);
+
+    // 2. Exploration / Scouting
+    if (!this.memory.enemyBaseLocation) {
+      const scoutUnit = ownMilitary.find((u) => u.kind === 'scout' && !u.moveTarget && currentTick >= u.cooldownUntilTick);
+      const exploreTarget = scoutUnit ? this.findExplorationTarget() : null;
+      if (scoutUnit && exploreTarget && this.simulation.issueCommand({
+        type: 'move', team: this.team, unitId: scoutUnit.id, destination: exploreTarget,
+      }).accepted) {
+        this.setDecision('Scout', 50, 'Scout Fog to Locate Enemy Base', `Scout ${scoutUnit.id} moving to (${exploreTarget[0]}, ${exploreTarget[1]})`);
       }
     }
 
-    // 3. Construction: Build Barracks if not yet built or building
-    const readyOrBuildingBarracks = ownBarracks.length > 0;
-    const barracksConfig = BALANCE.buildings.barracks;
-    if (!readyOrBuildingBarracks && stock.coins >= barracksConfig.coins && stock.wood >= barracksConfig.wood) {
+    // 3. Military Tactics & Combat Management
+    const militaryIntent = this.manageMilitary(ownBase, ownAttackers, visibleEnemies);
+
+    // 4. Repairs: Builder repairs damaged structures if affordable, or maintains ongoing repair
+    if (ownBuilders.length > 0) {
+      const activeRepair = ownBuilders.find((b) => {
+        const task = this.simulation.construction.taskFor(b.id);
+        return task?.phase === 'repairing' || (task?.phase === 'travel' && this.simulation.entities.get(task.buildingId)?.category === 'building' && (this.simulation.entities.get(task.buildingId) as BuildingEntity).hp < (this.simulation.entities.get(task.buildingId) as BuildingEntity).maxHp);
+      });
+      if (activeRepair) {
+        const task = this.simulation.construction.taskFor(activeRepair.id)!;
+        this.setDecision(
+          militaryIntent ?? 'Repair',
+          80,
+          `Repairing Structure (${task.buildingId})`,
+          `Builder ${activeRepair.id} repairing ${task.buildingId}`,
+        );
+        return;
+      }
+
+      const freeBuilder = this.findFreeBuilder(ownBuilders, currentTick);
+      if (freeBuilder) {
+        const buildingToRepair = this.findBuildingToRepair(ownEntities, stock.wood, stock.stone);
+        if (buildingToRepair) {
+          const res = this.simulation.issueCommand({
+            type: 'repair',
+            team: this.team,
+            builderId: freeBuilder.id,
+            buildingId: buildingToRepair.id,
+          });
+          if (res.accepted) {
+            this.setDecision(
+              militaryIntent ?? 'Repair',
+              80,
+              `Repair Damaged ${buildingToRepair.kind} (${buildingToRepair.id})`,
+              `Builder ${freeBuilder.id} repairing ${buildingToRepair.id}`,
+            );
+            return;
+          }
+        }
+      }
+    }
+
+    // 5. Construction: Build Barracks to expand military capacity
+    if (needsBarracks && stock.coins >= barracksConfig.coins && stock.wood >= barracksConfig.wood) {
       const freeWorker = this.findFreeWorker(ownWorkers, currentTick);
       if (freeWorker) {
         const spot = this.findPlacementSpot(ownBase, barracksConfig.width, barracksConfig.height);
@@ -120,17 +252,23 @@ export class AIController {
             position: spot,
           });
           if (res.accepted) {
-            this.currentIntent = 'BuildBarracks';
+            this.setDecision(
+              militaryIntent ?? 'BuildBarracks',
+              75,
+              'Expand Military Capacity',
+              `Worker ${freeWorker.id} constructing barracks at (${spot[0]}, ${spot[1]})`,
+            );
             return;
           }
         }
       }
     }
 
-    // 4. Construction: Build House if needed and resources available
-    const readyOrBuildingHouses = ownHouses.length > 0;
-    const houseConfig = BALANCE.buildings.house;
-    if (readyOrBuildingBarracks && !readyOrBuildingHouses && stock.coins >= houseConfig.coins && stock.wood >= houseConfig.wood) {
+    // 6. Construction: Build House to expand civilian capacity
+    const hasUnderConstructionHouse = ownHouses.some((h) => h.underConstruction);
+    if (wantsHouse
+      && !hasUnderConstructionHouse
+      && stock.coins >= houseConfig.coins && stock.wood >= houseConfig.wood) {
       const freeWorker = this.findFreeWorker(ownWorkers, currentTick);
       if (freeWorker) {
         const spot = this.findPlacementSpot(ownBase, houseConfig.width, houseConfig.height);
@@ -143,36 +281,77 @@ export class AIController {
             position: spot,
           });
           if (res.accepted) {
-            this.currentIntent = 'BuildHouse';
+            this.setDecision(
+              militaryIntent ?? 'BuildHouse',
+              72,
+              'Expand Civilian Capacity',
+              `Worker ${freeWorker.id} constructing house at (${spot[0]}, ${spot[1]})`,
+            );
             return;
           }
         }
       }
     }
 
-    // 5. Military Production: If barracks is ready, train military
-    const readyBarracks = ownBarracks.filter((b) => !b.underConstruction);
-    for (const barracks of readyBarracks) {
-      const queue = this.simulation.production.queueFor(barracks.id);
-      if (queue.length < 2) {
-        const unitToTrain = this.selectMilitaryUnitToTrain(ownMilitary, stock.coins);
-        if (unitToTrain) {
+    // 7. Construction: Build Barricade for perimeter fortification
+    const barricadeConfig = BALANCE.buildings.barricade;
+    const wantsBarricade = hasOpeningTroop && ownAttackers.length >= 1 && ownBarricades.length < 2 && !ownBarricades.some((b) => b.underConstruction);
+    if (wantsBarricade && stock.wood >= barricadeConfig.wood && stock.stone >= barricadeConfig.stone) {
+      const freeBuilder = this.findFreeBuilder(ownBuilders, currentTick);
+      if (freeBuilder) {
+        const spot = this.findBarricadePlacementSpot(ownBase);
+        if (spot) {
           const res = this.simulation.issueCommand({
-            type: 'produce',
+            type: 'build',
             team: this.team,
-            buildingId: barracks.id,
-            unitKind: unitToTrain,
+            builderId: freeBuilder.id,
+            buildingKind: 'barrack' in BALANCE.buildings ? 'barricade' : 'barricade',
+            position: spot,
           });
           if (res.accepted) {
-            this.currentIntent = 'ProduceMilitary';
+            this.setDecision(
+              militaryIntent ?? 'BuildBarricade',
+              55,
+              'Fortify Base Perimeter with Barricade',
+              `Builder ${freeBuilder.id} constructing barricade at (${spot[0]}, ${spot[1]})`,
+            );
             return;
           }
         }
       }
     }
 
-    // 6. Worker Production: If workers < 5, train worker at ready House (Base does not produce)
-    if (ownWorkers.length < 5 && stock.coins >= BALANCE.units.worker.coins) {
+    // 8. Construction: Build Watch Tower for strategic territory vision & defense
+    const towerConfig = BALANCE.buildings.tower;
+    if (hasOpeningTroop && ownAttackers.length >= 2 && ownTowers.length < 2 && !ownTowers.some((t) => t.underConstruction)
+      && stock.coins >= towerConfig.coins && stock.wood >= towerConfig.wood && stock.stone >= towerConfig.stone) {
+      const freeBuilder = this.findFreeBuilder(ownBuilders, currentTick);
+      if (freeBuilder) {
+        const spot = this.findPlacementSpot(ownBase, towerConfig.width, towerConfig.height);
+        if (spot) {
+          const res = this.simulation.issueCommand({
+            type: 'build',
+            team: this.team,
+            builderId: freeBuilder.id,
+            buildingKind: 'tower',
+            position: spot,
+          });
+          if (res.accepted) {
+            this.setDecision(
+              militaryIntent ?? 'BuildTower',
+              62,
+              'Construct Watch Tower for Territorial Vision',
+              `Builder ${freeBuilder.id} constructing tower at (${spot[0]}, ${spot[1]})`,
+            );
+            return;
+          }
+        }
+      }
+    }
+
+    // 9. Civilian Unit Production (Workers and Builders)
+    if (needsWorkers && stock.coins >= BALANCE.units.worker.coins
+      && capacity.civilianUnits + capacity.civilianQueued < capacity.civilianCapacity) {
       const readyHouses = ownHouses.filter((h) => !h.underConstruction);
       for (const building of readyHouses) {
         const queue = this.simulation.production.queueFor(building.id);
@@ -184,32 +363,274 @@ export class AIController {
             unitKind: 'worker',
           });
           if (res.accepted) {
-            this.currentIntent = 'ProduceWorker';
+            this.setDecision(
+              militaryIntent ?? 'ProduceWorker',
+              68,
+              'Expand Worker Economy',
+              `Produce worker at house ${building.id}`,
+            );
+            return;
+          }
+        }
+      }
+    } else if (ownBuilders.length === 0 && ownAttackers.length >= 2 && stock.coins >= BALANCE.units.builder.coins
+      && capacity.civilianUnits + capacity.civilianQueued < capacity.civilianCapacity) {
+      const readyHouses = ownHouses.filter((h) => !h.underConstruction);
+      for (const building of readyHouses) {
+        const queue = this.simulation.production.queueFor(building.id);
+        if (queue.length === 0) {
+          const res = this.simulation.issueCommand({
+            type: 'produce',
+            team: this.team,
+            buildingId: building.id,
+            unitKind: 'builder',
+          });
+          if (res.accepted) {
+            this.setDecision(
+              militaryIntent ?? 'ProduceWorker',
+              60,
+              'Produce Builder for Fortifications & Repairs',
+              `Produce builder at house ${building.id}`,
+            );
             return;
           }
         }
       }
     }
 
-    // 7. Scouting: If enemy base unknown, assign scout or idle unit to explore
-    if (!this.memory.enemyBaseLocation) {
-      const scoutUnit = ownMilitary.find((u) => u.kind === 'scout' && !u.moveTarget && currentTick >= u.cooldownUntilTick);
-      if (scoutUnit) {
-        const exploreTarget = this.findExplorationTarget();
-        if (exploreTarget) {
-          this.simulation.issueCommand({
-            type: 'move',
-            team: this.team,
-            unitId: scoutUnit.id,
-            destination: exploreTarget,
-          });
-          this.currentIntent = 'Scout';
+    const wantsBuilder = ownBuilders.length === 0 && ownAttackers.length >= 2;
+    const stats = this.simulation.stats.snapshot()[this.team];
+    const wantsTower = stats.troopsProduced >= 3 && ownTowers.length === 0
+      && stock.stone >= 50 && stock.wood >= 100;
+    const towerReserve = wantsTower ? towerConfig.coins : 0;
+    const reserve = (hasOpeningTroop && (!readyOrBuildingHouses || needsWorkers || wantsBuilder) ? BALANCE.units.worker.coins : 0) + towerReserve;
+    const readyBarracks = ownBarracks.filter((b) => !b.underConstruction);
+    if (capacity.militaryUnits + capacity.militaryQueued < capacity.militaryCapacity) {
+      for (const barracks of readyBarracks) {
+        const queue = this.simulation.production.queueFor(barracks.id);
+        if (queue.length < 2) {
+          const unitToTrain = this.selectMilitaryUnitToTrain(ownMilitary, stock.coins - reserve);
+          if (unitToTrain) {
+            const res = this.simulation.issueCommand({
+              type: 'produce',
+              team: this.team,
+              buildingId: barracks.id,
+              unitKind: unitToTrain,
+            });
+            if (res.accepted) {
+              this.setDecision(
+                militaryIntent ?? 'ProduceMilitary',
+                65,
+                `Train ${unitToTrain} for Army Composition`,
+                `Produce ${unitToTrain} at barracks ${barracks.id}`,
+              );
+              return;
+            }
+          }
         }
       }
     }
 
-    // 8. Economy: Put idle workers to work (Wood or Mine)
-    this.assignIdleWorkers(ownWorkers, stock.wood);
+    if (militaryIntent) {
+      this.currentIntent = militaryIntent;
+    }
+  }
+
+  private manageMilitary(base: BuildingEntity, attackers: UnitEntity[], visibleEnemies: GameEntity[]): AIIntent | null {
+    const byId = new Map(attackers.map((unit) => [unit.id, unit]));
+    for (const id of this.raidUnitIds) if (!byId.has(id)) this.raidUnitIds.delete(id);
+    for (const id of this.retreatingUnitIds) if (!byId.has(id)) this.retreatingUnitIds.delete(id);
+    if (!this.guardUnitId || !byId.has(this.guardUnitId)) {
+      const candidates = attackers.filter((unit) => !this.raidUnitIds.has(unit.id));
+      const pool = candidates.length ? candidates : attackers;
+      const guard = [...pool].sort((a, b) =>
+        Number(b.kind === 'soldier') - Number(a.kind === 'soldier')
+        || Math.hypot(a.x - base.x, a.y - base.y) - Math.hypot(b.x - base.x, b.y - base.y)
+        || a.id.localeCompare(b.id))[0];
+      this.guardUnitId = guard?.id ?? null;
+      if (guard) {
+        this.raidUnitIds.delete(guard.id);
+        this.retreatingUnitIds.delete(guard.id);
+      }
+    }
+    if (!this.guardUnitId) return null;
+
+    const rallyPoint = this.findHomeRallyPoint(base);
+    const threat = visibleEnemies.find((enemy) =>
+      Math.hypot(enemy.x - base.x, enemy.y - base.y) <= 30);
+    const guard = byId.get(this.guardUnitId)!;
+    if (threat) {
+      const defenders = attackers.filter((unit) => unit.id === guard.id
+        || (!this.raidUnitIds.has(unit.id) && !this.retreatingUnitIds.has(unit.id)
+          && Math.hypot(unit.x - base.x, unit.y - base.y) <= 30));
+      dispatchGroupAttack(this.simulation, this.team, defenders.map((unit) => unit.id), threat.id);
+      this.setDecision(
+        'Defend',
+        95,
+        'Defend Base against Hostile Invaders',
+        `Defenders engaging hostile threat ${threat.id}`,
+      );
+    } else if (rallyPoint && Math.hypot(guard.x - base.x, guard.y - base.y) > 12) {
+      dispatchGroupMove(this.simulation, this.team, [guard.id], rallyPoint);
+    }
+
+    if (this.raidUnitIds.size === 1) {
+      for (const id of this.raidUnitIds) this.retreatingUnitIds.add(id);
+      this.raidUnitIds.clear();
+    }
+    for (const id of this.retreatingUnitIds) {
+      const unit = byId.get(id)!;
+      if (Math.hypot(unit.x - base.x, unit.y - base.y) <= 12) {
+        this.retreatingUnitIds.delete(id);
+      } else if (rallyPoint) {
+        dispatchGroupMove(this.simulation, this.team, [id], rallyPoint);
+      }
+    }
+
+    const reserves = attackers.filter((unit) => unit.id !== guard.id
+      && !this.raidUnitIds.has(unit.id) && !this.retreatingUnitIds.has(unit.id));
+    // Field units far from base (> 30 cells) are automatically part of the active raid force
+    for (const unit of reserves) {
+      if (Math.hypot(unit.x - base.x, unit.y - base.y) > 30) {
+        this.raidUnitIds.add(unit.id);
+      }
+    }
+    // A new wave needs three fighters. Fresh reinforcements wait for another full wave.
+    if (!threat && reserves.length >= 3) {
+      for (const unit of reserves) this.raidUnitIds.add(unit.id);
+    }
+    const raidIds = attackers.filter((unit) => this.raidUnitIds.has(unit.id)).map((unit) => unit.id);
+    if (raidIds.length === 0) {
+      if (threat) {
+        this.setDecision('Defend', 95, 'Defend Base against Hostile Invaders', `Defenders engaging threat ${threat.id}`);
+        return 'Defend';
+      }
+      if (reserves.length > 0) {
+        this.setDecision('Rally', 40, 'Assemble Military Strike Force', `${reserves.length} reserves holding at home base`);
+        return 'Rally';
+      }
+      return null;
+    }
+
+    if (this.memory.enemyBaseLocation) {
+      const enemyBase = this.simulation.entities.get(this.team === 'red' ? 'blue-base' : 'red-base');
+      if (enemyBase && this.simulation.fog.isEntityVisible(this.team, enemyBase)) {
+        dispatchGroupAttack(this.simulation, this.team, raidIds, enemyBase.id);
+        this.setDecision(
+          threat ? 'Defend' : 'AttackBase',
+          threat ? 95 : 85,
+          'Assault Enemy Base',
+          `Raid force (${raidIds.length} units) attacking enemy base ${enemyBase.id}`,
+        );
+        return threat ? 'Defend' : 'AttackBase';
+      }
+
+      const enemyTower = visibleEnemies.find((enemy) => enemy.category === 'building' && enemy.kind === 'tower');
+      if (enemyTower) {
+        dispatchGroupAttack(this.simulation, this.team, raidIds, enemyTower.id);
+        this.setDecision(
+          threat ? 'Defend' : 'AttackArmy',
+          75,
+          'Destroy Enemy Watch Tower',
+          `Raid force (${raidIds.length} units) attacking enemy tower ${enemyTower.id}`,
+        );
+        return threat ? 'Defend' : 'AttackArmy';
+      }
+
+      const enemyBarricade = visibleEnemies.find((enemy) => enemy.category === 'building' && enemy.kind === 'barricade');
+      if (enemyBarricade) {
+        dispatchGroupAttack(this.simulation, this.team, raidIds, enemyBarricade.id);
+        this.setDecision(
+          threat ? 'Defend' : 'AttackArmy',
+          70,
+          'Destroy Enemy Barricade',
+          `Raid force (${raidIds.length} units) attacking enemy barricade ${enemyBarricade.id}`,
+        );
+        return threat ? 'Defend' : 'AttackArmy';
+      }
+
+      this.marchRaid(raidIds, this.memory.enemyBaseLocation);
+      this.setDecision(
+        threat ? 'Defend' : 'AttackBase',
+        80,
+        'Advance Towards Enemy Base',
+        `Raid force (${raidIds.length} units) marching to (${this.memory.enemyBaseLocation[0]}, ${this.memory.enemyBaseLocation[1]})`,
+      );
+      return threat ? 'Defend' : 'AttackBase';
+    }
+
+    const enemyTower = visibleEnemies.find((enemy) => enemy.category === 'building' && enemy.kind === 'tower');
+    if (enemyTower) {
+      dispatchGroupAttack(this.simulation, this.team, raidIds, enemyTower.id);
+      this.setDecision(
+        threat ? 'Defend' : 'AttackArmy',
+        75,
+        'Destroy Enemy Watch Tower',
+        `Raid force (${raidIds.length} units) attacking enemy tower ${enemyTower.id}`,
+      );
+      return threat ? 'Defend' : 'AttackArmy';
+    }
+
+    const enemyBarricade = visibleEnemies.find((enemy) => enemy.category === 'building' && enemy.kind === 'barricade');
+    if (enemyBarricade) {
+      dispatchGroupAttack(this.simulation, this.team, raidIds, enemyBarricade.id);
+      this.setDecision(
+        threat ? 'Defend' : 'AttackArmy',
+        70,
+        'Destroy Enemy Barricade',
+        `Raid force (${raidIds.length} units) attacking enemy barricade ${enemyBarricade.id}`,
+      );
+      return threat ? 'Defend' : 'AttackArmy';
+    }
+
+    const fieldEnemy = visibleEnemies.find((enemy) =>
+      Math.hypot(enemy.x - base.x, enemy.y - base.y) > 30);
+    if (fieldEnemy) {
+      dispatchGroupAttack(this.simulation, this.team, raidIds, fieldEnemy.id);
+      this.setDecision(
+        threat ? 'Defend' : 'AttackArmy',
+        72,
+        'Engage Hostile Forces in Field',
+        `Raid force (${raidIds.length} units) attacking enemy entity ${fieldEnemy.id}`,
+      );
+      return threat ? 'Defend' : 'AttackArmy';
+    }
+
+    const defaultMarch: Point = this.team === 'red' ? [24, 100] : [175, 100];
+    this.marchRaid(raidIds, defaultMarch);
+    this.setDecision(
+      threat ? 'Defend' : 'AttackBase',
+      80,
+      'Advance Towards Enemy Territory',
+      `Raid force (${raidIds.length} units) marching to (${defaultMarch[0]}, ${defaultMarch[1]})`,
+    );
+    return threat ? 'Defend' : 'AttackBase';
+  }
+
+  private marchRaid(raidIds: string[], destination: Point): void {
+    const ready = raidIds.filter((id) => {
+      const unit = this.simulation.entities.get(id);
+      return unit?.category === 'unit' && !unit.moveTarget && !this.simulation.engagements.statusFor(id);
+    });
+    if (ready.length > 0) dispatchGroupAttackMove(this.simulation, this.team, ready, destination);
+  }
+
+  private findHomeRallyPoint(base: BuildingEntity): Point | null {
+    const frontX = this.team === 'red' ? base.x - 5 : base.x + base.width + 4;
+    const centerY = base.y + Math.floor(base.height / 2);
+    for (let radius = 0; radius <= 5; radius += 1) {
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+          const x = frontX + dx;
+          const y = centerY + dy;
+          if (this.simulation.map.contains(x, y) && this.simulation.entities.isFreeForUnit(x, y, '')) {
+            return [x, y];
+          }
+        }
+      }
+    }
+    return null;
   }
 
   private findFreeWorker(workers: UnitEntity[], currentTick: number): UnitEntity | null {
@@ -233,9 +654,25 @@ export class AIController {
     return null;
   }
 
-  private assignIdleWorkers(workers: UnitEntity[], currentWood: number): void {
-    const hasIncomeWorker = workers.some((worker) => !worker.moveTarget
-      && this.simulation.economy.taskFor(worker.id)?.kind === 'mine');
+  private findFreeBuilder(builders: UnitEntity[], currentTick: number): UnitEntity | null {
+    for (const builder of builders) {
+      const hasBuildTask = this.simulation.construction.taskFor(builder.id) !== null;
+      const isMoving = builder.moveTarget !== null;
+      const isReady = currentTick >= builder.cooldownUntilTick;
+      if (!hasBuildTask && !isMoving && isReady) {
+        return builder;
+      }
+    }
+    return null;
+  }
+
+  private assignIdleWorkers(workers: UnitEntity[], currentWood: number, currentStone: number): void {
+    const hasIncomeWorker = workers.some((worker) =>
+      this.simulation.economy.taskFor(worker.id)?.kind === 'mine');
+    let stoneAssigned = workers.some((worker) => {
+      const task = this.simulation.economy.taskFor(worker.id);
+      return task?.kind === 'gather' && (task as { resourceKind?: string }).resourceKind === 'stone';
+    });
     let scoutingWorkerAssigned = false;
     for (const worker of workers) {
       const hasEconomyTask = this.simulation.economy.taskFor(worker.id) !== null;
@@ -256,7 +693,70 @@ export class AIController {
             target: nearestForest,
           });
           if (res.accepted) {
-            this.currentIntent = 'GatherWood';
+            this.setDecision('GatherWood', 64, 'Harvest Wood for Construction', `Worker ${worker.id} gathering wood`);
+            continue;
+          }
+        }
+      }
+
+      // Ensure miners are assigned to mine (1 miner for <=3 workers, 2 for >=4 workers)
+      const currentMiners = workers.filter((w) =>
+        this.simulation.economy.taskFor(w.id)?.kind === 'mine').length;
+      const targetMiners = workers.length >= 4 ? 2 : 1;
+      if (currentMiners < targetMiners && this.memory.discoveredMines.length > 0) {
+        const nearestMine = this.findClosestPoint(worker, this.memory.discoveredMines);
+        if (nearestMine) {
+          const res = this.simulation.issueCommand({
+            type: 'mine',
+            team: this.team,
+            unitId: worker.id,
+            target: nearestMine,
+          });
+          if (res.accepted) {
+            this.setDecision('Mine', 70, 'Mine Gold for Economy', `Worker ${worker.id} mining gold`);
+            continue;
+          }
+        }
+      }
+
+      // Gather stone if needed, once base economy has at least one mining worker
+      const activeMiners = workers.filter((w) =>
+        this.simulation.economy.taskFor(w.id)?.kind === 'mine').length;
+      if (currentStone < this.desiredStone && !stoneAssigned && activeMiners >= 1
+        && this.memory.discoveredStones.length > 0) {
+        const nearestStone = this.findClosestPoint(worker, this.memory.discoveredStones);
+        if (nearestStone) {
+          const res = this.simulation.issueCommand({
+            type: 'gather',
+            team: this.team,
+            unitId: worker.id,
+            target: nearestStone,
+          });
+          if (res.accepted) {
+            stoneAssigned = true;
+            this.setDecision('GatherStone', 62, 'Harvest Stone for Fortifications & Repairs', `Worker ${worker.id} gathering stone`);
+            continue;
+          }
+        }
+      }
+
+      // One worker explores unknown territory until essential resources are found
+      const needsResourceExploration = this.memory.discoveredMines.length === 0
+        || (this.memory.discoveredForests.length === 0 && currentWood < 150)
+        || (this.memory.discoveredStones.length === 0 && this.desiredStone > 0);
+      if (needsResourceExploration) {
+        if (scoutingWorkerAssigned || workers.some((candidate) => candidate.id !== worker.id && candidate.moveTarget)) continue;
+        const exploreTarget = this.findWorkerExplorationTarget();
+        if (exploreTarget) {
+          const res = this.simulation.issueCommand({
+            type: 'move',
+            team: this.team,
+            unitId: worker.id,
+            destination: exploreTarget,
+          });
+          if (res.accepted) {
+            scoutingWorkerAssigned = true;
+            this.setDecision('Scout', 45, 'Explore Territory to Discover Resources', `Worker ${worker.id} scouting for resources`);
             continue;
           }
         }
@@ -272,27 +772,67 @@ export class AIController {
             target: nearestMine,
           });
           if (res.accepted) {
-            this.currentIntent = 'Mine';
+            this.setDecision('Mine', 70, 'Mine Gold for Economy', `Worker ${worker.id} mining gold`);
             continue;
           }
         }
       }
+    }
 
-      // One worker explores nearby unknown territory; the other remains free to earn coins.
-      if (!hasIncomeWorker && workers.some((candidate) => candidate.id !== worker.id
-        && this.simulation.economy.taskFor(candidate.id)?.kind === 'gather')) continue;
-      if (scoutingWorkerAssigned || workers.some((candidate) => candidate.id !== worker.id && candidate.moveTarget)) continue;
-      const exploreTarget = this.findWorkerExplorationTarget();
-      if (!exploreTarget) continue;
-      const res = this.simulation.issueCommand({
-        type: 'move',
-        team: this.team,
-        unitId: worker.id,
-        destination: exploreTarget,
+    // Dynamic economy rebalancing: When wood reserves are healthy (>= 100),
+    // reallocate workers from wood to stone, mining, or scouting so resources don't stall.
+    if (currentWood >= 100) {
+      const woodWorkers = workers.filter((w) => {
+        const task = this.simulation.economy.taskFor(w.id);
+        const hasBuild = this.simulation.construction.taskFor(w.id) !== null;
+        return !hasBuild && task?.kind === 'gather' && (task as { resourceKind?: string }).resourceKind !== 'stone';
       });
-      if (res.accepted) {
-        scoutingWorkerAssigned = true;
-        this.currentIntent = 'Scout';
+
+      if (!stoneAssigned && currentStone < this.desiredStone && this.memory.discoveredStones.length > 0 && woodWorkers.length > 0) {
+        const workerToReassign = woodWorkers[0];
+        const nearestStone = this.findClosestPoint(workerToReassign, this.memory.discoveredStones);
+        if (nearestStone) {
+          const res = this.simulation.issueCommand({
+            type: 'gather',
+            team: this.team,
+            unitId: workerToReassign.id,
+            target: nearestStone,
+          });
+          if (res.accepted) {
+            this.setDecision('GatherStone', 63, 'Reassign Worker to Stone Harvest', `Worker ${workerToReassign.id} switched to stone`);
+          }
+        }
+      } else if (this.memory.discoveredStones.length === 0 && this.desiredStone > 0 && !scoutingWorkerAssigned && woodWorkers.length > 0) {
+        const workerToScout = woodWorkers[0];
+        const exploreTarget = this.findWorkerExplorationTarget();
+        if (exploreTarget) {
+          const res = this.simulation.issueCommand({
+            type: 'move',
+            team: this.team,
+            unitId: workerToScout.id,
+            destination: exploreTarget,
+          });
+          if (res.accepted) {
+            this.setDecision('Scout', 48, 'Explore Territory to Discover Stone Deposits', `Worker ${workerToScout.id} scouting for stone`);
+          }
+        }
+      } else if (currentWood >= 180 && woodWorkers.length > 1 && this.memory.discoveredMines.length > 0) {
+        const activeMiners = workers.filter((w) => this.simulation.economy.taskFor(w.id)?.kind === 'mine').length;
+        if (activeMiners < 2) {
+          const workerToMine = woodWorkers[0];
+          const nearestMine = this.findClosestPoint(workerToMine, this.memory.discoveredMines);
+          if (nearestMine) {
+            const res = this.simulation.issueCommand({
+              type: 'mine',
+              team: this.team,
+              unitId: workerToMine.id,
+              target: nearestMine,
+            });
+            if (res.accepted) {
+              this.setDecision('Mine', 69, 'Rebalance Wood Worker to Gold Mining', `Worker ${workerToMine.id} switched to gold mine`);
+            }
+          }
+        }
       }
     }
   }
@@ -301,7 +841,17 @@ export class AIController {
     const base = this.simulation.entities.get(`${this.team}-base`);
     if (!base || base.category !== 'building') return null;
     const direction = this.team === 'red' ? -1 : 1;
-    const offsets: Point[] = [[this.openingForward, this.openingVertical], [24, 12], [36, -24], [36, 24], [48, 0]];
+    const offsets: Point[] = [
+      [this.openingForward, this.openingVertical],
+      [24, 12],
+      [24, -30],
+      [24, 25],
+      [36, -24],
+      [40, -40],
+      [36, 24],
+      [40, 40],
+      [48, 0],
+    ];
     for (const [forward, vertical] of offsets) {
       const originX = this.team === 'red' ? base.x + base.width - 1 : base.x;
       const target: Point = [originX + direction * forward, base.y + vertical];
@@ -312,13 +862,19 @@ export class AIController {
   }
 
   private selectMilitaryUnitToTrain(ownMilitary: UnitEntity[], coins: number): UnitKind | null {
+    const soldiers = ownMilitary.filter((u) => u.kind === 'soldier').length;
+    const archers = ownMilitary.filter((u) => u.kind === 'archer').length;
+    // Fill the home guard and first fighting wave before buying a scout or support.
+    if (soldiers < 2 && coins >= BALANCE.units.soldier.coins) {
+      return 'soldier';
+    }
+    if (archers === 0 && coins >= BALANCE.units.archer.coins) return 'archer';
+    if (soldiers < 3 && coins >= BALANCE.units.soldier.coins) return 'soldier';
     const hasScout = ownMilitary.some((u) => u.kind === 'scout');
     if (!hasScout && coins >= BALANCE.units.scout.coins) {
       return 'scout';
     }
 
-    const soldiers = ownMilitary.filter((u) => u.kind === 'soldier').length;
-    const archers = ownMilitary.filter((u) => u.kind === 'archer').length;
     const shieldbearers = ownMilitary.filter((u) => u.kind === 'shieldbearer').length;
 
     // Composition balance: 2 soldiers, 1 archer, 1 shieldbearer
@@ -369,6 +925,32 @@ export class AIController {
     return null;
   }
 
+  private findBarricadePlacementSpot(base: BuildingEntity): Point | null {
+    const direction = this.team === 'red' ? -1 : 1;
+    const originX = this.team === 'red' ? base.x : base.x + base.width - 1;
+    const baseCenterY = base.y + Math.floor(base.height / 2);
+
+    const offsets: Array<[number, number]> = [
+      [7, -3], [7, 0], [7, 3],
+      [9, -2], [9, 2],
+      [6, -4], [6, 4],
+      [8, -1], [8, 1],
+      [10, 0],
+    ];
+
+    for (const [fwd, dy] of offsets) {
+      const x = originX + direction * fwd;
+      const y = baseCenterY + dy;
+      if (!this.simulation.map.contains(x, y)) continue;
+      if (!this.simulation.map.isPassable(x, y)) continue;
+      if (this.simulation.fog.stateAt(this.team, x, y) === 'unknown') continue;
+      if (this.simulation.entities.isAreaFreeForBuilding(x, y, 1, 1)) {
+        return [x, y];
+      }
+    }
+    return null;
+  }
+
   private findExplorationTarget(): Point | null {
     // Probe towards opponent's side of the map in strategic corridors
     const enemyBaseApprox: Point = this.team === 'red' ? [24, 100] : [175, 100];
@@ -397,5 +979,50 @@ export class AIController {
       }
     }
     return closest;
+  }
+
+  private findBuildingToRepair(
+    ownEntities: GameEntity[],
+    wood: number,
+    stone: number,
+  ): BuildingEntity | null {
+    const damaged = ownEntities.filter((e): e is BuildingEntity =>
+      e.category === 'building' && !e.underConstruction && e.hp < e.maxHp
+    );
+    if (damaged.length === 0) return null;
+
+    // Filter by affordable buildings and avoid being obsessive over tiny scratch damage
+    const affordable = damaged.filter((b) => {
+      const config = BALANCE.buildings[b.kind];
+      const costConfig = (config as { repairCostPerSecond?: { wood?: number; stone?: number } }).repairCostPerSecond;
+      const woodCost = costConfig?.wood ?? 0;
+      const stoneCost = costConfig?.stone ?? 0;
+      if (woodCost > 0 && wood < woodCost) return false;
+      if (stoneCost > 0 && stone < stoneCost) return false;
+      if (b.kind !== 'base' && b.hp > b.maxHp * 0.85) return false;
+      return true;
+    });
+
+    if (affordable.length === 0) return null;
+
+    const priorityRank = (b: BuildingEntity): number => {
+      switch (b.kind) {
+        case 'base': return 1;
+        case 'tower': return 2;
+        case 'barracks': return 3;
+        case 'house': return 4;
+        case 'barricade': return 5;
+        default: return 6;
+      }
+    };
+
+    affordable.sort((a, b) => {
+      const rA = priorityRank(a);
+      const rB = priorityRank(b);
+      if (rA !== rB) return rA - rB;
+      return (a.hp / a.maxHp) - (b.hp / b.maxHp);
+    });
+
+    return affordable[0];
   }
 }

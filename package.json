@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:sandbox": "vite --port 5174",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "simulate": "node scripts/simulate.mjs"
+    "simulate": "node scripts/simulate.mjs",
+    "benchmark": "node scripts/performance.mjs",
+    "benchmark:browser": "node scripts/performance-browser.mjs"
   },
   "dependencies": {
     "phaser": "^3.90.0"

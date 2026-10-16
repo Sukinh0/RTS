@@ -1,4 +1,5 @@
-import type { BuildingKind, EntityStore, GameEntity, UnitKind } from '../entities/EntityStore';
+import { BALANCE } from '../../config/balance';
+import type { BuildingKind, EntityStore, UnitKind } from '../entities/EntityStore';
 import type { FogOfWar } from '../systems/FogOfWar';
 import type { MapGrid, Point, Team } from '../../map/MapGrid';
 
@@ -23,23 +24,23 @@ export interface KnownEnemyUnit {
 export class AIMemory {
   readonly discoveredMines: Point[] = [];
   readonly discoveredForests: Point[] = [];
+  readonly discoveredStones: Point[] = [];
   readonly knownEnemyBuildings = new Map<string, KnownEnemyBuilding>();
   readonly lastSeenEnemies = new Map<string, KnownEnemyUnit>();
   enemyBaseLocation: Point | null = null;
 
-  private readonly scannedCells = new Set<string>();
+  private scannedCells?: Uint8Array;
+  private lastResourceScanTick = -30;
 
   constructor(readonly team: Team) {}
 
   update(fog: FogOfWar, entities: EntityStore, map: MapGrid, currentTick: number): void {
     const visibleEntities = fog.visibleEntities(this.team);
-    const visibleEnemyUnits = new Map<string, GameEntity>();
 
     for (const entity of visibleEntities) {
       if (entity.team === this.team) continue;
 
       if (entity.category === 'unit') {
-        visibleEnemyUnits.set(entity.id, entity);
         this.lastSeenEnemies.set(entity.id, {
           id: entity.id,
           kind: entity.kind,
@@ -76,10 +77,14 @@ export class AIMemory {
       }
     }
 
+    // Scan resources once per decision interval; large building vision need not be rescanned every tick.
+    if (currentTick - this.lastResourceScanTick < 30) return;
+    this.lastResourceScanTick = currentTick;
+    const scanned = this.scannedCells ??= new Uint8Array(map.width * map.height);
     // Scan newly visible/explored cells around own units and buildings to discover resources
     const ownEntities = entities.all().filter((e) => e.team === this.team);
     for (const ent of ownEntities) {
-      const radius = ent.category === 'unit' ? ent.vision : 5;
+      const radius = ent.category === 'unit' ? ent.vision : BALANCE.buildings[ent.kind].vision;
       const minX = Math.max(0, ent.x - radius);
       const maxX = Math.min(map.width - 1, ent.x + (ent.category === 'building' ? ent.width - 1 : 0) + radius);
       const minY = Math.max(0, ent.y - radius);
@@ -87,15 +92,17 @@ export class AIMemory {
 
       for (let y = minY; y <= maxY; y += 1) {
         for (let x = minX; x <= maxX; x += 1) {
-          const key = `${x},${y}`;
-          if (this.scannedCells.has(key)) continue;
+          const key = y * map.width + x;
+          if (scanned[key]) continue;
           if (fog.stateAt(this.team, x, y) !== 'unknown') {
-            this.scannedCells.add(key);
+            scanned[key] = 1;
             const cell = map.cellAt(x, y);
             if (cell?.terrain === 'mine') {
               this.discoveredMines.push([x, y]);
             } else if (cell?.terrain === 'forest') {
               this.discoveredForests.push([x, y]);
+            } else if (cell?.terrain === 'stone') {
+              this.discoveredStones.push([x, y]);
             }
           }
         }

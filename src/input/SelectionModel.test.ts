@@ -46,4 +46,40 @@ describe('Fase 2 selection', () => {
     selection.selectRect(24, 98, 26, 100, true);
     expect(selection.selectedIds).toEqual(['blue-worker-2', 'blue-worker-1']);
   });
+
+  it('manages active formation property', () => {
+    const selection = setup();
+    expect(selection.formation).toBe('line');
+    selection.setFormation('wedge');
+    expect(selection.formation).toBe('wedge');
+    selection.setFormation('block');
+    expect(selection.formation).toBe('block');
+    selection.setFormation('double-rank');
+    expect(selection.formation).toBe('double-rank');
+    selection.setFormation(null);
+    expect(selection.formation).toBeNull();
+  });
+
+  it('records and selects control groups 1 through 9', () => {
+    const selection = setup();
+    selection.selectAt(25, 99); // blue-worker-1
+    expect(selection.recordControlGroup(1)).toBe(true);
+    expect(selection.getControlGroup(1)).toEqual(['blue-worker-1']);
+
+    selection.selectAt(25, 101); // blue-worker-2
+    expect(selection.recordControlGroup(2)).toBe(true);
+
+    // Recall group 1
+    selection.selectControlGroup(1);
+    expect(selection.selectedIds).toEqual(['blue-worker-1']);
+
+    // Recall group 2
+    selection.selectControlGroup(2);
+    expect(selection.selectedIds).toEqual(['blue-worker-2']);
+
+    // Additive selection of group 1
+    selection.selectControlGroup(1, true);
+    expect(selection.selectedIds).toContain('blue-worker-1');
+    expect(selection.selectedIds).toContain('blue-worker-2');
+  });
 });

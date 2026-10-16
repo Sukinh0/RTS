@@ -109,3 +109,23 @@ Comando-alvo:
 `npm run simulate -- --games=100 --seed=123`
 
 Deve produzir resumo estatístico sem abrir o Phaser.
+# Regressões do playtest pós V1
+
+- `VisualFog.test.ts`: posição visual determina a revelação; terreno explorado mantém a última imagem até voltar à visão.
+- `MarchEngagementSystem.test.ts`: aquisição, aproximação e retomada da marcha, furtividade e prioridade manual.
+- `CombatSystem.test.ts` e `MovementSystem.test.ts`: ataques simultâneos e alternância de prioridade de movimento.
+- `playtest-regressions.spec.ts`: unidade inimiga aparece na fronteira visual sem salto, engajamento durante marcha, paleta e HUD fora do mapa em telas de 1280px e 760px. As capturas ficam em `artifacts/`.
+- Jornada completa com economia real, sem injeção de recursos; torneio de 100 partidas deve ser repetido após qualquer ajuste de combate ou movimento.
+
+## Regressões da IA e do relatório final
+
+- `AIController.test.ts`: a IA constrói mesmo depois de formar grupo de ataque, envia batedor para explorar e treina unidade de combate com os recursos iniciais.
+- `GameResult.test.ts` e `EconomySystem.test.ts`: contam produção concluída, baixas, ouro e madeira recebidos, custos aceitos e captura dos totais no encerramento.
+- `result.spec.ts`: compara as duas equipes no navegador e garante que a tabela final cabe em tela compacta com rolagem.
+- Repetir `npm run simulate -- --games=100 --seed=123` ao mudar a estratégia da IA; registrar tempo até primeiro combate e empates, além de vitórias.
+
+## Economia da IA e efeitos leves
+
+- Avançar 600 segundos com os recursos iniciais e conferir descoberta de mina, operário produzido, tropas produzidas e mais de 900 moedas coletadas, sem injeção de recursos.
+- Verificar no navegador que o cronômetro do HUD segue os ticks da simulação e para no resultado.
+- Inspecionar no navegador os pulsos curtos de coleta, mineração, construção, surgimento de unidades e impacto em combate. Efeitos de inimigos só aparecem em células atualmente visíveis.

@@ -1,0 +1,1318 @@
+{
+  "label": "route-window",
+  "date": "2026-10-09T18:52:49.037Z",
+  "environment": {
+    "node": "v22.5.1",
+    "platform": "win32",
+    "cpu": "AMD Ryzen 5 5625U with Radeon Graphics         ",
+    "logicalCpus": 12,
+    "totalMemory": 14870306816
+  },
+  "method": {
+    "ticks": 60,
+    "repeats": 1,
+    "seed": 123,
+    "productionCap": 60,
+    "stressCapOverride": true,
+    "caseTimeoutMs": 30000,
+    "rendering": "VisualFog only; no GPU, no FPS measurement"
+  },
+  "results": [
+    {
+      "count": 100,
+      "scenario": "idle",
+      "ticks": 60,
+      "commandMs": 0.003200000000020964,
+      "simulation": {
+        "meanMs": 0.3424666666666643,
+        "p95Ms": 0.7607000000000141,
+        "maxMs": 1.1393999999999664
+      },
+      "visualFog": {
+        "meanMs": 0.051134999999994574,
+        "p95Ms": 0.04379999999997608,
+        "maxMs": 2.2150000000000034
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 0.8497000000001265
+        },
+        "fog": {
+          "calls": 0,
+          "totalMs": 0
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.05100000000030036
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.03079999999994243
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.057799999999986085
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.4240999999998394
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.02830000000005839
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 18.399700000000195
+        }
+      },
+      "heapDeltaBytes": 663960,
+      "activeEntities": 102,
+      "checksum": "9b7d618adc6c326a1fb779b4c94831ba11cd17b2629f154e70ae2cea788ecaae",
+      "repeat": 0
+    },
+    {
+      "count": 100,
+      "scenario": "move",
+      "ticks": 60,
+      "commandMs": 12.794200000000018,
+      "simulation": {
+        "meanMs": 3.617908333333338,
+        "p95Ms": 0.2154000000000451,
+        "maxMs": 158.13320000000004
+      },
+      "visualFog": {
+        "meanMs": 0.07267833333333064,
+        "p95Ms": 0.04390000000000782,
+        "maxMs": 2.5086000000000013
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 206.86730000000017
+        },
+        "fog": {
+          "calls": 2,
+          "totalMs": 3.133299999999963
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.057700000000124874
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.026999999999816282
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.02810000000022228
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.41869999999994434
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.023700000000076216
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 6.055900000000065
+        }
+      },
+      "heapDeltaBytes": 739096,
+      "activeEntities": 102,
+      "checksum": "65deba9b3003d49559ad7e143b11a84d252c09773026688049a287afdb6b04e6",
+      "repeat": 0
+    },
+    {
+      "count": 100,
+      "scenario": "paths",
+      "ticks": 60,
+      "commandMs": 230.59449999999998,
+      "simulation": {
+        "meanMs": 0.2840283333333351,
+        "p95Ms": 0.6292000000000257,
+        "maxMs": 1.127300000000048
+      },
+      "visualFog": {
+        "meanMs": 0.040905000000004556,
+        "p95Ms": 0.03969999999998208,
+        "maxMs": 1.640800000000013
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 0.7191999999999439
+        },
+        "fog": {
+          "calls": 0,
+          "totalMs": 0
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.05079999999992424
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.027799999999785996
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.028000000000076852
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.36760000000015225
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.029099999999857573
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 15.260800000000188
+        }
+      },
+      "heapDeltaBytes": -3407248,
+      "activeEntities": 102,
+      "checksum": "9b7d618adc6c326a1fb779b4c94831ba11cd17b2629f154e70ae2cea788ecaae",
+      "repeat": 0
+    },
+    {
+      "count": 100,
+      "scenario": "combat",
+      "ticks": 60,
+      "commandMs": 0.010500000000007503,
+      "simulation": {
+        "meanMs": 0.659725000000004,
+        "p95Ms": 0.11549999999999727,
+        "maxMs": 35.1816
+      },
+      "visualFog": {
+        "meanMs": 0.04685333333333119,
+        "p95Ms": 0.0181999999999789,
+        "maxMs": 2.279100000000028
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 0.7343000000000188
+        },
+        "fog": {
+          "calls": 30,
+          "totalMs": 29.01210000000026
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.0318999999999221
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.02270000000007144
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.025999999999754664
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.3213999999999828
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.019999999999868123
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 38.029900000000026
+        }
+      },
+      "heapDeltaBytes": 968664,
+      "activeEntities": 72,
+      "checksum": "db268e03be4e938df69419b8e740c2332ca5fdf01cfa6097b24edd8f8ce9628a",
+      "repeat": 0
+    },
+    {
+      "count": 100,
+      "scenario": "formation",
+      "ticks": 60,
+      "commandMs": 49.055800000000005,
+      "simulation": {
+        "meanMs": 4.644348333333331,
+        "p95Ms": 2.8038999999999987,
+        "maxMs": 103.87740000000002
+      },
+      "visualFog": {
+        "meanMs": 0.09557833333333482,
+        "p95Ms": 0.43280000000004293,
+        "maxMs": 1.810200000000009
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 250.49089999999984
+        },
+        "fog": {
+          "calls": 7,
+          "totalMs": 6.897299999999859
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.08490000000011833
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.07590000000010377
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.05410000000023274
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.4125000000000796
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 7.633800000000292
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 11.032899999999984
+        }
+      },
+      "heapDeltaBytes": -3594904,
+      "activeEntities": 102,
+      "checksum": "0ab078eac638136740e72ae1b140ce3fb702e04267a3aac96d4c48a546d6b4ca",
+      "repeat": 0
+    },
+    {
+      "count": 100,
+      "scenario": "bottleneck",
+      "ticks": 60,
+      "commandMs": 15.440600000000018,
+      "simulation": {
+        "meanMs": 6.800371666666664,
+        "p95Ms": 0.2664999999999509,
+        "maxMs": 270.2735
+      },
+      "visualFog": {
+        "meanMs": 0.06721000000000382,
+        "p95Ms": 0.03719999999998436,
+        "maxMs": 2.3816000000000486
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 398.5655999999993
+        },
+        "fog": {
+          "calls": 2,
+          "totalMs": 1.8804000000000087
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.05179999999984375
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.026700000000346336
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.033099999999421925
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.4091000000001941
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.024900000000343425
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 6.48800000000017
+        }
+      },
+      "heapDeltaBytes": 1667672,
+      "activeEntities": 102,
+      "checksum": "836b47de67063796fbaf237b8238d74c7255225e1ec69e6848cb246af3efee80",
+      "repeat": 0
+    },
+    {
+      "count": 100,
+      "scenario": "churn",
+      "ticks": 60,
+      "commandMs": 0.008399999999994634,
+      "simulation": {
+        "meanMs": 0.4784866666666687,
+        "p95Ms": 1.1833999999999492,
+        "maxMs": 2.504799999999989
+      },
+      "visualFog": {
+        "meanMs": 0.3909133333333344,
+        "p95Ms": 0.9402999999999793,
+        "maxMs": 5.316299999999984
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 8.050900000000325
+        },
+        "fog": {
+          "calls": 0,
+          "totalMs": 0
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.06650000000033174
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.041800000000023374
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.04610000000002401
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.9905000000001678
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.040899999999965075
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 16.71679999999995
+        }
+      },
+      "heapDeltaBytes": 242848,
+      "activeEntities": 102,
+      "checksum": "8e70f7caaab7c05a6f059901d09b6d89c5140bb0d170be6f323587a67824a4e4",
+      "repeat": 0
+    },
+    {
+      "count": 100,
+      "scenario": "ai",
+      "ticks": 60,
+      "commandMs": 0.00770000000002824,
+      "simulation": {
+        "meanMs": 4.555708333333339,
+        "p95Ms": 0.8796999999999571,
+        "maxMs": 164.7982
+      },
+      "visualFog": {
+        "meanMs": 0.14183333333333412,
+        "p95Ms": 0.038899999999955526,
+        "maxMs": 4.0966999999999985
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 226.26039999999952
+        },
+        "fog": {
+          "calls": 2,
+          "totalMs": 1.984800000000007
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.05030000000056134
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.031000000000375394
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.03280000000043515
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 12.049500000000137
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.045300000000025875
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 7.525599999999827
+        }
+      },
+      "heapDeltaBytes": 4990768,
+      "activeEntities": 102,
+      "checksum": "0faadc2d14738ed718a21d81d0593581f69646c3ebfbecd7b078c0e6784e63a5",
+      "repeat": 0
+    },
+    {
+      "count": 200,
+      "scenario": "idle",
+      "ticks": 60,
+      "commandMs": 0.002600000000001046,
+      "simulation": {
+        "meanMs": 0.6845499999999978,
+        "p95Ms": 1.233000000000004,
+        "maxMs": 3.502200000000016
+      },
+      "visualFog": {
+        "meanMs": 0.06489333333333984,
+        "p95Ms": 0.069500000000005,
+        "maxMs": 2.2708999999999833
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 1.4857000000001506
+        },
+        "fog": {
+          "calls": 0,
+          "totalMs": 0
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.07909999999958472
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.04410000000018499
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.044400000000251794
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.6786000000003298
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.04529999999996903
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 37.26969999999983
+        }
+      },
+      "heapDeltaBytes": -2328912,
+      "activeEntities": 202,
+      "checksum": "d36e739c0e815bebe7531929e3e9ec4bf595dcb22a192ffe597bafed4b43d9e3",
+      "repeat": 0
+    },
+    {
+      "count": 200,
+      "scenario": "move",
+      "ticks": 60,
+      "commandMs": 15.100599999999986,
+      "simulation": {
+        "meanMs": 6.8982249999999965,
+        "p95Ms": 0.9725000000000819,
+        "maxMs": 265.0543
+      },
+      "visualFog": {
+        "meanMs": 0.07703499999999887,
+        "p95Ms": 0.07549999999991996,
+        "maxMs": 2.6088000000000875
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 395.97539999999947
+        },
+        "fog": {
+          "calls": 2,
+          "totalMs": 2.3099999999999454
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.06590000000005602
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.041400000000521686
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.03650000000050113
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.8405000000004748
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.029199999999605097
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 13.75999999999965
+        }
+      },
+      "heapDeltaBytes": 4446032,
+      "activeEntities": 202,
+      "checksum": "564c3cd46ad5a1db085dc5a051e46dac10be7d3ea3385563e1054ad25e431058",
+      "repeat": 0
+    },
+    {
+      "count": 200,
+      "scenario": "paths",
+      "ticks": 60,
+      "commandMs": 360.51689999999996,
+      "simulation": {
+        "meanMs": 0.7269450000000006,
+        "p95Ms": 1.4527000000000498,
+        "maxMs": 2.3372000000000526
+      },
+      "visualFog": {
+        "meanMs": 0.07441333333332713,
+        "p95Ms": 0.05889999999999418,
+        "maxMs": 2.7507000000000517
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 1.8403000000002976
+        },
+        "fog": {
+          "calls": 0,
+          "totalMs": 0
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.08780000000001564
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.03880000000071959
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.048000000000115506
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.7253999999998086
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.0420000000001437
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 39.94829999999956
+        }
+      },
+      "heapDeltaBytes": -2646744,
+      "activeEntities": 202,
+      "checksum": "d36e739c0e815bebe7531929e3e9ec4bf595dcb22a192ffe597bafed4b43d9e3",
+      "repeat": 0
+    },
+    {
+      "count": 200,
+      "scenario": "combat",
+      "ticks": 60,
+      "commandMs": 0.005300000000033833,
+      "simulation": {
+        "meanMs": 1.6483616666666705,
+        "p95Ms": 0.40430000000003474,
+        "maxMs": 86.23580000000004
+      },
+      "visualFog": {
+        "meanMs": 0.06842833333333166,
+        "p95Ms": 0.05279999999999063,
+        "maxMs": 2.6947999999999865
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 1.6488999999999692
+        },
+        "fog": {
+          "calls": 60,
+          "totalMs": 79.34570000000014
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.054200000000150794
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.037900000000036016
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.037600000000168166
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.6779999999999973
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.031299999999930606
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 95.66609999999986
+        }
+      },
+      "heapDeltaBytes": -1643232,
+      "activeEntities": 142,
+      "checksum": "95ec5945ede20c7a18ff1a1e2bb3b8ed71625e4e026cabf258794b76575d7ab8",
+      "repeat": 0
+    },
+    {
+      "count": 200,
+      "scenario": "formation",
+      "ticks": 60,
+      "commandMs": 27.375499999999988,
+      "simulation": {
+        "meanMs": 19.435115,
+        "p95Ms": 120.00959999999998,
+        "maxMs": 181.1191
+      },
+      "visualFog": {
+        "meanMs": 0.25587833333333093,
+        "p95Ms": 0.8810999999999467,
+        "maxMs": 3.752900000000068
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 1112.1774000000014
+        },
+        "fog": {
+          "calls": 17,
+          "totalMs": 22.844500000000323
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.16090000000042437
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.08720000000016626
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.07059999999933098
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.678499999999417
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 11.893499999999392
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 17.047299999999098
+        }
+      },
+      "heapDeltaBytes": 5254808,
+      "activeEntities": 202,
+      "checksum": "197da38284fa8e5bb4d7e0cdb446afbd2fc9473bc8296d0a89071367e6260814",
+      "repeat": 0
+    },
+    {
+      "count": 200,
+      "scenario": "bottleneck",
+      "ticks": 60,
+      "commandMs": 16.90010000000001,
+      "simulation": {
+        "meanMs": 14.444323333333333,
+        "p95Ms": 0.49689999999986867,
+        "maxMs": 541.0772
+      },
+      "visualFog": {
+        "meanMs": 0.09890833333333073,
+        "p95Ms": 0.0806999999999789,
+        "maxMs": 3.662700000000086
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 847.1460000000001
+        },
+        "fog": {
+          "calls": 2,
+          "totalMs": 4.458900000000085
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.11450000000047567
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.029900000000452565
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.031000000000403816
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 1.1752999999998792
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.05080000000145901
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 13.069199999999796
+        }
+      },
+      "heapDeltaBytes": 3735840,
+      "activeEntities": 202,
+      "checksum": "d2e737e0b61b0f1906dd3e0a59d0172b0bb773e7914501836adef0119774ddad",
+      "repeat": 0
+    },
+    {
+      "count": 200,
+      "scenario": "churn",
+      "ticks": 60,
+      "commandMs": 0.0036999999999807187,
+      "simulation": {
+        "meanMs": 0.8275366666666666,
+        "p95Ms": 1.853999999999985,
+        "maxMs": 2.1381000000000085
+      },
+      "visualFog": {
+        "meanMs": 0.3584783333333339,
+        "p95Ms": 0.9963999999999942,
+        "maxMs": 2.974999999999966
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 14.214800000000253
+        },
+        "fog": {
+          "calls": 0,
+          "totalMs": 0
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.07939999999990732
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.046900000000164255
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.0658000000003085
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 0.6987000000004286
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.03979999999990014
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 32.08639999999991
+        }
+      },
+      "heapDeltaBytes": -1264008,
+      "activeEntities": 202,
+      "checksum": "6bbea45bb7aac10eb55274c54362df5fced97aa8ad31bd8b34d5ad51a547b0d4",
+      "repeat": 0
+    },
+    {
+      "count": 200,
+      "scenario": "ai",
+      "ticks": 60,
+      "commandMs": 0.0030999999999892225,
+      "simulation": {
+        "meanMs": 9.53177,
+        "p95Ms": 4.119199999999978,
+        "maxMs": 330.7
+      },
+      "visualFog": {
+        "meanMs": 0.14722999999999614,
+        "p95Ms": 0.0663000000000693,
+        "maxMs": 4.251800000000003
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 486.97029999999995
+        },
+        "fog": {
+          "calls": 2,
+          "totalMs": 3.8123999999999114
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.08189999999953557
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.03879999999935535
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.04039999999980637
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 31.678599999999676
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.10230000000046857
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 14.876700000000739
+        }
+      },
+      "heapDeltaBytes": 13987184,
+      "activeEntities": 202,
+      "checksum": "9342db37e51efa27ad1fed1ea53db2e8b4dbd6f39839af95fbd67fa4ba0eb5c5",
+      "repeat": 0
+    },
+    {
+      "count": 500,
+      "scenario": "idle",
+      "ticks": 60,
+      "commandMs": 0.004099999999993997,
+      "simulation": {
+        "meanMs": 1.3804999999999958,
+        "p95Ms": 2.321200000000033,
+        "maxMs": 6.302700000000016
+      },
+      "visualFog": {
+        "meanMs": 0.12187000000000126,
+        "p95Ms": 0.143100000000004,
+        "maxMs": 4.009400000000028
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 2.12130000000019
+        },
+        "fog": {
+          "calls": 0,
+          "totalMs": 0
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.09839999999957172
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.04000000000007731
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.04759999999998854
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 1.2744000000002984
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.03849999999999909
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 78.17210000000017
+        }
+      },
+      "heapDeltaBytes": -1235152,
+      "activeEntities": 502,
+      "checksum": "e46264f2989d5ae2368909d9ea6543eff724af1629bb415dd8f1dee62ec2cdf7",
+      "repeat": 0
+    },
+    {
+      "count": 500,
+      "scenario": "move",
+      "ticks": 60,
+      "commandMs": 34.8005,
+      "simulation": {
+        "meanMs": 15.563561666666642,
+        "p95Ms": 1.4726000000000568,
+        "maxMs": 534.0903
+      },
+      "visualFog": {
+        "meanMs": 0.14955499999999045,
+        "p95Ms": 0.521900000000187,
+        "maxMs": 3.8763999999999896
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 891.9584999999986
+        },
+        "fog": {
+          "calls": 3,
+          "totalMs": 4.480499999999893
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.10949999999979809
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.039099999999621105
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.03880000000037853
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 1.2876999999997452
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.04240000000015698
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 35.027500000000146
+        }
+      },
+      "heapDeltaBytes": 18112760,
+      "activeEntities": 502,
+      "checksum": "2eead5356495c51d5e8638abf4709131aa653c8fda37651123715f73ceb52985",
+      "repeat": 0
+    },
+    {
+      "count": 500,
+      "scenario": "paths",
+      "ticks": 60,
+      "commandMs": 584.056,
+      "simulation": {
+        "meanMs": 1.305613333333334,
+        "p95Ms": 2.060699999999997,
+        "maxMs": 4.094699999999989
+      },
+      "visualFog": {
+        "meanMs": 0.11339999999999956,
+        "p95Ms": 0.19819999999992888,
+        "maxMs": 2.8561999999999443
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 2.36600000000044
+        },
+        "fog": {
+          "calls": 0,
+          "totalMs": 0
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.12130000000024665
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.04570000000035179
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.05810000000008131
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 1.2190000000005057
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.045099999999820284
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 71.34080000000029
+        }
+      },
+      "heapDeltaBytes": -1672624,
+      "activeEntities": 502,
+      "checksum": "e46264f2989d5ae2368909d9ea6543eff724af1629bb415dd8f1dee62ec2cdf7",
+      "repeat": 0
+    },
+    {
+      "count": 500,
+      "scenario": "combat",
+      "ticks": 60,
+      "commandMs": 0.002999999999985903,
+      "simulation": {
+        "meanMs": 4.4657333333333336,
+        "p95Ms": 0.6938000000000102,
+        "maxMs": 243.0774
+      },
+      "visualFog": {
+        "meanMs": 0.09338166666666818,
+        "p95Ms": 0.1026000000000522,
+        "maxMs": 3.043100000000038
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 3.1268999999996936
+        },
+        "fog": {
+          "calls": 150,
+          "totalMs": 228.17530000000005
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.07749999999998636
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.029800000000136606
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.04219999999986612
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 1.3221999999998388
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.03039999999975862
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 262.70269999999965
+        }
+      },
+      "heapDeltaBytes": -920888,
+      "activeEntities": 352,
+      "checksum": "24acfdd4f6bdfcadd081dc8dba60e8b6bfd9e8ac19567ae0abd7bb72b0f3e58b",
+      "repeat": 0
+    },
+    {
+      "count": 500,
+      "scenario": "formation",
+      "ticks": 60,
+      "commandMs": 45.271600000000035,
+      "simulation": {
+        "meanMs": 92.39720333333335,
+        "p95Ms": 321.4905000000001,
+        "maxMs": 1927.6067000000003
+      },
+      "visualFog": {
+        "meanMs": 0.27640000000003134,
+        "p95Ms": 0.9425000000001091,
+        "maxMs": 5.649400000000014
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 5459.7492999999995
+        },
+        "fog": {
+          "calls": 16,
+          "totalMs": 28.55260000000112
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.1753000000007887
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.05279999999629581
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.06569999999942411
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 1.2087000000028638
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 17.314100000000963
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 35.55730000000176
+        }
+      },
+      "heapDeltaBytes": 3335904,
+      "activeEntities": 502,
+      "checksum": "c9d596c41f3775efc087a3a8d1672ff744691d8a4af76d486202b5e65469bba1",
+      "repeat": 0
+    },
+    {
+      "count": 500,
+      "scenario": "bottleneck",
+      "ticks": 60,
+      "commandMs": 33.5761,
+      "simulation": {
+        "meanMs": 40.09963000000003,
+        "p95Ms": 1.5745999999999185,
+        "maxMs": 1370.6770000000001
+      },
+      "visualFog": {
+        "meanMs": 0.1845916666667108,
+        "p95Ms": 0.16450000000008913,
+        "maxMs": 6.254799999999932
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 2358.8802000000005
+        },
+        "fog": {
+          "calls": 2,
+          "totalMs": 8.340200000000095
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.10279999999920619
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.034800000002405795
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.03769999999894935
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 1.2156999999981508
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.038499999999430656
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 36.55189999999948
+        }
+      },
+      "heapDeltaBytes": 16233512,
+      "activeEntities": 502,
+      "checksum": "b92c4f2334a39ba13c43cfabc6cdd8715c5973515ec0297b8783257ae185c781",
+      "repeat": 0
+    },
+    {
+      "count": 500,
+      "scenario": "churn",
+      "ticks": 60,
+      "commandMs": 0.004000000000019099,
+      "simulation": {
+        "meanMs": 2.135775000000002,
+        "p95Ms": 3.919899999999984,
+        "maxMs": 6.071799999999996
+      },
+      "visualFog": {
+        "meanMs": 0.46978999999999854,
+        "p95Ms": 1.3652999999999906,
+        "maxMs": 5.002700000000004
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 38.258399999999995
+        },
+        "fog": {
+          "calls": 0,
+          "totalMs": 0
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.15460000000001628
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.0645000000000664
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.0795000000001096
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 1.4293999999998732
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.060699999999940246
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 84.22090000000014
+        }
+      },
+      "heapDeltaBytes": -1124608,
+      "activeEntities": 502,
+      "checksum": "eb40c56acab532b882c67bbbbe0bd6236c86bf1bf5b293833b48e3afd4016336",
+      "repeat": 0
+    },
+    {
+      "count": 500,
+      "scenario": "ai",
+      "ticks": 60,
+      "commandMs": 0.005799999999965166,
+      "simulation": {
+        "meanMs": 22.364329999999995,
+        "p95Ms": 3.7210999999999785,
+        "maxMs": 606.83
+      },
+      "visualFog": {
+        "meanMs": 0.22411999999999258,
+        "p95Ms": 0.18880000000001473,
+        "maxMs": 6.064900000000023
+      },
+      "systems": {
+        "movement": {
+          "calls": 60,
+          "totalMs": 1168.2637999999993
+        },
+        "fog": {
+          "calls": 2,
+          "totalMs": 3.327199999999948
+        },
+        "economy": {
+          "calls": 60,
+          "totalMs": 0.10339999999962401
+        },
+        "construction": {
+          "calls": 60,
+          "totalMs": 0.04699999999962756
+        },
+        "production": {
+          "calls": 60,
+          "totalMs": 0.05250000000023647
+        },
+        "engagements": {
+          "calls": 60,
+          "totalMs": 71.87379999999962
+        },
+        "formations": {
+          "calls": 60,
+          "totalMs": 0.08959999999990487
+        },
+        "combat": {
+          "calls": 60,
+          "totalMs": 31.645000000001062
+        }
+      },
+      "heapDeltaBytes": 11189208,
+      "activeEntities": 502,
+      "checksum": "0417181c6c7f10aa19ba9786a3456b474ad8125c325689a8aac204ce683e10e5",
+      "repeat": 0
+    }
+  ]
+}

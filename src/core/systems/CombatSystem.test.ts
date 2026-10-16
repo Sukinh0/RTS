@@ -3,6 +3,20 @@ import { BALANCE } from '../../config/balance';
 import { FIXED_STEP_MS, TICKS_PER_SECOND } from '../../config/runtime';
 import { Simulation } from '../game/Simulation';
 
+describe('simultaneous combat resolution', () => {
+  it('allows both sides to attack in the same tick', () => {
+    const simulation = new Simulation(1);
+    const blue = simulation.entities.spawnUnit('blue', 'soldier', 30, 99);
+    const red = simulation.entities.spawnUnit('red', 'soldier', 32, 99);
+    blue.hp = 5;
+    red.hp = 5;
+    simulation.fog.update();
+    expect(simulation.combat.update(0)).toBe(2);
+    expect(simulation.entities.get(blue.id)).toBeUndefined();
+    expect(simulation.entities.get(red.id)).toBeUndefined();
+  });
+});
+
 describe('Fase 7 — Combate e atributos das tropas', () => {
   it('dano correto: soldado causa 5 e arqueiro causa 8', () => {
     const simulation = new Simulation(1);
@@ -27,7 +41,7 @@ describe('Fase 7 — Combate e atributos das tropas', () => {
     expect(redSoldier.hp).toBe(5); // 13 - 8
   });
 
-  it('unidades sem dano não podem atacar', () => {
+  it('operário causa 4 de dano adjacente; unidades sem dano não podem atacar', () => {
     const simulation = new Simulation(1);
     const worker = simulation.entities.get('blue-worker-1')!;
     const enemy = simulation.entities.spawnUnit('red', 'soldier', 26, 99);
@@ -36,7 +50,8 @@ describe('Fase 7 — Combate e atributos das tropas', () => {
     const res = simulation.issueCommand({
       type: 'attack', team: 'blue', unitId: worker.id, targetId: enemy.id,
     });
-    expect(res).toEqual({ accepted: false, reason: 'cannot-attack' });
+    expect(res).toEqual({ accepted: true });
+    expect(enemy.hp).toBe(14);
 
     const shieldbearer = simulation.entities.spawnUnit('blue', 'shieldbearer', 25, 98);
     const res2 = simulation.issueCommand({
@@ -49,6 +64,18 @@ describe('Fase 7 — Combate e atributos das tropas', () => {
       type: 'attack', team: 'blue', unitId: scout.id, targetId: enemy.id,
     });
     expect(res3).toEqual({ accepted: false, reason: 'cannot-attack' });
+  });
+
+  it('operário parado reage a inimigo adjacente usando o cooldown normal', () => {
+    const simulation = new Simulation(1);
+    const worker = simulation.entities.get('blue-worker-1')!;
+    const enemy = simulation.entities.spawnUnit('red', 'soldier', 26, 99);
+    simulation.fog.update();
+
+    expect(simulation.combat.update(0)).toBe(2);
+    expect(enemy.hp).toBe(14);
+    expect(worker.hp).toBe(5);
+    expect(simulation.combat.update(1)).toBe(0);
   });
 
   it('alcance correto: respeita limite de alcance e rejeita fora de alcance', () => {

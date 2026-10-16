@@ -1,9 +1,12 @@
+import type { FormationType } from '../core/formations/FormationGeometry';
 import { EntityStore, type GameEntity } from '../core/entities/EntityStore';
 import type { Team } from '../map/MapGrid';
 
 /** Player selection state. Enemy entities cannot enter the selection set. */
 export class SelectionModel {
   private readonly ids = new Set<string>();
+  private readonly controlGroups = new Map<number, string[]>();
+  private currentFormation: FormationType | null = 'line';
 
   constructor(private readonly entities: EntityStore, readonly team: Team) {}
 
@@ -16,6 +19,14 @@ export class SelectionModel {
       const entity = this.entities.get(id);
       return entity ? [entity] : [];
     });
+  }
+
+  get formation(): FormationType | null {
+    return this.currentFormation;
+  }
+
+  setFormation(formation: FormationType | null): void {
+    this.currentFormation = formation;
   }
 
   clear(): void {
@@ -47,5 +58,62 @@ export class SelectionModel {
     if (entity && entity.team === this.team) {
       this.ids.add(entity.id);
     }
+  }
+
+  /**
+   * Binds the current selection of team units to control group 1..9 (Ctrl + 1..9).
+   */
+  recordControlGroup(groupNumber: number): boolean {
+    if (groupNumber < 1 || groupNumber > 9) return false;
+    const validIds = this.selectedIds.filter((id) => {
+      const ent = this.entities.get(id);
+      return ent && ent.team === this.team && ent.hp > 0;
+    });
+
+    if (validIds.length === 0) {
+      this.controlGroups.delete(groupNumber);
+      return false;
+    }
+
+    this.controlGroups.set(groupNumber, [...validIds]);
+    return true;
+  }
+
+  /**
+   * Selects units previously registered in control group 1..9.
+   * Automatically cleans up destroyed units.
+   */
+  selectControlGroup(groupNumber: number, additive = false): boolean {
+    if (groupNumber < 1 || groupNumber > 9) return false;
+    const group = this.controlGroups.get(groupNumber);
+    if (!group) return false;
+
+    // Filter surviving units
+    const surviving = group.filter((id) => {
+      const ent = this.entities.get(id);
+      return ent && ent.team === this.team && ent.hp > 0;
+    });
+
+    if (surviving.length === 0) {
+      this.controlGroups.delete(groupNumber);
+      return false;
+    }
+
+    // Update stored group to prune dead units
+    this.controlGroups.set(groupNumber, surviving);
+
+    if (!additive) {
+      this.clear();
+    }
+
+    for (const id of surviving) {
+      this.ids.add(id);
+    }
+
+    return true;
+  }
+
+  getControlGroup(groupNumber: number): readonly string[] {
+    return this.controlGroups.get(groupNumber) ?? [];
   }
 }

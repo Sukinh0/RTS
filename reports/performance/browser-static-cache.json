@@ -1,0 +1,959 @@
+{
+  "date": "2026-10-09T18:39:15.333Z",
+  "cpu": "AMD Ryzen 5 5625U with Radeon Graphics         ",
+  "browser": "153.0.8010.12",
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "durationMs": 5000,
+  "headless": true,
+  "instrumented": true,
+  "errors": [],
+  "results": [
+    {
+      "scenario": "idle",
+      "commandMs": 0,
+      "created": 0,
+      "memorySamples": [
+        23100000,
+        23100000,
+        23100000,
+        23100000
+      ],
+      "enabled": true,
+      "seconds": 5.026300000000745,
+      "fps": 34.21541869386061,
+      "metrics": {
+        "frameInterval": {
+          "calls": 173,
+          "callsPerSecond": 34.41895628990994,
+          "meanMs": 29.226589595392948,
+          "p95Ms": 31.699999999254942,
+          "maxMs": 33.5,
+          "totalMs": 5056.20000000298
+        },
+        "simulation": {
+          "calls": 173,
+          "callsPerSecond": 34.41895628990994,
+          "meanMs": 0.3537572253000185,
+          "p95Ms": 0.6000000014901161,
+          "maxMs": 0.6999999992549419,
+          "totalMs": 61.1999999769032
+        },
+        "visualFog": {
+          "calls": 173,
+          "callsPerSecond": 34.41895628990994,
+          "meanMs": 0.02485549131225299,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.5,
+          "totalMs": 4.299999997019768
+        },
+        "minimap": {
+          "calls": 173,
+          "callsPerSecond": 34.41895628990994,
+          "meanMs": 0.1086705202785875,
+          "p95Ms": 0.20000000298023224,
+          "maxMs": 0.4000000022351742,
+          "totalMs": 18.80000000819564
+        },
+        "sceneUpdate": {
+          "calls": 173,
+          "callsPerSecond": 34.41895628990994,
+          "meanMs": 0.7364161849409514,
+          "p95Ms": 1.1000000014901161,
+          "maxMs": 1.5,
+          "totalMs": 127.3999999947846
+        },
+        "rendererCPU": {
+          "calls": 173,
+          "callsPerSecond": 34.41895628990994,
+          "meanMs": 0.16820809234342823,
+          "p95Ms": 0.30000000074505806,
+          "maxMs": 0.4000000022351742,
+          "totalMs": 29.099999975413084
+        },
+        "movement": {
+          "calls": 139,
+          "callsPerSecond": 27.654537134667528,
+          "meanMs": 0.023741007172804085,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 3.2999999970197678
+        },
+        "economy": {
+          "calls": 139,
+          "callsPerSecond": 27.654537134667528,
+          "meanMs": 0.0035971223021582736,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.5
+        },
+        "construction": {
+          "calls": 139,
+          "callsPerSecond": 27.654537134667528,
+          "meanMs": 0.0021582734134557436,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.30000000447034836
+        },
+        "production": {
+          "calls": 139,
+          "callsPerSecond": 27.654537134667528,
+          "meanMs": 0.002877697831006359,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.3999999985098839
+        },
+        "engagements": {
+          "calls": 139,
+          "callsPerSecond": 27.654537134667528,
+          "meanMs": 0.005755395742414667,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.8000000081956387
+        },
+        "formations": {
+          "calls": 139,
+          "callsPerSecond": 27.654537134667528,
+          "meanMs": 0.0021582733598544445,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.29999999701976776
+        },
+        "spatialQueries": {
+          "calls": 13900,
+          "callsPerSecond": 2765.4537134667526,
+          "meanMs": 0.0014316546750797643,
+          "p95Ms": 0,
+          "maxMs": 0.30000000074505806,
+          "totalMs": 19.899999983608723
+        },
+        "combat": {
+          "calls": 139,
+          "callsPerSecond": 27.654537134667528,
+          "meanMs": 0.3611510790241279,
+          "p95Ms": 0.5999999977648258,
+          "maxMs": 0.6999999992549419,
+          "totalMs": 50.19999998435378
+        },
+        "drawEntities": {
+          "calls": 139,
+          "callsPerSecond": 27.654537134667528,
+          "meanMs": 0.08992805790236529,
+          "p95Ms": 0.19999999925494194,
+          "maxMs": 0.20000000298023224,
+          "totalMs": 12.500000048428774
+        },
+        "drawSelectionVisuals": {
+          "calls": 139,
+          "callsPerSecond": 27.654537134667528,
+          "meanMs": 0.013669064630278581,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 1.8999999836087227
+        },
+        "refreshSelectionDOM": {
+          "calls": 139,
+          "callsPerSecond": 27.654537134667528,
+          "meanMs": 0.0244604315367534,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.30000000074505806,
+          "totalMs": 3.3999999836087227
+        },
+        "refreshTeamStatus": {
+          "calls": 139,
+          "callsPerSecond": 27.654537134667528,
+          "meanMs": 0.028776978363664888,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.19999999925494194,
+          "totalMs": 3.9999999925494194
+        }
+      },
+      "heapUsedBytes": 23100000,
+      "heapTotalBytes": 27600000,
+      "entities": 102,
+      "units": 100,
+      "formations": 0,
+      "droppedSimulationMs": 0,
+      "heapBeforeGCBytes": 9021052,
+      "heapAfterGCBytes": 8993444
+    },
+    {
+      "scenario": "move",
+      "commandMs": 10.800000000745058,
+      "created": 0,
+      "memorySamples": [
+        23100000,
+        23100000,
+        23100000,
+        23100000
+      ],
+      "enabled": true,
+      "seconds": 5.0255,
+      "fps": 27.513855898654,
+      "metrics": {
+        "collisionChecks": {
+          "calls": 492302,
+          "callsPerSecond": 97960.79992040593,
+          "meanMs": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "totalMs": 0
+        },
+        "moveCommands": {
+          "calls": 100,
+          "callsPerSecond": 19.898517560441746,
+          "meanMs": 0.1,
+          "p95Ms": 0,
+          "maxMs": 9.899999998509884,
+          "totalMs": 10
+        },
+        "frameInterval": {
+          "calls": 139,
+          "callsPerSecond": 27.658939409014028,
+          "meanMs": 36.34532374100719,
+          "p95Ms": 65.29999999701977,
+          "maxMs": 79.80000000074506,
+          "totalMs": 5052
+        },
+        "pathfinding": {
+          "calls": 494,
+          "callsPerSecond": 98.29867674858222,
+          "meanMs": 0.18137651819901668,
+          "p95Ms": 0.5999999977648258,
+          "maxMs": 2.599999997764826,
+          "totalMs": 89.59999999031425
+        },
+        "collisions": {
+          "calls": 487,
+          "callsPerSecond": 96.90578051935131,
+          "meanMs": 0.003696098556508763,
+          "p95Ms": 0,
+          "maxMs": 0.19999999925494194,
+          "totalMs": 1.7999999970197678
+        },
+        "movement": {
+          "calls": 127,
+          "callsPerSecond": 25.27111730176102,
+          "meanMs": 0.7944881889939778,
+          "p95Ms": 2.100000001490116,
+          "maxMs": 29.899999998509884,
+          "totalMs": 100.90000000223517
+        },
+        "fog": {
+          "calls": 7,
+          "callsPerSecond": 1.3928962292309224,
+          "meanMs": 2.085714285394975,
+          "p95Ms": 6.899999998509884,
+          "maxMs": 6.899999998509884,
+          "totalMs": 14.599999997764826
+        },
+        "economy": {
+          "calls": 127,
+          "callsPerSecond": 25.27111730176102,
+          "meanMs": 0.005511811017755448,
+          "p95Ms": 0.09999999776482582,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.6999999992549419
+        },
+        "construction": {
+          "calls": 127,
+          "callsPerSecond": 25.27111730176102,
+          "meanMs": 0.0007874015865363475,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.10000000149011612
+        },
+        "production": {
+          "calls": 127,
+          "callsPerSecond": 25.27111730176102,
+          "meanMs": 0.001574803173072695,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.20000000298023224
+        },
+        "engagements": {
+          "calls": 127,
+          "callsPerSecond": 25.27111730176102,
+          "meanMs": 0.011023622006177902,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.19999999925494194,
+          "totalMs": 1.3999999947845936
+        },
+        "formations": {
+          "calls": 127,
+          "callsPerSecond": 25.27111730176102,
+          "meanMs": 0.0031496062874794006,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.3999999985098839
+        },
+        "combat": {
+          "calls": 127,
+          "callsPerSecond": 25.27111730176102,
+          "meanMs": 0.15590551167022526,
+          "p95Ms": 0.20000000298023224,
+          "maxMs": 0.5,
+          "totalMs": 19.799999982118607
+        },
+        "simulation": {
+          "calls": 139,
+          "callsPerSecond": 27.658939409014028,
+          "meanMs": 1.020143884843845,
+          "p95Ms": 3.600000001490116,
+          "maxMs": 37.100000001490116,
+          "totalMs": 141.79999999329448
+        },
+        "visualFog": {
+          "calls": 139,
+          "callsPerSecond": 27.658939409014028,
+          "meanMs": 0.08920863313640622,
+          "p95Ms": 0.6000000014901161,
+          "maxMs": 0.8000000007450581,
+          "totalMs": 12.400000005960464
+        },
+        "drawEntities": {
+          "calls": 139,
+          "callsPerSecond": 27.658939409014028,
+          "meanMs": 0.09928057557172912,
+          "p95Ms": 0.19999999925494194,
+          "maxMs": 0.4000000022351742,
+          "totalMs": 13.800000004470348
+        },
+        "drawSelectionVisuals": {
+          "calls": 139,
+          "callsPerSecond": 27.658939409014028,
+          "meanMs": 0.01654676262208884,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 2.3000000044703484
+        },
+        "refreshSelectionDOM": {
+          "calls": 120,
+          "callsPerSecond": 23.878221072530096,
+          "meanMs": 0.03416666683430473,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.19999999925494194,
+          "totalMs": 4.100000020116568
+        },
+        "refreshTeamStatus": {
+          "calls": 120,
+          "callsPerSecond": 23.878221072530096,
+          "meanMs": 0.027500000037252902,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.19999999925494194,
+          "totalMs": 3.3000000044703484
+        },
+        "minimap": {
+          "calls": 139,
+          "callsPerSecond": 27.658939409014028,
+          "meanMs": 0.21151079108817972,
+          "p95Ms": 1,
+          "maxMs": 3.099999997764826,
+          "totalMs": 29.39999996125698
+        },
+        "sceneUpdate": {
+          "calls": 139,
+          "callsPerSecond": 27.658939409014028,
+          "meanMs": 1.7381294962259934,
+          "p95Ms": 5.699999999254942,
+          "maxMs": 38.600000001490116,
+          "totalMs": 241.59999997541308
+        },
+        "rendererCPU": {
+          "calls": 139,
+          "callsPerSecond": 27.658939409014028,
+          "meanMs": 1.3661870504025933,
+          "p95Ms": 4.399999998509884,
+          "maxMs": 13.100000001490116,
+          "totalMs": 189.90000000596046
+        },
+        "drawFog": {
+          "calls": 15,
+          "callsPerSecond": 2.984777634066262,
+          "meanMs": 0.40666666676600777,
+          "p95Ms": 1.7999999970197678,
+          "maxMs": 1.7999999970197678,
+          "totalMs": 6.100000001490116
+        }
+      },
+      "heapUsedBytes": 23100000,
+      "heapTotalBytes": 27600000,
+      "entities": 102,
+      "units": 100,
+      "formations": 0,
+      "droppedSimulationMs": 0,
+      "heapBeforeGCBytes": 9027464,
+      "heapAfterGCBytes": 9310536
+    },
+    {
+      "scenario": "formation",
+      "commandMs": 6.300000000745058,
+      "created": 0,
+      "memorySamples": [
+        23100000,
+        23100000,
+        23100000,
+        23100000
+      ],
+      "enabled": true,
+      "seconds": 5.06979999999702,
+      "fps": 25.253562189455582,
+      "metrics": {
+        "pathfinding": {
+          "calls": 344,
+          "callsPerSecond": 67.85277525744648,
+          "meanMs": 3.2936046511519614,
+          "p95Ms": 0.8999999985098839,
+          "maxMs": 102.59999999776483,
+          "totalMs": 1132.9999999962747
+        },
+        "frameInterval": {
+          "calls": 123,
+          "callsPerSecond": 24.261312083331156,
+          "meanMs": 39.598373983751955,
+          "p95Ms": 112.30000000074506,
+          "maxMs": 179.69999999925494,
+          "totalMs": 4870.60000000149
+        },
+        "simulation": {
+          "calls": 123,
+          "callsPerSecond": 24.261312083331156,
+          "meanMs": 9.997560975573412,
+          "p95Ms": 83,
+          "maxMs": 227.10000000149012,
+          "totalMs": 1229.6999999955297
+        },
+        "visualFog": {
+          "calls": 123,
+          "callsPerSecond": 24.261312083331156,
+          "meanMs": 0.1926829270049324,
+          "p95Ms": 0.6999999992549419,
+          "maxMs": 0.9000000022351742,
+          "totalMs": 23.700000021606684
+        },
+        "minimap": {
+          "calls": 123,
+          "callsPerSecond": 24.261312083331156,
+          "meanMs": 0.1934959350259808,
+          "p95Ms": 0.6999999992549419,
+          "maxMs": 1.5999999977648258,
+          "totalMs": 23.80000000819564
+        },
+        "sceneUpdate": {
+          "calls": 123,
+          "callsPerSecond": 24.261312083331156,
+          "meanMs": 10.777235772369838,
+          "p95Ms": 85.39999999850988,
+          "maxMs": 227.80000000074506,
+          "totalMs": 1325.6000000014901
+        },
+        "rendererCPU": {
+          "calls": 123,
+          "callsPerSecond": 24.261312083331156,
+          "meanMs": 1.194308943107603,
+          "p95Ms": 4.300000000745058,
+          "maxMs": 13.799999997019768,
+          "totalMs": 146.90000000223517
+        },
+        "movement": {
+          "calls": 122,
+          "callsPerSecond": 24.064065643629277,
+          "meanMs": 9.360655737735453,
+          "p95Ms": 82.5,
+          "maxMs": 225.19999999925494,
+          "totalMs": 1142.0000000037253
+        },
+        "economy": {
+          "calls": 122,
+          "callsPerSecond": 24.064065643629277,
+          "meanMs": 0.005737704911925753,
+          "p95Ms": 0.09999999776482582,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.6999999992549419
+        },
+        "construction": {
+          "calls": 122,
+          "callsPerSecond": 24.064065643629277,
+          "meanMs": 0.0016393442561880487,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.19999999925494194
+        },
+        "production": {
+          "calls": 122,
+          "callsPerSecond": 24.064065643629277,
+          "meanMs": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "totalMs": 0
+        },
+        "engagements": {
+          "calls": 122,
+          "callsPerSecond": 24.064065643629277,
+          "meanMs": 0.007377049229184135,
+          "p95Ms": 0.09999999776482582,
+          "maxMs": 0.20000000298023224,
+          "totalMs": 0.9000000059604645
+        },
+        "collisionChecks": {
+          "calls": 8406638,
+          "callsPerSecond": 1658179.4153625274,
+          "meanMs": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "totalMs": 0
+        },
+        "moveCommands": {
+          "calls": 1144,
+          "callsPerSecond": 225.64992701894994,
+          "meanMs": 0.01118881119923158,
+          "p95Ms": 0,
+          "maxMs": 11.300000000745058,
+          "totalMs": 12.800000011920929
+        },
+        "formations": {
+          "calls": 122,
+          "callsPerSecond": 24.064065643629277,
+          "meanMs": 0.22213114767533834,
+          "p95Ms": 0.30000000074505806,
+          "maxMs": 12.400000002235174,
+          "totalMs": 27.100000016391277
+        },
+        "combat": {
+          "calls": 122,
+          "callsPerSecond": 24.064065643629277,
+          "meanMs": 0.19180327867631053,
+          "p95Ms": 0.3999999985098839,
+          "maxMs": 0.4000000022351742,
+          "totalMs": 23.399999998509884
+        },
+        "drawEntities": {
+          "calls": 121,
+          "callsPerSecond": 23.8668192039274,
+          "meanMs": 0.09669421471593793,
+          "p95Ms": 0.19999999925494194,
+          "maxMs": 0.3999999985098839,
+          "totalMs": 11.69999998062849
+        },
+        "drawSelectionVisuals": {
+          "calls": 121,
+          "callsPerSecond": 23.8668192039274,
+          "meanMs": 0.015702479326527966,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 1.8999999985098839
+        },
+        "refreshSelectionDOM": {
+          "calls": 101,
+          "callsPerSecond": 19.921890409889812,
+          "meanMs": 0.03267326744476167,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.19999999925494194,
+          "totalMs": 3.300000011920929
+        },
+        "refreshTeamStatus": {
+          "calls": 101,
+          "callsPerSecond": 19.921890409889812,
+          "meanMs": 0.024752475173756627,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 2.4999999925494194
+        },
+        "collisions": {
+          "calls": 370,
+          "callsPerSecond": 72.98118268969534,
+          "meanMs": 0.005135135151244499,
+          "p95Ms": 0,
+          "maxMs": 0.30000000074505806,
+          "totalMs": 1.9000000059604645
+        },
+        "fog": {
+          "calls": 16,
+          "callsPerSecond": 3.1559430352300692,
+          "meanMs": 1.9624999999068677,
+          "p95Ms": 9.5,
+          "maxMs": 9.5,
+          "totalMs": 31.399999998509884
+        },
+        "drawFog": {
+          "calls": 16,
+          "callsPerSecond": 3.1559430352300692,
+          "meanMs": 0.4625000001396984,
+          "p95Ms": 2.199999999254942,
+          "maxMs": 2.199999999254942,
+          "totalMs": 7.400000002235174
+        },
+        "spatialQueries": {
+          "calls": 2048,
+          "callsPerSecond": 403.96070850944886,
+          "meanMs": 0.0029785156239086064,
+          "p95Ms": 0,
+          "maxMs": 0.19999999925494194,
+          "totalMs": 6.099999997764826
+        }
+      },
+      "heapUsedBytes": 23100000,
+      "heapTotalBytes": 27600000,
+      "entities": 102,
+      "units": 100,
+      "formations": 2,
+      "droppedSimulationMs": 0,
+      "heapBeforeGCBytes": 9116100,
+      "heapAfterGCBytes": 9318348
+    },
+    {
+      "scenario": "combat",
+      "commandMs": 0,
+      "created": 0,
+      "memorySamples": [
+        23100000,
+        23100000,
+        23100000,
+        23100000
+      ],
+      "enabled": true,
+      "seconds": 5.0011000000014905,
+      "fps": 33.382347096918146,
+      "metrics": {
+        "frameInterval": {
+          "calls": 168,
+          "callsPerSecond": 33.59260962587229,
+          "meanMs": 29.95595238096125,
+          "p95Ms": 32.400000002235174,
+          "maxMs": 57.5,
+          "totalMs": 5032.60000000149
+        },
+        "simulation": {
+          "calls": 168,
+          "callsPerSecond": 33.59260962587229,
+          "meanMs": 0.19523809522035576,
+          "p95Ms": 0.30000000074505806,
+          "maxMs": 5.899999998509884,
+          "totalMs": 32.79999999701977
+        },
+        "visualFog": {
+          "calls": 168,
+          "callsPerSecond": 33.59260962587229,
+          "meanMs": 0.028571428553689094,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.6000000014901161,
+          "totalMs": 4.799999997019768
+        },
+        "minimap": {
+          "calls": 168,
+          "callsPerSecond": 33.59260962587229,
+          "meanMs": 0.09107142870890952,
+          "p95Ms": 0.19999999925494194,
+          "maxMs": 0.30000000074505806,
+          "totalMs": 15.3000000230968
+        },
+        "sceneUpdate": {
+          "calls": 168,
+          "callsPerSecond": 33.59260962587229,
+          "meanMs": 0.5714285715394432,
+          "p95Ms": 0.8999999985098839,
+          "maxMs": 7.100000001490116,
+          "totalMs": 96.00000001862645
+        },
+        "rendererCPU": {
+          "calls": 168,
+          "callsPerSecond": 33.59260962587229,
+          "meanMs": 0.3619047619535455,
+          "p95Ms": 0.5,
+          "maxMs": 13.199999999254942,
+          "totalMs": 60.80000000819564
+        },
+        "movement": {
+          "calls": 136,
+          "callsPerSecond": 27.194017316182332,
+          "meanMs": 0.02279411774019108,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.20000000298023224,
+          "totalMs": 3.100000012665987
+        },
+        "economy": {
+          "calls": 136,
+          "callsPerSecond": 27.194017316182332,
+          "meanMs": 0.0029411764322396588,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.3999999947845936
+        },
+        "construction": {
+          "calls": 136,
+          "callsPerSecond": 27.194017316182332,
+          "meanMs": 0.0022058823584195446,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.30000000074505806
+        },
+        "production": {
+          "calls": 136,
+          "callsPerSecond": 27.194017316182332,
+          "meanMs": 0.002205882385811385,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.30000000447034836
+        },
+        "engagements": {
+          "calls": 136,
+          "callsPerSecond": 27.194017316182332,
+          "meanMs": 0.009558823480106452,
+          "p95Ms": 0.09999999776482582,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 1.2999999932944775
+        },
+        "formations": {
+          "calls": 136,
+          "callsPerSecond": 27.194017316182332,
+          "meanMs": 0.0036764706156271346,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.5000000037252903
+        },
+        "combat": {
+          "calls": 136,
+          "callsPerSecond": 27.194017316182332,
+          "meanMs": 0.15588235288091443,
+          "p95Ms": 0.20000000298023224,
+          "maxMs": 5.899999998509884,
+          "totalMs": 21.19999999180436
+        },
+        "drawEntities": {
+          "calls": 135,
+          "callsPerSecond": 26.994061306504523,
+          "meanMs": 0.08592592607493754,
+          "p95Ms": 0.19999999925494194,
+          "maxMs": 0.4000000022351742,
+          "totalMs": 11.600000020116568
+        },
+        "drawSelectionVisuals": {
+          "calls": 135,
+          "callsPerSecond": 26.994061306504523,
+          "meanMs": 0.01259259264226313,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 1.7000000067055225
+        },
+        "refreshSelectionDOM": {
+          "calls": 135,
+          "callsPerSecond": 26.994061306504523,
+          "meanMs": 0.031851851802181315,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.20000000298023224,
+          "totalMs": 4.2999999932944775
+        },
+        "refreshTeamStatus": {
+          "calls": 135,
+          "callsPerSecond": 26.994061306504523,
+          "meanMs": 0.031851851802181315,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.19999999925494194,
+          "totalMs": 4.2999999932944775
+        },
+        "spatialQueries": {
+          "calls": 406,
+          "callsPerSecond": 81.18213992919138,
+          "meanMs": 0.00246305419636771,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 1.0000000037252903
+        },
+        "fog": {
+          "calls": 5,
+          "callsPerSecond": 0.9997800483890564,
+          "meanMs": 1.0199999995529652,
+          "p95Ms": 1.199999999254942,
+          "maxMs": 1.199999999254942,
+          "totalMs": 5.099999997764826
+        }
+      },
+      "heapUsedBytes": 23100000,
+      "heapTotalBytes": 27600000,
+      "entities": 67,
+      "units": 65,
+      "formations": 0,
+      "droppedSimulationMs": 0,
+      "heapBeforeGCBytes": 9131920,
+      "heapAfterGCBytes": 9099596
+    },
+    {
+      "scenario": "churn",
+      "commandMs": 0,
+      "created": 159,
+      "memorySamples": [
+        23100000,
+        23100000,
+        23100000,
+        23100000
+      ],
+      "enabled": true,
+      "seconds": 5.005,
+      "fps": 31.579574569490838,
+      "metrics": {
+        "frameInterval": {
+          "calls": 159,
+          "callsPerSecond": 31.768231768231768,
+          "meanMs": 31.666037735863114,
+          "p95Ms": 34.30000000074506,
+          "maxMs": 36.599999997764826,
+          "totalMs": 5034.900000002235
+        },
+        "simulation": {
+          "calls": 159,
+          "callsPerSecond": 31.768231768231768,
+          "meanMs": 0.4660377357178514,
+          "p95Ms": 0.8000000007450581,
+          "maxMs": 1.300000000745058,
+          "totalMs": 74.09999997913837
+        },
+        "visualFog": {
+          "calls": 159,
+          "callsPerSecond": 31.768231768231768,
+          "meanMs": 0.2830188681353938,
+          "p95Ms": 0.7000000029802322,
+          "maxMs": 1.0999999977648258,
+          "totalMs": 45.00000003352761
+        },
+        "minimap": {
+          "calls": 159,
+          "callsPerSecond": 31.768231768231768,
+          "meanMs": 0.10691823894685169,
+          "p95Ms": 0.20000000298023224,
+          "maxMs": 0.20000000298023224,
+          "totalMs": 16.99999999254942
+        },
+        "sceneUpdate": {
+          "calls": 159,
+          "callsPerSecond": 31.768231768231768,
+          "meanMs": 1.2044025155358344,
+          "p95Ms": 2,
+          "maxMs": 2.5,
+          "totalMs": 191.49999997019768
+        },
+        "rendererCPU": {
+          "calls": 159,
+          "callsPerSecond": 31.768231768231768,
+          "meanMs": 0.6226415093871033,
+          "p95Ms": 1.199999999254942,
+          "maxMs": 1.3999999985098839,
+          "totalMs": 98.99999999254942
+        },
+        "collisionChecks": {
+          "calls": 159,
+          "callsPerSecond": 31.768231768231768,
+          "meanMs": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "totalMs": 0
+        },
+        "movement": {
+          "calls": 134,
+          "callsPerSecond": 26.773226773226774,
+          "meanMs": 0.15447761193473838,
+          "p95Ms": 0.30000000074505806,
+          "maxMs": 0.4000000022351742,
+          "totalMs": 20.699999999254942
+        },
+        "economy": {
+          "calls": 134,
+          "callsPerSecond": 26.773226773226774,
+          "meanMs": 0.010447761182909581,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 1.3999999985098839
+        },
+        "construction": {
+          "calls": 134,
+          "callsPerSecond": 26.773226773226774,
+          "meanMs": 0.001492537307872701,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.19999999925494194
+        },
+        "production": {
+          "calls": 134,
+          "callsPerSecond": 26.773226773226774,
+          "meanMs": 0.002985074615745402,
+          "p95Ms": 0,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 0.3999999985098839
+        },
+        "engagements": {
+          "calls": 134,
+          "callsPerSecond": 26.773226773226774,
+          "meanMs": 0.008955223930638228,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 1.2000000067055225
+        },
+        "formations": {
+          "calls": 134,
+          "callsPerSecond": 26.773226773226774,
+          "meanMs": 0.0014925372800720271,
+          "p95Ms": 0,
+          "maxMs": 0.09999999776482582,
+          "totalMs": 0.19999999552965164
+        },
+        "spatialQueries": {
+          "calls": 13400,
+          "callsPerSecond": 2677.3226773226775,
+          "meanMs": 0.001492537312320809,
+          "p95Ms": 0,
+          "maxMs": 0.30000000074505806,
+          "totalMs": 19.99999998509884
+        },
+        "combat": {
+          "calls": 134,
+          "callsPerSecond": 26.773226773226774,
+          "meanMs": 0.3350746268267507,
+          "p95Ms": 0.5999999977648258,
+          "maxMs": 0.9000000022351742,
+          "totalMs": 44.899999994784594
+        },
+        "drawEntities": {
+          "calls": 134,
+          "callsPerSecond": 26.773226773226774,
+          "meanMs": 0.09104477591923814,
+          "p95Ms": 0.19999999925494194,
+          "maxMs": 0.4000000022351742,
+          "totalMs": 12.19999997317791
+        },
+        "drawSelectionVisuals": {
+          "calls": 134,
+          "callsPerSecond": 26.773226773226774,
+          "meanMs": 0.013432835854256331,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 1.8000000044703484
+        },
+        "refreshSelectionDOM": {
+          "calls": 134,
+          "callsPerSecond": 26.773226773226774,
+          "meanMs": 0.029104477656421376,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.19999999925494194,
+          "totalMs": 3.9000000059604645
+        },
+        "refreshTeamStatus": {
+          "calls": 134,
+          "callsPerSecond": 26.773226773226774,
+          "meanMs": 0.02238805964589119,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "totalMs": 2.9999999925494194
+        }
+      },
+      "heapUsedBytes": 23100000,
+      "heapTotalBytes": 27600000,
+      "entities": 102,
+      "units": 100,
+      "formations": 0,
+      "droppedSimulationMs": 0,
+      "heapBeforeGCBytes": 9128156,
+      "heapAfterGCBytes": 9035556
+    }
+  ]
+}

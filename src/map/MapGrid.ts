@@ -1,6 +1,7 @@
 import { BALANCE } from '../config/balance';
+import type { PerformanceMonitor } from '../core/game/PerformanceMonitor';
 
-export type Terrain = 'plain' | 'water' | 'mountain' | 'forest' | 'mine';
+export type Terrain = 'plain' | 'water' | 'mountain' | 'forest' | 'mine' | 'stone';
 export type Team = 'blue' | 'red';
 export type Point = readonly [number, number];
 
@@ -25,16 +26,51 @@ export interface MapCell {
   structureTeam: Team | null;
 }
 
-const TERRAINS: Terrain[] = ['plain', 'water', 'mountain', 'forest', 'mine'];
+const TERRAINS: Terrain[] = ['plain', 'water', 'mountain', 'forest', 'mine', 'stone'];
 
 /** Logical terrain and static starting footprints. No Phaser or DOM dependency. */
 export class MapGrid {
+  diagnostics?: PerformanceMonitor;
   readonly width: number;
   readonly height: number;
   private readonly terrain: Uint8Array;
   private readonly structures: Uint8Array;
 
   private readonly dirtyCells: Point[] = [];
+  navigationRevision = 0;
+  private componentRevision = -1;
+  private components?: Int32Array;
+  /** Static connectivity only; dynamic unit collisions are still checked by A*. */
+  hasStaticConnection(start: Point, goal: Point): boolean {
+    if (!this.isPassable(goal[0], goal[1])) return false;
+    // A* permits leaving a blocked start. Preserve that contract for low-level callers.
+    if (!this.isPassable(start[0], start[1])) return true;
+    if (this.componentRevision !== this.navigationRevision) {
+      const labels = this.components ??= new Int32Array(this.width * this.height);
+      labels.fill(0);
+      const queue = new Int32Array(labels.length);
+      let component = 0;
+      for (let index = 0; index < labels.length; index++) {
+        if (labels[index] || !this.isPassable(index % this.width, Math.floor(index / this.width))) continue;
+        component++;
+        let head = 0, tail = 0;
+        queue[tail++] = index;
+        labels[index] = component;
+        while (head < tail) {
+          const cell = queue[head++];
+          const x = cell % this.width, y = Math.floor(cell / this.width);
+          for (const next of [cell - this.width, cell + 1, cell + this.width, cell - 1]) {
+            const nx = next % this.width, ny = Math.floor(next / this.width);
+            if (Math.abs(nx - x) + Math.abs(ny - y) !== 1 || !this.isPassable(nx, ny) || labels[next]) continue;
+            labels[next] = component;
+            queue[tail++] = next;
+          }
+        }
+      }
+      this.componentRevision = this.navigationRevision;
+    }
+    return this.components![start[1] * this.width + start[0]] === this.components![goal[1] * this.width + goal[0]];
+  }
 
   constructor(readonly definition: MapDefinition) {
     if (definition.width !== BALANCE.map.width || definition.height !== BALANCE.map.height) {
@@ -78,7 +114,9 @@ export class MapGrid {
   }
 
   isPassable(x: number, y: number): boolean {
-    return this.cellAt(x, y)?.blocked === false;
+    if (!this.contains(x, y)) return false;
+    const index = this.index(x, y);
+    return this.terrain[index] !== 1 && this.terrain[index] !== 2 && this.structures[index] === 0;
   }
 
   setTerrain(x: number, y: number, terrain: Terrain): boolean {
@@ -88,6 +126,7 @@ export class MapGrid {
     const index = this.index(x, y);
     if (this.terrain[index] === code) return false;
     this.terrain[index] = code;
+    this.navigationRevision++;
     this.dirtyCells.push([x, y]);
     return true;
   }
@@ -108,11 +147,13 @@ export class MapGrid {
         this.dirtyCells.push([col, row]);
       }
     }
+    this.navigationRevision++;
     return true;
   }
 
   clearStructure(x: number, y: number, width: number, height: number): void {
     if (!this.contains(x, y) || !this.contains(x + width - 1, y + height - 1)) return;
+    this.navigationRevision++;
     for (let row = y; row < y + height; row += 1) {
       for (let col = x; col < x + width; col += 1) {
         const index = this.index(col, row);

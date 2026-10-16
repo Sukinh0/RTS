@@ -6,6 +6,12 @@ import { findPath } from './findPath';
 const map = new MapGrid(MAP_DEFINITION);
 
 describe('Fase 3 A*', () => {
+  it('chooses mirrored routes for mirrored horizontal goals', () => {
+    const east = findPath(map, [30, 90], [80, 90]);
+    const west = findPath(map, [169, 90], [119, 90]);
+    expect(east).not.toBeNull();
+    expect(west).toEqual(east!.map(([x, y]) => [199 - x, y]));
+  });
   it('routes around water instead of crossing a blocked cell', () => {
     const path = findPath(map, [70, 50], [86, 50]);
     expect(path).not.toBeNull();

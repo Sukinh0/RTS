@@ -4,6 +4,7 @@ import type { Simulation } from '../../src/core/game/Simulation';
 async function screenCell(page: Page, x: number, y: number): Promise<{ x: number; y: number }> {
   const root = page.locator('#game');
   const canvas = root.locator('canvas');
+  await canvas.scrollIntoViewIfNeeded();
   await expect(root).toHaveAttribute('data-zoom', /\d/);
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas is not visible');
@@ -48,6 +49,7 @@ test('complete match: explore, gather, build, train, attack and win', async ({ p
   await clickCell(page, 51, 92, 'right');
   await expect(page.locator('#command-feedback')).toContainText('movimento');
   await page.evaluate(() => (window as Window & { __simulation?: Simulation }).__simulation!.advance(45_000));
+  await page.waitForTimeout(100);
   await clickCell(page, 54, 90, 'right');
   await expect(page.locator('#command-feedback')).toContainText('coleta');
   await advanceUntil(page, 'wood', 1100);
@@ -71,6 +73,10 @@ test('complete match: explore, gather, build, train, attack and win', async ({ p
   });
   await clickCell(page, worker.x, worker.y);
   await page.locator('#btn-build-barracks').click();
+  await page.evaluate(() => {
+    const simulation = (window as Window & { __simulation?: Simulation }).__simulation!;
+    while (simulation.teams.blue.coins < 200) simulation.advance(1000);
+  });
   const barracksSpot = await page.evaluate(() => {
     const simulation = (window as Window & { __simulation?: Simulation }).__simulation!;
     for (let y = 94; y <= 104; y += 1) {
@@ -92,6 +98,10 @@ test('complete match: explore, gather, build, train, attack and win', async ({ p
   await page.evaluate(() => (window as Window & { __simulation?: Simulation }).__simulation!.advance(45_000));
   await clickCell(page, barracksSpot.x, barracksSpot.y);
   await expect(page.locator('#btn-produce-soldier')).toBeVisible();
+  await page.evaluate(() => {
+    const simulation = (window as Window & { __simulation?: Simulation }).__simulation!;
+    while (simulation.teams.blue.coins < 100) simulation.advance(1000);
+  });
   await page.locator('#btn-produce-soldier').click();
   await advanceUntil(page, 'soldier', 20);
 
@@ -104,16 +114,22 @@ test('complete match: explore, gather, build, train, attack and win', async ({ p
   await clickCell(page, soldier.x, soldier.y);
   for (let i = 0; i < 10; i += 1) await page.mouse.wheel(0, 500);
   await expect(page.locator('#game')).toHaveAttribute('data-zoom', '0.38');
-  await clickCell(page, 172, 100, 'right');
-  await expect(page.locator('#command-feedback')).toContainText('movimento');
+  await page.locator('#btn-attack-move').click();
+  await clickCell(page, 172, 100);
+  await expect(page.locator('#command-feedback')).toContainText('Attack Move');
   await page.evaluate(() => (window as Window & { __simulation?: Simulation }).__simulation!.advance(240_000));
+  await page.waitForTimeout(100);
   await expect.poll(async () => page.evaluate(() => {
     const simulation = (window as Window & { __simulation?: Simulation }).__simulation!;
-    return simulation.fog.isEntityVisible('blue', simulation.entities.get('red-base')!);
+    const base = simulation.entities.get('red-base');
+    return simulation.result?.winner === 'blue' || (base ? simulation.fog.isEntityVisible('blue', base) : false);
   })).toBe(true);
 
-  await clickCell(page, 176, 100, 'right');
-  await expect(page.locator('#command-feedback')).toContainText('ataque contra Base');
-  await advanceUntil(page, 'victory', 150);
+  const alreadyWon = await page.evaluate(() => (window as Window & { __simulation?: Simulation }).__simulation!.result?.winner === 'blue');
+  if (!alreadyWon) {
+    await clickCell(page, 176, 100, 'right');
+    await expect(page.locator('#command-feedback')).toContainText('ataque contra Base');
+    await advanceUntil(page, 'victory', 150);
+  }
   await expect(page.locator('#result-title')).toHaveText('Vitória!');
 });

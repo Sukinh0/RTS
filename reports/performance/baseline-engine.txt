@@ -1,0 +1,4299 @@
+// src/config/runtime.ts
+var TICKS_PER_SECOND = 30;
+var FIXED_STEP_MS = 1e3 / TICKS_PER_SECOND;
+
+// src/core/game/FixedStepClock.ts
+var FixedStepClock = class {
+  accumulatorMs = 0;
+  tickCount = 0;
+  get ticks() {
+    return this.tickCount;
+  }
+  get elapsedMs() {
+    return this.tickCount * FIXED_STEP_MS;
+  }
+  advance(deltaMs, tick) {
+    if (!Number.isFinite(deltaMs) || deltaMs < 0) {
+      throw new RangeError("deltaMs must be a finite, nonnegative number");
+    }
+    this.accumulatorMs += deltaMs;
+    let executed = 0;
+    while (this.accumulatorMs >= FIXED_STEP_MS - 1e-9) {
+      this.accumulatorMs = Math.max(0, this.accumulatorMs - FIXED_STEP_MS);
+      this.tickCount += 1;
+      executed += 1;
+      if (tick() === false) {
+        this.accumulatorMs = 0;
+        break;
+      }
+    }
+    return executed;
+  }
+};
+
+// src/core/game/SeededRng.ts
+var SeededRng = class {
+  state;
+  constructor(seed) {
+    if (!Number.isSafeInteger(seed)) {
+      throw new RangeError("seed must be a safe integer");
+    }
+    this.state = seed >>> 0;
+  }
+  next() {
+    this.state = this.state + 1831565813 >>> 0;
+    let value = this.state;
+    value = Math.imul(value ^ value >>> 15, value | 1);
+    value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+    return ((value ^ value >>> 14) >>> 0) / 4294967296;
+  }
+};
+
+// config/map-test-01.json
+var map_test_01_default = {
+  id: "MAP_TEST_01",
+  width: 200,
+  height: 200,
+  notes: "Mapa manual e sim\xE9trico para valida\xE7\xE3o. Coordenadas finais podem ser ajustadas durante implementa\xE7\xE3o, preservando simetria e m\xFAltiplas rotas.",
+  teamStarts: {
+    blue: { base: [20, 100], workers: [[25, 99], [25, 101]] },
+    red: { base: [176, 100], workers: [[174, 99], [174, 101]] }
+  },
+  designRequirements: {
+    symmetrical: true,
+    mustInclude: [
+      "2 bases",
+      "at least 4 mines",
+      "multiple forest clusters",
+      "water blockers",
+      "mountain blockers",
+      "at least 3 viable attack corridors",
+      "open combat zones",
+      "scouting routes"
+    ]
+  },
+  terrainPatches: [
+    { terrain: "water", x: 76, y: 0, width: 6, height: 58, mirrorX: true },
+    { terrain: "water", x: 76, y: 68, width: 6, height: 22, mirrorX: true },
+    { terrain: "water", x: 76, y: 110, width: 6, height: 23, mirrorX: true },
+    { terrain: "water", x: 76, y: 143, width: 6, height: 57, mirrorX: true },
+    { terrain: "mountain", x: 89, y: 26, width: 6, height: 21, mirrorX: true },
+    { terrain: "mountain", x: 89, y: 153, width: 6, height: 21, mirrorX: true },
+    { terrain: "mountain", x: 96, y: 76, width: 4, height: 9, mirrorX: true },
+    { terrain: "mountain", x: 96, y: 115, width: 4, height: 9, mirrorX: true },
+    { terrain: "forest", x: 37, y: 34, width: 8, height: 7, mirrorX: true },
+    { terrain: "forest", x: 49, y: 151, width: 10, height: 8, mirrorX: true },
+    { terrain: "forest", x: 54, y: 84, width: 7, height: 8, mirrorX: true },
+    { terrain: "forest", x: 91, y: 54, width: 5, height: 5, mirrorX: true },
+    { terrain: "forest", x: 91, y: 139, width: 5, height: 5, mirrorX: true },
+    { terrain: "mine", x: 58, y: 62, width: 1, height: 1, mirrorX: true },
+    { terrain: "mine", x: 58, y: 137, width: 1, height: 1, mirrorX: true },
+    { terrain: "stone", x: 42, y: 70, width: 5, height: 5, mirrorX: true },
+    { terrain: "stone", x: 45, y: 125, width: 5, height: 5, mirrorX: true }
+  ]
+};
+
+// src/config/map.ts
+var MAP_DEFINITION = map_test_01_default;
+
+// config/balance.v1.json
+var balance_v1_default = {
+  version: "0.1.0",
+  map: {
+    width: 200,
+    height: 200,
+    unitCapPerTeam: 60
+  },
+  startingState: {
+    coins: 100,
+    wood: 50,
+    stone: 0,
+    workers: 2,
+    bases: 1
+  },
+  construction: {
+    maxDistanceFromBase: 80
+  },
+  economy: {
+    passiveCoinsPerFreeWorkerPerSecond: 1,
+    mine: {
+      cycleSeconds: 30,
+      coinsPerCycle: 50,
+      maxWorkersPerMine: 4
+    },
+    wood: {
+      workerCapacity: 20,
+      gatherPerSecond: 2
+    },
+    stone: {
+      workerCapacity: 20,
+      gatherPerSecond: 2
+    }
+  },
+  units: {
+    worker: {
+      hp: 10,
+      damage: 4,
+      range: 1,
+      vision: 5,
+      movement: 5,
+      movementCooldownSeconds: 1,
+      cooldownSeconds: 3,
+      coins: 150,
+      wood: 0,
+      productionSeconds: 6
+    },
+    builder: {
+      hp: 10,
+      damage: 0,
+      range: 0,
+      vision: 5,
+      movement: 5,
+      movementCooldownSeconds: 1,
+      cooldownSeconds: 3,
+      coins: 150,
+      wood: 0,
+      productionSeconds: 6
+    },
+    soldier: {
+      hp: 18,
+      damage: 5,
+      range: 2,
+      vision: 5,
+      movement: 3,
+      movementCooldownSeconds: 1,
+      cooldownSeconds: 3,
+      coins: 100,
+      wood: 0,
+      productionSeconds: 5
+    },
+    shieldbearer: {
+      hp: 25,
+      damage: 0,
+      range: 1,
+      vision: 3,
+      movement: 2,
+      movementCooldownSeconds: 1,
+      cooldownSeconds: 3,
+      coins: 150,
+      wood: 0,
+      productionSeconds: 7,
+      reflectionPercent: 80,
+      reflectionMaxDistance: 1
+    },
+    scout: {
+      hp: 8,
+      damage: 0,
+      range: 0,
+      vision: 8,
+      movement: 6,
+      movementCooldownSeconds: 1,
+      cooldownSeconds: 5,
+      coins: 200,
+      wood: 0,
+      productionSeconds: 6,
+      stealthDetectionDistance: 5
+    },
+    archer: {
+      hp: 10,
+      damage: 8,
+      range: 4,
+      vision: 6,
+      movement: 3,
+      movementCooldownSeconds: 1,
+      cooldownSeconds: 4,
+      coins: 180,
+      wood: 0,
+      productionSeconds: 7
+    }
+  },
+  buildings: {
+    base: {
+      width: 4,
+      height: 4,
+      hp: 150,
+      vision: 26,
+      coins: 0,
+      wood: 0,
+      stone: 0,
+      buildSeconds: 0,
+      maxPerTeam: 1,
+      civilianCapacity: 2,
+      militaryCapacity: 0,
+      repairRateHpPerSecond: 5,
+      repairCostPerSecond: {
+        wood: 2,
+        stone: 2
+      }
+    },
+    house: {
+      width: 2,
+      height: 2,
+      hp: 60,
+      vision: 20,
+      coins: 150,
+      wood: 100,
+      stone: 0,
+      buildSeconds: 8,
+      civilianCapacity: 2,
+      militaryCapacity: 0,
+      repairRateHpPerSecond: 4,
+      repairCostPerSecond: {
+        wood: 2,
+        stone: 0
+      }
+    },
+    barracks: {
+      width: 3,
+      height: 3,
+      hp: 80,
+      vision: 20,
+      coins: 200,
+      wood: 120,
+      stone: 0,
+      buildSeconds: 12,
+      civilianCapacity: 0,
+      militaryCapacity: 6,
+      repairRateHpPerSecond: 4,
+      repairCostPerSecond: {
+        wood: 2,
+        stone: 1
+      }
+    },
+    barricade: {
+      note: "BALANCEAMENTO PROVIS\xD3RIO",
+      width: 1,
+      height: 1,
+      hp: 40,
+      vision: 0,
+      coins: 0,
+      wood: 10,
+      stone: 5,
+      buildSeconds: 3,
+      maxPerTeam: 100,
+      civilianCapacity: 0,
+      militaryCapacity: 0,
+      repairRateHpPerSecond: 4,
+      repairCostPerSecond: {
+        wood: 1,
+        stone: 1
+      }
+    },
+    tower: {
+      width: 2,
+      height: 2,
+      hp: 100,
+      vision: 20,
+      coins: 200,
+      wood: 150,
+      stone: 100,
+      buildSeconds: 10,
+      civilianCapacity: 0,
+      militaryCapacity: 0,
+      repairRateHpPerSecond: 4,
+      repairCostPerSecond: {
+        wood: 2,
+        stone: 2
+      }
+    }
+  }
+};
+
+// src/config/balance.ts
+var BALANCE = balance_v1_default;
+
+// src/map/MapGrid.ts
+var TERRAINS = ["plain", "water", "mountain", "forest", "mine", "stone"];
+var MapGrid = class {
+  constructor(definition) {
+    this.definition = definition;
+    if (definition.width !== BALANCE.map.width || definition.height !== BALANCE.map.height) {
+      throw new Error("Map dimensions must match balance configuration");
+    }
+    this.width = definition.width;
+    this.height = definition.height;
+    this.terrain = new Uint8Array(this.width * this.height);
+    this.structures = new Uint8Array(this.width * this.height);
+    for (const patch of definition.terrainPatches) {
+      const code = TERRAINS.indexOf(patch.terrain);
+      if (code < 1 || !Number.isInteger(patch.width) || !Number.isInteger(patch.height) || patch.width < 1 || patch.height < 1) {
+        throw new Error("Invalid terrain patch");
+      }
+      this.paint(patch.x, patch.y, patch.width, patch.height, code);
+      if (patch.mirrorX) this.paint(this.width - patch.x - patch.width, patch.y, patch.width, patch.height, code);
+    }
+    for (const team of ["blue", "red"]) {
+      const [x, y] = definition.teamStarts[team].base;
+      const base = BALANCE.buildings.base;
+      this.paintStructure(x, y, base.width, base.height, team === "blue" ? 1 : 2);
+    }
+  }
+  width;
+  height;
+  terrain;
+  structures;
+  dirtyCells = [];
+  contains(x, y) {
+    return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < this.width && y < this.height;
+  }
+  cellAt(x, y) {
+    if (!this.contains(x, y)) return null;
+    const index = this.index(x, y);
+    const terrain = TERRAINS[this.terrain[index]];
+    const structure = this.structures[index];
+    return {
+      terrain,
+      blocked: terrain === "water" || terrain === "mountain" || structure !== 0,
+      structureTeam: structure === 1 ? "blue" : structure === 2 ? "red" : null
+    };
+  }
+  isPassable(x, y) {
+    return this.cellAt(x, y)?.blocked === false;
+  }
+  setTerrain(x, y, terrain) {
+    if (!this.contains(x, y)) return false;
+    const code = TERRAINS.indexOf(terrain);
+    if (code < 0) return false;
+    const index = this.index(x, y);
+    if (this.terrain[index] === code) return false;
+    this.terrain[index] = code;
+    this.dirtyCells.push([x, y]);
+    return true;
+  }
+  occupyStructure(x, y, width, height, team) {
+    if (!this.contains(x, y) || !this.contains(x + width - 1, y + height - 1)) return false;
+    const code = team === "blue" ? 1 : 2;
+    for (let row = y; row < y + height; row += 1) {
+      for (let col = x; col < x + width; col += 1) {
+        const index = this.index(col, row);
+        if (this.terrain[index] !== 0 || this.structures[index] !== 0) return false;
+      }
+    }
+    for (let row = y; row < y + height; row += 1) {
+      for (let col = x; col < x + width; col += 1) {
+        const index = this.index(col, row);
+        this.structures[index] = code;
+        this.dirtyCells.push([col, row]);
+      }
+    }
+    return true;
+  }
+  clearStructure(x, y, width, height) {
+    if (!this.contains(x, y) || !this.contains(x + width - 1, y + height - 1)) return;
+    for (let row = y; row < y + height; row += 1) {
+      for (let col = x; col < x + width; col += 1) {
+        const index = this.index(col, row);
+        this.structures[index] = 0;
+        this.dirtyCells.push([col, row]);
+      }
+    }
+  }
+  drainDirtyCells() {
+    return this.dirtyCells.splice(0);
+  }
+  index(x, y) {
+    return y * this.width + x;
+  }
+  paint(x, y, width, height, code) {
+    if (!this.contains(x, y) || !this.contains(x + width - 1, y + height - 1)) {
+      throw new Error("Terrain patch outside map bounds");
+    }
+    for (let row = y; row < y + height; row += 1) {
+      for (let col = x; col < x + width; col += 1) this.terrain[this.index(col, row)] = code;
+    }
+  }
+  paintStructure(x, y, width, height, code) {
+    if (!this.contains(x, y) || !this.contains(x + width - 1, y + height - 1)) {
+      throw new Error("Starting base outside map bounds");
+    }
+    for (let row = y; row < y + height; row += 1) {
+      for (let col = x; col < x + width; col += 1) {
+        const index = this.index(col, row);
+        if (this.terrain[index] !== 0 || this.structures[index] !== 0) throw new Error("Starting base overlaps terrain or structure");
+        this.structures[index] = code;
+      }
+    }
+  }
+};
+
+// src/core/entities/EntityStore.ts
+var EntityStore = class {
+  constructor(map) {
+    this.map = map;
+    for (const team of ["blue", "red"]) {
+      const start = map.definition.teamStarts[team];
+      const base = BALANCE.buildings.base;
+      this.add({
+        id: `${team}-base`,
+        category: "building",
+        kind: "base",
+        team,
+        x: start.base[0],
+        y: start.base[1],
+        width: base.width,
+        height: base.height,
+        hp: base.hp,
+        maxHp: base.hp,
+        underConstruction: false,
+        buildProgressTicks: 0,
+        buildTotalTicks: 0,
+        rallyPoint: null
+      });
+      if (start.workers.length !== BALANCE.startingState.workers) {
+        throw new Error(`Incorrect starting worker count for ${team}`);
+      }
+      start.workers.forEach(([x, y], index) => {
+        if (!map.isPassable(x, y) || this.atCell(x, y)) throw new Error(`Invalid starting worker cell for ${team}`);
+        const worker = BALANCE.units.worker;
+        this.add({
+          id: `${team}-worker-${index + 1}`,
+          category: "unit",
+          kind: "worker",
+          team,
+          x,
+          y,
+          hp: worker.hp,
+          maxHp: worker.hp,
+          vision: worker.vision,
+          movement: worker.movement,
+          movementCooldownSeconds: worker.movementCooldownSeconds,
+          cooldownSeconds: worker.cooldownSeconds,
+          cooldownUntilTick: 0,
+          moveTarget: null,
+          attackMoveTarget: null,
+          carriedWood: 0,
+          carriedStone: 0,
+          damage: worker.damage,
+          range: worker.range
+        });
+      });
+      this.nextUnitSequence.set(`${team}-worker`, start.workers.length + 1);
+    }
+  }
+  byId = /* @__PURE__ */ new Map();
+  nextUnitSequence = /* @__PURE__ */ new Map();
+  /** Low-level entity creation; production rules and costs belong to a later system. */
+  spawnUnit(team, kind, x, y) {
+    if (!this.isFreeForUnit(x, y, "")) throw new Error("Unit spawn cell is occupied or blocked");
+    const units = this.all().filter((entity) => entity.category === "unit" && entity.team === team);
+    if (units.length >= BALANCE.map.unitCapPerTeam) throw new Error("Unit cap reached");
+    const counterKey = `${team}-${kind}`;
+    const next = this.nextUnitSequence.get(counterKey) ?? 1;
+    const config = BALANCE.units[kind];
+    const unit = {
+      id: `${team}-${kind}-${next}`,
+      category: "unit",
+      kind,
+      team,
+      x,
+      y,
+      hp: config.hp,
+      maxHp: config.hp,
+      vision: config.vision,
+      movement: config.movement,
+      movementCooldownSeconds: config.movementCooldownSeconds,
+      cooldownSeconds: config.cooldownSeconds,
+      cooldownUntilTick: 0,
+      moveTarget: null,
+      attackMoveTarget: null,
+      carriedWood: 0,
+      carriedStone: 0,
+      damage: config.damage,
+      range: config.range
+    };
+    this.add(unit);
+    this.nextUnitSequence.set(counterKey, next + 1);
+    return unit;
+  }
+  createBuilding(team, kind, x, y, underConstruction = false) {
+    const config = BALANCE.buildings[kind];
+    const counterKey = `${team}-${kind}`;
+    const next = this.nextUnitSequence.get(counterKey) ?? 1;
+    this.nextUnitSequence.set(counterKey, next + 1);
+    const building = {
+      id: `${team}-${kind}-${next}`,
+      category: "building",
+      kind,
+      team,
+      x,
+      y,
+      width: config.width,
+      height: config.height,
+      hp: underConstruction ? 1 : config.hp,
+      maxHp: config.hp,
+      underConstruction,
+      buildProgressTicks: 0,
+      buildTotalTicks: Math.round(config.buildSeconds * TICKS_PER_SECOND),
+      rallyPoint: null
+    };
+    this.map.occupyStructure(x, y, config.width, config.height, team);
+    this.add(building);
+    return building;
+  }
+  isAreaFreeForBuilding(x, y, width, height) {
+    if (!this.map.contains(x, y) || !this.map.contains(x + width - 1, y + height - 1)) {
+      return false;
+    }
+    for (let row = y; row < y + height; row += 1) {
+      for (let col = x; col < x + width; col += 1) {
+        const cell = this.map.cellAt(col, row);
+        if (!cell || cell.terrain !== "plain" || cell.structureTeam !== null) {
+          return false;
+        }
+        if (this.all().some((e) => {
+          if (e.category === "unit") return e.x === col && e.y === row;
+          return col >= e.x && col < e.x + e.width && row >= e.y && row < e.y + e.height;
+        })) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  all() {
+    return [...this.byId.values()];
+  }
+  get(id) {
+    return this.byId.get(id);
+  }
+  atCell(x, y) {
+    for (const entity of this.byId.values()) {
+      if (entity.category === "unit") {
+        if (entity.x === x && entity.y === y) return entity;
+      } else {
+        if (x >= entity.x && x < entity.x + entity.width && y >= entity.y && y < entity.y + entity.height) return entity;
+      }
+    }
+    return void 0;
+  }
+  unitsInRect(minX, minY, maxX, maxY) {
+    const result = [];
+    for (const entity of this.byId.values()) {
+      if (entity.category === "unit" && entity.x >= minX && entity.x <= maxX && entity.y >= minY && entity.y <= maxY) {
+        result.push(entity);
+      }
+    }
+    return result;
+  }
+  isFreeForUnit(x, y, movingUnitId) {
+    if (!this.map.isPassable(x, y)) return false;
+    for (const entity of this.byId.values()) {
+      if (entity.category === "unit" && entity.id !== movingUnitId && entity.x === x && entity.y === y) {
+        return false;
+      }
+    }
+    return true;
+  }
+  moveUnit(id, x, y) {
+    const entity = this.byId.get(id);
+    if (!entity || entity.category !== "unit" || !this.isFreeForUnit(x, y, id)) return false;
+    entity.x = x;
+    entity.y = y;
+    return true;
+  }
+  remove(id) {
+    const entity = this.byId.get(id);
+    if (!entity) return false;
+    this.byId.delete(id);
+    if (entity.category === "building") {
+      this.map.clearStructure(entity.x, entity.y, entity.width, entity.height);
+    }
+    return true;
+  }
+  add(entity) {
+    if (this.byId.has(entity.id)) throw new Error(`Duplicate entity ID ${entity.id}`);
+    this.byId.set(entity.id, entity);
+  }
+};
+
+// src/core/formations/FormationGeometry.ts
+function isMilitaryKind(kind) {
+  return kind === "soldier" || kind === "shieldbearer" || kind === "archer" || kind === "scout";
+}
+function getMilitaryRole(kind) {
+  switch (kind) {
+    case "shieldbearer":
+      return "vanguard";
+    case "soldier":
+      return "frontline";
+    case "scout":
+      return "flank";
+    case "archer":
+      return "rear";
+    default:
+      return null;
+  }
+}
+function getMarchDirection(from, to) {
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  if (dx === 0 && dy === 0) return "E";
+  const angle = Math.atan2(dy, dx);
+  const deg = angle * 180 / Math.PI;
+  if (deg >= -22.5 && deg < 22.5) return "E";
+  if (deg >= 22.5 && deg < 67.5) return "SE";
+  if (deg >= 67.5 && deg < 112.5) return "S";
+  if (deg >= 112.5 && deg < 157.5) return "SW";
+  if (deg >= 157.5 || deg < -157.5) return "W";
+  if (deg >= -157.5 && deg < -112.5) return "NW";
+  if (deg >= -112.5 && deg < -67.5) return "N";
+  return "NE";
+}
+function transformOffsetToWorld(u, v, dir) {
+  switch (dir) {
+    case "E":
+      return [v, u];
+    case "W":
+      return [-v, -u];
+    case "S":
+      return [-u, v];
+    case "N":
+      return [u, -v];
+    case "SE":
+      return [v - u, v + u];
+    case "SW":
+      return [-v - u, v - u];
+    case "NW":
+      return [-v + u, -v - u];
+    case "NE":
+      return [v + u, -v + u];
+  }
+}
+function generateFormationSlots(type, count) {
+  if (count <= 0) return [];
+  const slots = [];
+  switch (type) {
+    case "line": {
+      const lateralOrder = [0];
+      for (let i = 1; lateralOrder.length < count; i++) {
+        lateralOrder.push(i);
+        if (lateralOrder.length < count) lateralOrder.push(-i);
+      }
+      for (let i = 0; i < count; i++) {
+        const u = lateralOrder[i];
+        const isFlank = Math.abs(u) >= Math.floor(count / 2) && count >= 4;
+        slots.push({
+          u,
+          v: 0,
+          preferredRole: isFlank ? "flank" : Math.abs(u) <= 1 ? "vanguard" : "frontline"
+        });
+      }
+      break;
+    }
+    case "wedge": {
+      slots.push({ u: 0, v: 0, preferredRole: "vanguard" });
+      let currentDepth = 1;
+      while (slots.length < count) {
+        slots.push({ u: -currentDepth, v: -currentDepth, preferredRole: "frontline" });
+        if (slots.length < count) {
+          slots.push({ u: currentDepth, v: -currentDepth, preferredRole: "frontline" });
+        }
+        if (currentDepth > 1 && slots.length < count) {
+          for (let fillU = -currentDepth + 1; fillU <= currentDepth - 1 && slots.length < count; fillU++) {
+            if (!slots.some((s) => s.u === fillU && s.v === -currentDepth)) {
+              slots.push({ u: fillU, v: -currentDepth, preferredRole: "rear" });
+            }
+          }
+        }
+        currentDepth++;
+      }
+      const maxV = Math.min(...slots.map((s) => s.v));
+      slots.forEach((s) => {
+        if (s.v === maxV && Math.abs(s.u) > 0) {
+          s.preferredRole = "flank";
+        }
+      });
+      break;
+    }
+    case "double-rank": {
+      const frontCount = Math.ceil(count / 2);
+      const rearCount = count - frontCount;
+      const genRank = (v, n, defaultRole) => {
+        const uOrder = [0];
+        for (let i = 1; uOrder.length < n; i++) {
+          uOrder.push(i);
+          if (uOrder.length < n) uOrder.push(-i);
+        }
+        return uOrder.map((u) => {
+          const isEdge = Math.abs(u) === Math.max(...uOrder.map(Math.abs));
+          return {
+            u,
+            v,
+            preferredRole: isEdge && n >= 4 ? "flank" : defaultRole
+          };
+        });
+      };
+      const frontSlots = genRank(0, frontCount, "vanguard");
+      const rearSlots = genRank(-1, rearCount, "rear");
+      slots.push(...frontSlots, ...rearSlots);
+      break;
+    }
+    case "block": {
+      const width = Math.max(3, Math.ceil(Math.sqrt(count * 1.5)));
+      const rows = Math.ceil(count / width);
+      for (let r = 0; r < rows && slots.length < count; r++) {
+        const v = -r;
+        const rowCapacity = Math.min(width, count - slots.length);
+        const uOrder = [0];
+        for (let i = 1; uOrder.length < rowCapacity; i++) {
+          uOrder.push(i);
+          if (uOrder.length < rowCapacity) uOrder.push(-i);
+        }
+        uOrder.sort((a, b) => a - b);
+        for (let c = 0; c < rowCapacity; c++) {
+          const u = uOrder[c];
+          const isFlankCol = c === 0 || c === rowCapacity - 1;
+          let role = "frontline";
+          if (r === 0) role = isFlankCol ? "flank" : "vanguard";
+          else if (r === rows - 1) role = isFlankCol ? "flank" : "rear";
+          else role = isFlankCol ? "flank" : r > 1 ? "rear" : "frontline";
+          slots.push({ u, v, preferredRole: role });
+        }
+      }
+      break;
+    }
+  }
+  return slots;
+}
+function sortUnitsByRolePriority(units) {
+  const roleScore = {
+    vanguard: 0,
+    frontline: 1,
+    flank: 2,
+    rear: 3
+  };
+  return [...units].sort((a, b) => {
+    const roleA = getMilitaryRole(a.kind) ?? "frontline";
+    const roleB = getMilitaryRole(b.kind) ?? "frontline";
+    if (roleScore[roleA] !== roleScore[roleB]) {
+      return roleScore[roleA] - roleScore[roleB];
+    }
+    return a.id.localeCompare(b.id);
+  });
+}
+function assignFormationSlots(units, formationType, destination, direction) {
+  const militaryUnits = units.filter((u) => isMilitaryKind(u.kind));
+  if (militaryUnits.length === 0) return [];
+  const slots = generateFormationSlots(formationType, militaryUnits.length);
+  const sortedUnits = sortUnitsByRolePriority(militaryUnits);
+  const slotRoleScore = {
+    vanguard: 0,
+    frontline: 1,
+    flank: 2,
+    rear: 3
+  };
+  const indexedSlots = slots.map((slot, index) => ({ slot, originalIndex: index }));
+  indexedSlots.sort((a, b) => {
+    const scoreA = slotRoleScore[a.slot.preferredRole ?? "frontline"];
+    const scoreB = slotRoleScore[b.slot.preferredRole ?? "frontline"];
+    if (scoreA !== scoreB) return scoreA - scoreB;
+    if (a.slot.v !== b.slot.v) return b.slot.v - a.slot.v;
+    return Math.abs(a.slot.u) - Math.abs(b.slot.u);
+  });
+  const [destX, destY] = destination;
+  const assignments = [];
+  for (let i = 0; i < sortedUnits.length; i++) {
+    const unit = sortedUnits[i];
+    const { slot, originalIndex } = indexedSlots[i];
+    const role = getMilitaryRole(unit.kind) ?? "frontline";
+    const [dx, dy] = transformOffsetToWorld(slot.u, slot.v, direction);
+    assignments.push({
+      unitId: unit.id,
+      role,
+      slotIndex: originalIndex,
+      offset: slot,
+      destination: [destX + dx, destY + dy]
+    });
+  }
+  return assignments;
+}
+
+// src/core/commands/dispatchGroupMove.ts
+function dispatchGroupMove(simulation, team, unitIds, destination, attackMove = false, formationType) {
+  const results = [];
+  const processed = /* @__PURE__ */ new Set();
+  if (!formationType) {
+    for (const id of unitIds) {
+      simulation.formations.removeUnit(id);
+    }
+  }
+  if (formationType) {
+    const militaryIds = unitIds.filter((id) => {
+      const ent = simulation.entities.get(id);
+      return ent && ent.category === "unit" && ent.team === team && isMilitaryKind(ent.kind) && ent.hp > 0;
+    });
+    if (militaryIds.length >= 2) {
+      const group = simulation.formations.createFormation(team, militaryIds, formationType, destination, attackMove);
+      if (group) {
+        for (const [unitId, slot] of group.slots) {
+          processed.add(unitId);
+          let result = simulation.issueCommand(
+            attackMove ? { type: "attack-move", team, unitId, destination: slot.currentTarget } : { type: "move", team, unitId, destination: slot.currentTarget }
+          );
+          if (!result.accepted && result.reason === "cooldown") {
+            const entity = simulation.entities.get(unitId);
+            if (entity && entity.category === "unit") {
+              entity.moveTarget = slot.currentTarget;
+              if (attackMove) {
+                entity.attackMoveTarget = slot.currentTarget;
+              } else {
+                entity.attackMoveTarget = null;
+              }
+              simulation.engagements.cancel(unitId);
+              simulation.combat.cancel(unitId);
+              simulation.economy.cancel(unitId);
+              simulation.construction.cancel(unitId);
+              result = { accepted: true };
+            }
+          }
+          results.push({ unitId, result });
+        }
+      }
+    }
+  }
+  const remainingIds = unitIds.filter((id) => !processed.has(id));
+  if (remainingIds.length === 0) {
+    return results;
+  }
+  const reserved = /* @__PURE__ */ new Set();
+  const [targetX, targetY] = destination;
+  const maxRadius = Math.max(5, Math.ceil(Math.sqrt(remainingIds.length)) + 2);
+  for (const unitId of remainingIds) {
+    const entity = simulation.entities.get(unitId);
+    if (!entity || entity.category !== "unit") {
+      results.push({ unitId, result: { accepted: false, reason: "unknown-unit" } });
+      continue;
+    }
+    let result = { accepted: false, reason: "invalid-destination" };
+    for (let radius = 0; radius <= maxRadius; radius += 1) {
+      let accepted = false;
+      for (let dy = -radius; dy <= radius && !accepted; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+          const x = targetX + dx;
+          const y = targetY + dy;
+          const key = `${x},${y}`;
+          if (reserved.has(key) || !simulation.map.contains(x, y)) continue;
+          result = simulation.issueCommand(
+            attackMove ? { type: "attack-move", team, unitId, destination: [x, y] } : { type: "move", team, unitId, destination: [x, y] }
+          );
+          if (result.accepted) {
+            reserved.add(key);
+            accepted = true;
+            break;
+          }
+          if (result.reason === "cooldown") {
+            if (!(entity.x === x && entity.y === y) && simulation.entities.isFreeForUnit(x, y, entity.id) && simulation.movement.hasStaticPath(entity, [x, y])) {
+              entity.moveTarget = [x, y];
+              if (attackMove) {
+                entity.attackMoveTarget = [x, y];
+              } else {
+                entity.attackMoveTarget = null;
+              }
+              simulation.engagements.cancel(unitId);
+              simulation.combat.cancel(unitId);
+              simulation.economy.cancel(unitId);
+              simulation.construction.cancel(unitId);
+              reserved.add(key);
+              accepted = true;
+              result = { accepted: true };
+              break;
+            }
+          }
+          if (result.reason === "wrong-owner" || result.reason === "unknown-unit") {
+            accepted = true;
+            break;
+          }
+        }
+      }
+      if (accepted) break;
+    }
+    results.push({ unitId, result });
+  }
+  return results;
+}
+function dispatchGroupAttackMove(simulation, team, unitIds, destination, formationType) {
+  return dispatchGroupMove(simulation, team, unitIds, destination, true, formationType);
+}
+
+// src/map/findPath.ts
+var MinHeap = class {
+  items = [];
+  get size() {
+    return this.items.length;
+  }
+  push(node) {
+    this.items.push(node);
+    let child = this.items.length - 1;
+    while (child > 0) {
+      const parent = Math.floor((child - 1) / 2);
+      if (!this.less(this.items[child], this.items[parent])) break;
+      [this.items[child], this.items[parent]] = [this.items[parent], this.items[child]];
+      child = parent;
+    }
+  }
+  pop() {
+    const first = this.items[0];
+    const last = this.items.pop();
+    if (!first || !last || this.items.length === 0) return first;
+    this.items[0] = last;
+    let parent = 0;
+    while (true) {
+      const left = parent * 2 + 1;
+      const right = left + 1;
+      let smallest = parent;
+      if (left < this.items.length && this.less(this.items[left], this.items[smallest])) smallest = left;
+      if (right < this.items.length && this.less(this.items[right], this.items[smallest])) smallest = right;
+      if (smallest === parent) break;
+      [this.items[parent], this.items[smallest]] = [this.items[smallest], this.items[parent]];
+      parent = smallest;
+    }
+    return first;
+  }
+  less(a, b) {
+    return a.f < b.f || a.f === b.f && (a.g > b.g || a.g === b.g && a.order < b.order);
+  }
+};
+var DIRECTIONS = [
+  [0, -1],
+  [1, 0],
+  [0, 1],
+  [-1, 0],
+  [1, -1],
+  [1, 1],
+  [-1, 1],
+  [-1, -1]
+];
+function heuristic(x, y, goalX, goalY) {
+  const dx = Math.abs(goalX - x);
+  const dy = Math.abs(goalY - y);
+  return 14 * Math.min(dx, dy) + 10 * (Math.max(dx, dy) - Math.min(dx, dy));
+}
+function findPath(map, start, goal, canEnter = (x, y) => map.isPassable(x, y)) {
+  const [startX, startY] = start;
+  const [goalX, goalY] = goal;
+  if (!map.contains(startX, startY) || !map.contains(goalX, goalY) || !canEnter(goalX, goalY)) return null;
+  const width = map.width;
+  const startIndex = startY * width + startX;
+  const goalIndex = goalY * width + goalX;
+  if (startIndex === goalIndex) return [start];
+  const horizontal = goalX < startX ? -1 : 1;
+  const scores = new Float64Array(width * map.height).fill(Infinity);
+  const previous = new Int32Array(width * map.height).fill(-1);
+  const closed = new Uint8Array(width * map.height);
+  const heap = new MinHeap();
+  scores[startIndex] = 0;
+  let order = 0;
+  heap.push({ index: startIndex, g: 0, f: heuristic(startX, startY, goalX, goalY), order: order++ });
+  while (heap.size > 0) {
+    const node = heap.pop();
+    if (closed[node.index] || node.g !== scores[node.index]) continue;
+    if (node.index === goalIndex) {
+      const path = [];
+      for (let index = goalIndex; index !== -1; index = previous[index]) {
+        path.push([index % width, Math.floor(index / width)]);
+      }
+      return path.reverse();
+    }
+    closed[node.index] = 1;
+    const x = node.index % width;
+    const y = Math.floor(node.index / width);
+    for (const [forwardX, dy] of DIRECTIONS) {
+      const dx = forwardX * horizontal;
+      const nextX = x + dx;
+      const nextY = y + dy;
+      if (!map.contains(nextX, nextY) || !canEnter(nextX, nextY)) continue;
+      if (dx !== 0 && dy !== 0 && (!canEnter(x + dx, y) || !canEnter(x, y + dy))) continue;
+      const nextIndex = nextY * width + nextX;
+      if (closed[nextIndex]) continue;
+      const g = node.g + (dx !== 0 && dy !== 0 ? 14 : 10);
+      if (g >= scores[nextIndex]) continue;
+      scores[nextIndex] = g;
+      previous[nextIndex] = node.index;
+      heap.push({ index: nextIndex, g, f: g + heuristic(nextX, nextY, goalX, goalY), order: order++ });
+    }
+  }
+  return null;
+}
+
+// src/core/systems/MovementSystem.ts
+var MovementSystem = class {
+  constructor(entities) {
+    this.entities = entities;
+  }
+  events = [];
+  failures = [];
+  speedLimitProvider;
+  setSpeedLimitProvider(provider) {
+    this.speedLimitProvider = provider;
+  }
+  issue(command, currentTick) {
+    const entity = this.entities.get(command.unitId);
+    if (!entity || entity.category !== "unit") return { accepted: false, reason: "unknown-unit" };
+    if (entity.team !== command.team) return { accepted: false, reason: "wrong-owner" };
+    if (currentTick < entity.cooldownUntilTick && !entity.moveTarget) return { accepted: false, reason: "cooldown" };
+    const [x, y] = command.destination;
+    if (!this.entities.map.contains(x, y) || !this.entities.isFreeForUnit(x, y, entity.id)) {
+      return { accepted: false, reason: "invalid-destination" };
+    }
+    if (entity.x === x && entity.y === y) return { accepted: false, reason: "already-there" };
+    if (!this.pathFor(entity, command.destination) && !this.hasStaticPath(entity, command.destination)) {
+      return { accepted: false, reason: "no-path" };
+    }
+    entity.moveTarget = [x, y];
+    if (command.attackMove) {
+      entity.attackMoveTarget = [x, y];
+    }
+    return { accepted: true };
+  }
+  update(currentTick) {
+    let moved = 0;
+    const firstTeam = Math.floor(currentTick / TICKS_PER_SECOND) % 2 === 0 ? "blue" : "red";
+    const units = this.entities.all().filter((entity) => entity.category === "unit").sort((a, b) => Number(b.team === firstTeam) - Number(a.team === firstTeam) || a.id.localeCompare(b.id));
+    for (const entity of units) {
+      if (!entity.moveTarget || currentTick < entity.cooldownUntilTick) continue;
+      const [destX, destY] = entity.moveTarget;
+      if (entity.x === destX && entity.y === destY) {
+        entity.moveTarget = null;
+        if (entity.attackMoveTarget && entity.attackMoveTarget[0] === destX && entity.attackMoveTarget[1] === destY) {
+          entity.attackMoveTarget = null;
+        }
+        continue;
+      }
+      let effectiveGoal = [destX, destY];
+      const occupier = this.entities.atCell(destX, destY);
+      if (occupier && occupier.id !== entity.id) {
+        if (occupier.category === "unit" && occupier.team === entity.team) {
+          const distToGoal = Math.max(Math.abs(entity.x - destX), Math.abs(entity.y - destY));
+          if (distToGoal <= 1) {
+            entity.moveTarget = null;
+            if (entity.attackMoveTarget && entity.attackMoveTarget[0] === destX && entity.attackMoveTarget[1] === destY) {
+              entity.attackMoveTarget = null;
+            }
+            continue;
+          }
+          const freeNeighbor = this.findNearestFreeNeighbor(destX, destY, entity.id);
+          if (freeNeighbor) {
+            effectiveGoal = freeNeighbor;
+          }
+        }
+      }
+      const path = this.pathFor(entity, effectiveGoal);
+      if (!path || path.length < 2) {
+        if (this.hasStaticPath(entity, effectiveGoal)) {
+          entity.cooldownUntilTick = currentTick + 2;
+          continue;
+        }
+        this.failures.push({ unitId: entity.id, reason: "no-path" });
+        entity.moveTarget = null;
+        continue;
+      }
+      const maxAllowed = this.speedLimitProvider ? Math.min(entity.movement, this.speedLimitProvider(entity)) : entity.movement;
+      const steps = Math.min(maxAllowed, path.length - 1);
+      let stepped = -1;
+      for (let s = steps; s >= 1; s--) {
+        const [x, y] = path[s];
+        if (this.entities.moveUnit(entity.id, x, y)) {
+          stepped = s;
+          break;
+        }
+      }
+      if (stepped >= 1) {
+        this.events.push({ unitId: entity.id, path: path.slice(0, stepped + 1) });
+        moved += 1;
+        entity.cooldownUntilTick = currentTick + Math.round(entity.movementCooldownSeconds * TICKS_PER_SECOND);
+        if (entity.x === entity.moveTarget[0] && entity.y === entity.moveTarget[1]) {
+          entity.moveTarget = null;
+          if (entity.attackMoveTarget && entity.x === entity.attackMoveTarget[0] && entity.y === entity.attackMoveTarget[1]) {
+            entity.attackMoveTarget = null;
+          }
+        }
+      } else {
+        entity.cooldownUntilTick = currentTick + 2;
+      }
+    }
+    return moved;
+  }
+  drainEvents() {
+    return this.events.splice(0);
+  }
+  drainFailures() {
+    return this.failures.splice(0);
+  }
+  cooldownRemainingTicks(unit, currentTick) {
+    return Math.max(0, unit.cooldownUntilTick - currentTick);
+  }
+  cancel(unitId) {
+    const entity = this.entities.get(unitId);
+    if (entity && entity.category === "unit") {
+      entity.moveTarget = null;
+    }
+  }
+  pathFor(unit, goal) {
+    return findPath(
+      this.entities.map,
+      [unit.x, unit.y],
+      goal,
+      (x, y) => this.entities.isFreeForUnit(x, y, unit.id)
+    );
+  }
+  hasStaticPath(unit, goal) {
+    return findPath(this.entities.map, [unit.x, unit.y], goal, (x, y) => {
+      if (!this.entities.map.isPassable(x, y)) return false;
+      const b = this.entities.atCell(x, y);
+      return !b || b.category !== "building";
+    }) !== null;
+  }
+  findNearestFreeNeighbor(targetX, targetY, unitId) {
+    for (let r = 1; r <= 4; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = targetX + dx;
+          const y = targetY + dy;
+          if (this.entities.isFreeForUnit(x, y, unitId)) {
+            return [x, y];
+          }
+        }
+      }
+    }
+    return null;
+  }
+};
+
+// src/core/systems/FogOfWar.ts
+var STATE_NAMES = ["unknown", "explored", "visible"];
+var FogOfWar = class {
+  constructor(map, entities) {
+    this.map = map;
+    this.entities = entities;
+    const makeFog = () => ({
+      state: new Uint8Array(map.width * map.height),
+      terrain: Array(map.width * map.height).fill(null),
+      buildings: /* @__PURE__ */ new Map()
+    });
+    this.teams = { blue: makeFog(), red: makeFog() };
+  }
+  teams;
+  update() {
+    for (const team of ["blue", "red"]) this.updateTeam(team);
+  }
+  cell(team, x, y) {
+    if (!this.map.contains(x, y)) return null;
+    const index = this.index(x, y);
+    const fog = this.teams[team];
+    return {
+      state: STATE_NAMES[fog.state[index]],
+      terrain: fog.terrain[index],
+      building: fog.buildings.get(index) ? { ...fog.buildings.get(index) } : null
+    };
+  }
+  stateAt(team, x, y) {
+    if (!this.map.contains(x, y)) return null;
+    return STATE_NAMES[this.teams[team].state[this.index(x, y)]];
+  }
+  /** Includes current friendly entities and only currently observable enemies. */
+  visibleEntities(team) {
+    return this.entities.all().filter((entity) => this.isEntityVisible(team, entity)).map((entity) => entity.category === "unit" ? { ...entity, moveTarget: entity.moveTarget ? [entity.moveTarget[0], entity.moveTarget[1]] : null } : { ...entity });
+  }
+  knownBuildings(team) {
+    const unique = /* @__PURE__ */ new Map();
+    for (const building of this.teams[team].buildings.values()) unique.set(building.id, building);
+    return [...unique.values()].map((building) => ({ ...building }));
+  }
+  isEntityVisible(team, entity) {
+    if (entity.team === team) return true;
+    if (entity.category === "unit") {
+      if (this.stateAt(team, entity.x, entity.y) !== "visible") return false;
+      if (entity.kind !== "scout") return true;
+      return this.isWithinTowerVision(team, entity.x, entity.y) || this.scoutDetected(entity);
+    }
+    for (let y = entity.y; y < entity.y + entity.height; y += 1) {
+      for (let x = entity.x; x < entity.x + entity.width; x += 1) {
+        if (this.stateAt(team, x, y) === "visible") return true;
+      }
+    }
+    return false;
+  }
+  isWithinTowerVision(team, x, y) {
+    for (const entity of this.entities.all()) {
+      if (entity.team === team && entity.category === "building" && entity.kind === "tower" && !entity.underConstruction) {
+        const halfSpan = 9;
+        const minX = entity.x - halfSpan;
+        const maxX = entity.x + entity.width - 1 + halfSpan;
+        const minY = entity.y - halfSpan;
+        const maxY = entity.y + entity.height - 1 + halfSpan;
+        if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  updateTeam(team) {
+    const fog = this.teams[team];
+    const visible = new Uint8Array(this.map.width * this.map.height);
+    for (const entity of this.entities.all()) {
+      if (entity.team !== team) continue;
+      if (entity.category === "unit") {
+        const radius = entity.vision;
+        for (let y = Math.max(0, entity.y - radius); y <= Math.min(this.map.height - 1, entity.y + radius); y += 1) {
+          for (let x = Math.max(0, entity.x - radius); x <= Math.min(this.map.width - 1, entity.x + radius); x += 1) {
+            if ((x - entity.x) ** 2 + (y - entity.y) ** 2 <= radius ** 2) visible[this.index(x, y)] = 1;
+          }
+        }
+      } else {
+        if (entity.kind === "tower") {
+          if (!entity.underConstruction) {
+            const halfSpan = 9;
+            const minX = Math.max(0, entity.x - halfSpan);
+            const maxX = Math.min(this.map.width - 1, entity.x + entity.width - 1 + halfSpan);
+            const minY = Math.max(0, entity.y - halfSpan);
+            const maxY = Math.min(this.map.height - 1, entity.y + entity.height - 1 + halfSpan);
+            for (let y = minY; y <= maxY; y += 1) {
+              for (let x = minX; x <= maxX; x += 1) {
+                visible[this.index(x, y)] = 1;
+              }
+            }
+          }
+        } else {
+          const radius = BALANCE.buildings[entity.kind].vision;
+          for (let y = Math.max(0, entity.y - radius); y <= Math.min(this.map.height - 1, entity.y + entity.height - 1 + radius); y += 1) {
+            for (let x = Math.max(0, entity.x - radius); x <= Math.min(this.map.width - 1, entity.x + entity.width - 1 + radius); x += 1) {
+              const nearestX = Math.max(entity.x, Math.min(x, entity.x + entity.width - 1));
+              const nearestY = Math.max(entity.y, Math.min(y, entity.y + entity.height - 1));
+              if ((x - nearestX) ** 2 + (y - nearestY) ** 2 <= radius ** 2) visible[this.index(x, y)] = 1;
+            }
+          }
+        }
+      }
+    }
+    for (let y = 0; y < this.map.height; y += 1) {
+      for (let x = 0; x < this.map.width; x += 1) {
+        const index = this.index(x, y);
+        if (visible[index]) {
+          fog.state[index] = 2;
+          fog.terrain[index] = this.map.cellAt(x, y).terrain;
+          const occupant = this.entities.atCell(x, y);
+          if (occupant?.category === "building") fog.buildings.set(index, this.snapshotBuilding(occupant));
+          else fog.buildings.delete(index);
+        } else if (fog.state[index] !== 0) {
+          fog.state[index] = 1;
+        }
+      }
+    }
+  }
+  scoutDetected(scout) {
+    const maxDistance = BALANCE.units.scout.stealthDetectionDistance;
+    return this.entities.all().some((enemy) => {
+      if (enemy.team === scout.team) return false;
+      const nearestX = enemy.category === "building" ? Math.max(enemy.x, Math.min(scout.x, enemy.x + enemy.width - 1)) : enemy.x;
+      const nearestY = enemy.category === "building" ? Math.max(enemy.y, Math.min(scout.y, enemy.y + enemy.height - 1)) : enemy.y;
+      return (nearestX - scout.x) ** 2 + (nearestY - scout.y) ** 2 <= maxDistance ** 2;
+    });
+  }
+  snapshotBuilding(building) {
+    return {
+      id: building.id,
+      team: building.team,
+      kind: building.kind,
+      x: building.x,
+      y: building.y,
+      width: building.width,
+      height: building.height,
+      hp: building.hp,
+      maxHp: building.maxHp
+    };
+  }
+  index(x, y) {
+    return y * this.map.width + x;
+  }
+};
+
+// src/core/systems/EconomySystem.ts
+var EconomySystem = class {
+  constructor(entities, movement, fog, stocks) {
+    this.entities = entities;
+    this.movement = movement;
+    this.fog = fog;
+    this.stocks = stocks;
+  }
+  tasks = /* @__PURE__ */ new Map();
+  taskFor(unitId) {
+    const task = this.tasks.get(unitId);
+    return task ? { ...task, source: [...task.source], workCell: [...task.workCell] } : null;
+  }
+  cancel(unitId) {
+    this.tasks.delete(unitId);
+  }
+  issue(command, currentTick) {
+    const worker = this.entities.get(command.unitId);
+    if (!worker || worker.category !== "unit") return { accepted: false, reason: "unknown-unit" };
+    if (worker.team !== command.team) return { accepted: false, reason: "wrong-owner" };
+    if (worker.kind !== "worker") return { accepted: false, reason: "not-worker" };
+    if (currentTick < worker.cooldownUntilTick) return { accepted: false, reason: "cooldown" };
+    const [x, y] = command.target;
+    if (this.fog.stateAt(command.team, x, y) === "unknown") return { accepted: false, reason: "invalid-destination" };
+    const terrain = this.entities.map.cellAt(x, y)?.terrain;
+    if (command.type === "mine") {
+      if (terrain !== "mine") return { accepted: false, reason: "wrong-terrain" };
+      const assigned = [...this.tasks.entries()].filter(([id, task]) => id !== worker.id && task.kind === "mine" && task.source[0] === x && task.source[1] === y).length;
+      if (assigned >= BALANCE.economy.mine.maxWorkersPerMine) return { accepted: false, reason: "mine-full" };
+    } else {
+      if (terrain !== "forest" && terrain !== "stone") return { accepted: false, reason: "wrong-terrain" };
+    }
+    const resourceKind = terrain === "stone" ? "stone" : "wood";
+    const workCell = this.assignWorkCell(worker, command.type, command.target, currentTick, resourceKind);
+    if (!workCell) return { accepted: false, reason: "no-path" };
+    this.tasks.set(worker.id, command.type === "mine" ? { kind: "mine", source: command.target, workCell, phase: "travel", progressTicks: 0 } : { kind: "gather", resourceKind, source: command.target, workCell, depot: null, phase: "toForest", progressTicks: 0 });
+    return { accepted: true };
+  }
+  update(currentTick) {
+    for (const [unitId, task] of this.tasks) {
+      const entity = this.entities.get(unitId);
+      if (!entity || entity.category !== "unit" || entity.hp <= 0) {
+        this.tasks.delete(unitId);
+        continue;
+      }
+      if (task.kind === "mine") this.updateMine(entity, task, currentTick);
+      else this.updateGather(entity, task, currentTick);
+    }
+    if (currentTick % TICKS_PER_SECOND === 0) {
+      for (const entity of this.entities.all()) {
+        if (entity.category === "unit" && entity.kind === "worker" && !this.tasks.has(entity.id) && !entity.moveTarget && entity.hp > 0) {
+          this.stocks[entity.team].coins += Math.floor(BALANCE.economy.passiveCoinsPerFreeWorkerPerSecond);
+        }
+      }
+    }
+  }
+  updateMine(worker, task, tick) {
+    if (!this.at(worker, task.workCell)) {
+      if (task.phase === "working") this.tasks.delete(worker.id);
+      return;
+    }
+    if (task.phase === "travel") {
+      if (tick < worker.cooldownUntilTick) return;
+      task.phase = "working";
+      worker.cooldownUntilTick = tick + Math.round(worker.cooldownSeconds * TICKS_PER_SECOND);
+    }
+    task.progressTicks += 1;
+    if (task.progressTicks >= BALANCE.economy.mine.cycleSeconds * TICKS_PER_SECOND) {
+      this.stocks[worker.team].coins += Math.floor(BALANCE.economy.mine.coinsPerCycle);
+      task.progressTicks = 0;
+    }
+  }
+  updateGather(worker, task, tick) {
+    const expectedTerrain = task.resourceKind === "stone" ? "stone" : "forest";
+    const capacity = task.resourceKind === "stone" ? BALANCE.economy.stone.workerCapacity : BALANCE.economy.wood.workerCapacity;
+    const gatherPerSecond = task.resourceKind === "stone" ? BALANCE.economy.stone.gatherPerSecond : BALANCE.economy.wood.gatherPerSecond;
+    if (task.phase === "toForest") {
+      if (!this.at(worker, task.workCell)) {
+        if (this.entities.map.cellAt(task.workCell[0], task.workCell[1])?.terrain !== expectedTerrain) {
+          this.sendToResource(worker, task, tick);
+          return;
+        }
+        if (!worker.moveTarget && tick >= worker.cooldownUntilTick) this.sendToResource(worker, task, tick);
+        return;
+      }
+      if (this.entities.map.cellAt(task.workCell[0], task.workCell[1])?.terrain !== expectedTerrain) {
+        this.sendToResource(worker, task, tick);
+        return;
+      }
+      if (tick < worker.cooldownUntilTick) return;
+      task.phase = "gathering";
+      task.progressTicks = 0;
+      worker.cooldownUntilTick = tick + Math.round(worker.cooldownSeconds * TICKS_PER_SECOND);
+    }
+    if (task.phase === "gathering") {
+      if (!this.at(worker, task.workCell)) {
+        this.tasks.delete(worker.id);
+        return;
+      }
+      if (this.entities.map.cellAt(task.workCell[0], task.workCell[1])?.terrain !== expectedTerrain) {
+        const carried = task.resourceKind === "stone" ? worker.carriedStone : worker.carriedWood;
+        if (carried > 0) this.sendToBase(worker, task, tick);
+        else this.sendToResource(worker, task, tick);
+        return;
+      }
+      task.progressTicks += 1;
+      if (task.progressTicks % TICKS_PER_SECOND === 0) {
+        if (task.resourceKind === "stone") {
+          worker.carriedStone = Math.min(capacity, worker.carriedStone + Math.floor(gatherPerSecond));
+        } else {
+          worker.carriedWood = Math.min(capacity, worker.carriedWood + Math.floor(gatherPerSecond));
+        }
+      }
+      const currentCarried = task.resourceKind === "stone" ? worker.carriedStone : worker.carriedWood;
+      if (currentCarried >= capacity) {
+        this.entities.map.setTerrain(task.workCell[0], task.workCell[1], "plain");
+        this.sendToBase(worker, task, tick);
+      }
+      return;
+    }
+    if (task.phase === "toBase" && task.depot && this.at(worker, task.depot) && tick >= worker.cooldownUntilTick) {
+      if (task.resourceKind === "stone") {
+        this.stocks[worker.team].stone += Math.floor(worker.carriedStone);
+        worker.carriedStone = 0;
+      } else {
+        this.stocks[worker.team].wood += Math.floor(worker.carriedWood);
+        worker.carriedWood = 0;
+      }
+      task.depot = null;
+      task.phase = "toForest";
+      this.sendToResource(worker, task, tick);
+    } else if (task.phase === "toBase" && !worker.moveTarget && tick >= worker.cooldownUntilTick) {
+      this.sendToBase(worker, task, tick);
+    }
+  }
+  assignWorkCell(worker, kind, source, tick, resourceKind = "wood") {
+    const [sourceX, sourceY] = source;
+    const radius = kind === "mine" ? 1 : 16;
+    const expectedTerrain = kind === "mine" ? "mine" : resourceKind === "stone" ? "stone" : "forest";
+    const reserved = new Set([...this.tasks.entries()].filter(([id]) => id !== worker.id).map(([, task]) => `${task.workCell[0]},${task.workCell[1]}`));
+    for (let distance = 0; distance <= radius; distance += 1) {
+      for (let dy = -distance; dy <= distance; dy += 1) {
+        for (let dx = -distance; dx <= distance; dx += 1) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== distance) continue;
+          const x = sourceX + dx;
+          const y = sourceY + dy;
+          if (!this.entities.map.contains(x, y) || reserved.has(`${x},${y}`)) continue;
+          if (kind === "gather" && this.entities.map.cellAt(x, y)?.terrain !== expectedTerrain) continue;
+          if (!this.entities.isFreeForUnit(x, y, worker.id)) continue;
+          if (this.at(worker, [x, y])) {
+            worker.moveTarget = null;
+            return [x, y];
+          }
+          if (this.movement.issue({ type: "move", team: worker.team, unitId: worker.id, destination: [x, y] }, tick).accepted) {
+            return [x, y];
+          }
+        }
+      }
+    }
+    return null;
+  }
+  sendToBase(worker, task, tick) {
+    const base = this.entities.get(`${worker.team}-base`);
+    if (!base || base.category !== "building") return;
+    const candidates = this.basePerimeter(base).filter(([x, y]) => this.entities.isFreeForUnit(x, y, worker.id)).sort((a, b) => this.distanceSquared(worker, a) - this.distanceSquared(worker, b));
+    for (const cell of candidates) {
+      if (this.at(worker, cell)) {
+        worker.moveTarget = null;
+        task.depot = cell;
+        task.phase = "toBase";
+        return;
+      }
+      if (this.movement.issue({ type: "move", team: worker.team, unitId: worker.id, destination: cell }, tick).accepted) {
+        task.depot = cell;
+        task.phase = "toBase";
+        return;
+      }
+    }
+  }
+  sendToResource(worker, task, tick) {
+    const workCell = this.assignWorkCell(worker, "gather", task.source, tick, task.resourceKind);
+    if (workCell) {
+      task.workCell = workCell;
+      task.source = workCell;
+    } else {
+      this.tasks.delete(worker.id);
+    }
+  }
+  basePerimeter(base) {
+    const cells = [];
+    for (let y = base.y - 1; y <= base.y + base.height; y += 1) {
+      for (let x = base.x - 1; x <= base.x + base.width; x += 1) {
+        if (x >= base.x && x < base.x + base.width && y >= base.y && y < base.y + base.height) continue;
+        if (this.entities.map.contains(x, y)) cells.push([x, y]);
+      }
+    }
+    return cells;
+  }
+  distanceSquared(worker, cell) {
+    return (worker.x - cell[0]) ** 2 + (worker.y - cell[1]) ** 2;
+  }
+  at(worker, cell) {
+    return worker.x === cell[0] && worker.y === cell[1];
+  }
+};
+
+// src/core/systems/ConstructionSystem.ts
+var ConstructionSystem = class {
+  constructor(entities, movement, fog, stocks) {
+    this.entities = entities;
+    this.movement = movement;
+    this.fog = fog;
+    this.stocks = stocks;
+  }
+  tasks = /* @__PURE__ */ new Map();
+  instantBuild = false;
+  taskFor(builderId) {
+    const task = this.tasks.get(builderId);
+    return task ? { ...task, targetCell: [...task.targetCell] } : null;
+  }
+  cancel(builderId) {
+    this.tasks.delete(builderId);
+  }
+  issue(command, currentTick) {
+    const builder = this.entities.get(command.builderId);
+    if (!builder || builder.category !== "unit") return { accepted: false, reason: "unknown-unit" };
+    if (builder.team !== command.team) return { accepted: false, reason: "wrong-owner" };
+    if (builder.kind !== "worker" && builder.kind !== "builder") return { accepted: false, reason: "not-worker" };
+    if ((command.buildingKind === "barricade" || command.buildingKind === "tower") && builder.kind !== "builder") {
+      return { accepted: false, reason: "not-builder" };
+    }
+    if (currentTick < builder.cooldownUntilTick) return { accepted: false, reason: "cooldown" };
+    if (command.buildingKind !== "house" && command.buildingKind !== "barracks" && command.buildingKind !== "barricade" && command.buildingKind !== "tower") {
+      return { accepted: false, reason: "invalid-unit-kind" };
+    }
+    const [bx, by] = command.position;
+    const config = BALANCE.buildings[command.buildingKind];
+    const width = config.width;
+    const height = config.height;
+    const maxPerTeam = config.maxPerTeam;
+    if (maxPerTeam !== void 0) {
+      const currentCount = this.entities.all().filter((e) => e.category === "building" && e.team === command.team && e.kind === command.buildingKind).length;
+      if (currentCount >= maxPerTeam) {
+        return { accepted: false, reason: "building-limit-reached" };
+      }
+    }
+    if (!this.entities.map.contains(bx, by) || !this.entities.map.contains(bx + width - 1, by + height - 1)) {
+      return { accepted: false, reason: "invalid-position" };
+    }
+    const base = this.entities.get(`${command.team}-base`);
+    if (!base || base.category !== "building") return { accepted: false, reason: "invalid-position" };
+    const baseCenterX = base.x + (base.width - 1) / 2;
+    const baseCenterY = base.y + (base.height - 1) / 2;
+    const buildCenterX = bx + (width - 1) / 2;
+    const buildCenterY = by + (height - 1) / 2;
+    if (Math.hypot(buildCenterX - baseCenterX, buildCenterY - baseCenterY) > BALANCE.construction.maxDistanceFromBase) {
+      return { accepted: false, reason: "out-of-build-range" };
+    }
+    for (let y = by; y < by + height; y += 1) {
+      for (let x = bx; x < bx + width; x += 1) {
+        if (this.fog.stateAt(command.team, x, y) === "unknown") {
+          return { accepted: false, reason: "unexplored" };
+        }
+      }
+    }
+    const stoneCost = config.stone ?? 0;
+    const stock = this.stocks[command.team];
+    if (stock.coins < config.coins) return { accepted: false, reason: "insufficient-coins" };
+    if (stock.wood < config.wood) return { accepted: false, reason: "insufficient-wood" };
+    if (stock.stone < stoneCost) return { accepted: false, reason: "insufficient-stone" };
+    if (!this.entities.isAreaFreeForBuilding(bx, by, width, height)) {
+      return { accepted: false, reason: "blocked" };
+    }
+    const perimeterCells = this.perimeterFor(bx, by, width, height).filter(([x, y]) => this.entities.isFreeForUnit(x, y, builder.id)).sort((a, b) => this.distanceSquared(builder, a) - this.distanceSquared(builder, b));
+    if (perimeterCells.length === 0) {
+      return { accepted: false, reason: "no-path" };
+    }
+    const targetCell = perimeterCells[0];
+    stock.coins -= config.coins;
+    stock.wood -= config.wood;
+    stock.stone -= stoneCost;
+    const building = this.entities.createBuilding(command.team, command.buildingKind, bx, by, true);
+    const isAlreadyAdjacent = this.isAdjacent(builder, building);
+    if (isAlreadyAdjacent) {
+      builder.moveTarget = null;
+      builder.cooldownUntilTick = currentTick + Math.round(builder.cooldownSeconds * TICKS_PER_SECOND);
+      this.tasks.set(builder.id, {
+        buildingId: building.id,
+        builderId: builder.id,
+        phase: "building",
+        targetCell: [builder.x, builder.y]
+      });
+    } else {
+      const moveResult = this.movement.issue(
+        { type: "move", team: builder.team, unitId: builder.id, destination: targetCell },
+        currentTick
+      );
+      if (!moveResult.accepted) {
+        stock.coins += config.coins;
+        stock.wood += config.wood;
+        stock.stone += stoneCost;
+        this.entities.remove(building.id);
+        return { accepted: false, reason: "no-path" };
+      }
+      this.tasks.set(builder.id, {
+        buildingId: building.id,
+        builderId: builder.id,
+        phase: "travel",
+        targetCell
+      });
+    }
+    return { accepted: true };
+  }
+  issueRepair(command, currentTick) {
+    const builder = this.entities.get(command.builderId);
+    if (!builder || builder.category !== "unit") return { accepted: false, reason: "unknown-unit" };
+    if (builder.team !== command.team) return { accepted: false, reason: "wrong-owner" };
+    if (builder.kind !== "builder") return { accepted: false, reason: "not-builder" };
+    const building = this.entities.get(command.buildingId);
+    if (!building || building.category !== "building") return { accepted: false, reason: "unknown-building" };
+    if (building.team !== command.team) return { accepted: false, reason: "wrong-owner" };
+    if (building.underConstruction) return { accepted: false, reason: "under-construction" };
+    if (building.hp >= building.maxHp) return { accepted: false, reason: "building-at-max-hp" };
+    if (currentTick < builder.cooldownUntilTick) return { accepted: false, reason: "cooldown" };
+    const config = BALANCE.buildings[building.kind];
+    const costConfig = config.repairCostPerSecond;
+    const woodRate = costConfig?.wood ?? 0;
+    const stoneRate = costConfig?.stone ?? 0;
+    const coinsRate = costConfig?.coins ?? 0;
+    const stock = this.stocks[command.team];
+    if (woodRate > 0 && stock.wood < 1) {
+      return { accepted: false, reason: "insufficient-wood" };
+    }
+    if (stoneRate > 0 && stock.stone < 1) {
+      return { accepted: false, reason: "insufficient-stone" };
+    }
+    if (coinsRate > 0 && stock.coins < 1) {
+      return { accepted: false, reason: "insufficient-coins" };
+    }
+    const isAlreadyAdjacent = this.isAdjacent(builder, building);
+    if (isAlreadyAdjacent) {
+      builder.moveTarget = null;
+      builder.cooldownUntilTick = currentTick + Math.round(builder.cooldownSeconds * TICKS_PER_SECOND);
+      this.tasks.set(builder.id, {
+        buildingId: building.id,
+        builderId: builder.id,
+        phase: "repairing",
+        targetCell: [builder.x, builder.y],
+        woodAcc: 0,
+        stoneAcc: 0,
+        coinsAcc: 0
+      });
+      return { accepted: true };
+    }
+    const perimeterCells = this.perimeterFor(building.x, building.y, building.width, building.height).filter(([x, y]) => this.entities.isFreeForUnit(x, y, builder.id)).sort((a, b) => this.distanceSquared(builder, a) - this.distanceSquared(builder, b));
+    if (perimeterCells.length === 0) {
+      return { accepted: false, reason: "no-path" };
+    }
+    const targetCell = perimeterCells[0];
+    const moveResult = this.movement.issue(
+      { type: "move", team: builder.team, unitId: builder.id, destination: targetCell },
+      currentTick
+    );
+    if (!moveResult.accepted) {
+      return { accepted: false, reason: "no-path" };
+    }
+    this.tasks.set(builder.id, {
+      buildingId: building.id,
+      builderId: builder.id,
+      phase: "travel",
+      targetCell,
+      woodAcc: 0,
+      stoneAcc: 0,
+      coinsAcc: 0
+    });
+    return { accepted: true };
+  }
+  isBeingRepaired(buildingId) {
+    for (const task of this.tasks.values()) {
+      if (task.buildingId === buildingId && task.phase === "repairing") return true;
+    }
+    return false;
+  }
+  update(currentTick) {
+    for (const [builderId, task] of this.tasks) {
+      const builder = this.entities.get(builderId);
+      const building = this.entities.get(task.buildingId);
+      if (!builder || builder.category !== "unit" || builder.hp <= 0) {
+        this.tasks.delete(builderId);
+        continue;
+      }
+      if (!building || building.category !== "building" || building.hp <= 0) {
+        this.tasks.delete(builderId);
+        builder.moveTarget = null;
+        continue;
+      }
+      if (task.phase === "travel") {
+        if (this.isAdjacent(builder, building)) {
+          task.phase = building.underConstruction ? "building" : "repairing";
+          if (task.phase === "repairing") {
+            task.woodAcc = 0;
+            task.stoneAcc = 0;
+            task.coinsAcc = 0;
+          }
+          builder.moveTarget = null;
+          builder.cooldownUntilTick = currentTick + Math.round(builder.cooldownSeconds * TICKS_PER_SECOND);
+        } else if (!builder.moveTarget && currentTick >= builder.cooldownUntilTick) {
+          const cell = this.perimeterFor(building.x, building.y, building.width, building.height).filter(([x, y]) => this.entities.isFreeForUnit(x, y, builder.id)).sort((a, b) => this.distanceSquared(builder, a) - this.distanceSquared(builder, b))[0];
+          if (cell) {
+            task.targetCell = cell;
+            this.movement.issue({ type: "move", team: builder.team, unitId: builder.id, destination: cell }, currentTick);
+          }
+        }
+      }
+      if (task.phase === "building") {
+        if (!this.isAdjacent(builder, building)) {
+          task.phase = "travel";
+          continue;
+        }
+        building.buildProgressTicks += this.instantBuild ? building.buildTotalTicks : 1;
+        building.hp = Math.max(1, Math.floor(building.buildProgressTicks / building.buildTotalTicks * building.maxHp));
+        if (building.buildProgressTicks >= building.buildTotalTicks) {
+          building.underConstruction = false;
+          building.hp = building.maxHp;
+          this.tasks.delete(builder.id);
+          builder.cooldownUntilTick = currentTick + Math.round(builder.cooldownSeconds * TICKS_PER_SECOND);
+          this.fog.update();
+        }
+      }
+      if (task.phase === "repairing") {
+        if (!this.isAdjacent(builder, building)) {
+          task.phase = "travel";
+          continue;
+        }
+        if (building.hp >= building.maxHp) {
+          building.hp = building.maxHp;
+          this.tasks.delete(builder.id);
+          builder.cooldownUntilTick = currentTick + Math.round(builder.cooldownSeconds * TICKS_PER_SECOND);
+          continue;
+        }
+        const config = BALANCE.buildings[building.kind];
+        const repairRate = config.repairRateHpPerSecond ?? 4;
+        const hpPerTick = repairRate / TICKS_PER_SECOND;
+        const costConfig = config.repairCostPerSecond;
+        const stock = this.stocks[building.team];
+        const woodRate = costConfig?.wood ?? 0;
+        const stoneRate = costConfig?.stone ?? 0;
+        const coinsRate = costConfig?.coins ?? 0;
+        task.woodAcc = (task.woodAcc ?? 0) + woodRate;
+        task.stoneAcc = (task.stoneAcc ?? 0) + stoneRate;
+        task.coinsAcc = (task.coinsAcc ?? 0) + coinsRate;
+        const woodNeeded = Math.floor(task.woodAcc / TICKS_PER_SECOND);
+        const stoneNeeded = Math.floor(task.stoneAcc / TICKS_PER_SECOND);
+        const coinsNeeded = Math.floor(task.coinsAcc / TICKS_PER_SECOND);
+        if (woodRate > 0 && stock.wood < Math.max(1, woodNeeded) || stoneRate > 0 && stock.stone < Math.max(1, stoneNeeded) || coinsRate > 0 && stock.coins < Math.max(1, coinsNeeded)) {
+          this.tasks.delete(builder.id);
+          builder.cooldownUntilTick = currentTick + Math.round(builder.cooldownSeconds * TICKS_PER_SECOND);
+          continue;
+        }
+        if (woodNeeded > 0) {
+          stock.wood = Math.max(0, stock.wood - woodNeeded);
+          task.woodAcc -= woodNeeded * TICKS_PER_SECOND;
+        }
+        if (stoneNeeded > 0) {
+          stock.stone = Math.max(0, stock.stone - stoneNeeded);
+          task.stoneAcc -= stoneNeeded * TICKS_PER_SECOND;
+        }
+        if (coinsNeeded > 0) {
+          stock.coins = Math.max(0, stock.coins - coinsNeeded);
+          task.coinsAcc -= coinsNeeded * TICKS_PER_SECOND;
+        }
+        building.hp = Math.min(building.maxHp, building.hp + hpPerTick);
+        if (building.hp >= building.maxHp) {
+          building.hp = building.maxHp;
+          this.tasks.delete(builder.id);
+          builder.cooldownUntilTick = currentTick + Math.round(builder.cooldownSeconds * TICKS_PER_SECOND);
+        }
+      }
+    }
+  }
+  perimeterFor(bx, by, width, height) {
+    const cells = [];
+    for (let y = by - 1; y <= by + height; y += 1) {
+      for (let x = bx - 1; x <= bx + width; x += 1) {
+        if (x >= bx && x < bx + width && y >= by && y < by + height) continue;
+        if (this.entities.map.contains(x, y)) cells.push([x, y]);
+      }
+    }
+    return cells;
+  }
+  isAdjacent(worker, building) {
+    const minX = building.x - 1;
+    const maxX = building.x + building.width;
+    const minY = building.y - 1;
+    const maxY = building.y + building.height;
+    return worker.x >= minX && worker.x <= maxX && worker.y >= minY && worker.y <= maxY && !(worker.x >= building.x && worker.x < building.x + building.width && worker.y >= building.y && worker.y < building.y + building.height);
+  }
+  distanceSquared(unit, point) {
+    return (unit.x - point[0]) ** 2 + (unit.y - point[1]) ** 2;
+  }
+};
+
+// src/core/systems/ProductionSystem.ts
+function isCivilianUnit(kind) {
+  return kind === "worker" || kind === "builder";
+}
+var ProductionSystem = class {
+  constructor(entities, stocks, fog) {
+    this.entities = entities;
+    this.stocks = stocks;
+    this.fog = fog;
+  }
+  queues = /* @__PURE__ */ new Map();
+  rallyPoints = /* @__PURE__ */ new Map();
+  onUnitSpawned;
+  instantProduction = false;
+  setOnUnitSpawned(callback) {
+    this.onUnitSpawned = callback;
+  }
+  getRallyPoint(buildingId) {
+    return this.rallyPoints.get(buildingId) ?? this.entities.get(buildingId)?.rallyPoint ?? null;
+  }
+  clearRallyPoint(buildingId) {
+    this.rallyPoints.delete(buildingId);
+    const building = this.entities.get(buildingId);
+    if (building && building.category === "building") {
+      building.rallyPoint = null;
+    }
+  }
+  setRallyPoint(command) {
+    const building = this.entities.get(command.buildingId);
+    if (!building || building.category !== "building") return { accepted: false, reason: "unknown-building" };
+    if (building.team !== command.team) return { accepted: false, reason: "wrong-owner" };
+    if (building.kind !== "house" && building.kind !== "barracks") {
+      return { accepted: false, reason: "unsupported-building" };
+    }
+    if (command.point !== null) {
+      const [x, y] = command.point;
+      if (!this.entities.map.contains(x, y)) {
+        return { accepted: false, reason: "invalid-destination" };
+      }
+    }
+    if (command.point) {
+      this.rallyPoints.set(building.id, [...command.point]);
+      building.rallyPoint = [...command.point];
+    } else {
+      this.rallyPoints.delete(building.id);
+      building.rallyPoint = null;
+    }
+    return { accepted: true };
+  }
+  getCapacity(team) {
+    let civilianUnits = 0;
+    let militaryUnits = 0;
+    let civilianCapacity = 0;
+    let militaryCapacity = 0;
+    let civilianQueued = 0;
+    let militaryQueued = 0;
+    for (const entity of this.entities.all()) {
+      if (entity.team !== team) continue;
+      if (entity.category === "unit") {
+        if (isCivilianUnit(entity.kind)) {
+          civilianUnits += 1;
+        } else {
+          militaryUnits += 1;
+        }
+      } else if (entity.category === "building") {
+        if (!entity.underConstruction && entity.hp > 0) {
+          const config = BALANCE.buildings[entity.kind];
+          civilianCapacity += config.civilianCapacity ?? 0;
+          militaryCapacity += config.militaryCapacity ?? 0;
+        }
+        const queue = this.queues.get(entity.id);
+        if (queue) {
+          for (const item of queue) {
+            if (isCivilianUnit(item.unitKind)) {
+              civilianQueued += 1;
+            } else {
+              militaryQueued += 1;
+            }
+          }
+        }
+      }
+    }
+    return {
+      civilianUnits,
+      civilianQueued,
+      civilianCapacity,
+      militaryUnits,
+      militaryQueued,
+      militaryCapacity,
+      totalUnits: civilianUnits + militaryUnits,
+      totalQueued: civilianQueued + militaryQueued,
+      maxTotalUnits: BALANCE.map.unitCapPerTeam
+    };
+  }
+  queueFor(buildingId) {
+    return this.queues.get(buildingId) ?? [];
+  }
+  cancel(buildingId) {
+    this.queues.delete(buildingId);
+    this.clearRallyPoint(buildingId);
+  }
+  issue(command) {
+    const building = this.entities.get(command.buildingId);
+    if (!building || building.category !== "building") return { accepted: false, reason: "unknown-building" };
+    if (building.team !== command.team) return { accepted: false, reason: "wrong-owner" };
+    if (building.underConstruction) return { accepted: false, reason: "under-construction" };
+    if (building.kind === "house") {
+      if (command.unitKind !== "worker" && command.unitKind !== "builder") return { accepted: false, reason: "invalid-unit-kind" };
+    } else if (building.kind === "barracks") {
+      if (!["soldier", "archer", "shieldbearer", "scout"].includes(command.unitKind)) {
+        return { accepted: false, reason: "invalid-unit-kind" };
+      }
+    } else {
+      return { accepted: false, reason: "invalid-unit-kind" };
+    }
+    const capacity = this.getCapacity(command.team);
+    if (capacity.totalUnits + capacity.totalQueued >= capacity.maxTotalUnits) {
+      return { accepted: false, reason: "unit-cap-reached" };
+    }
+    if (isCivilianUnit(command.unitKind)) {
+      if (capacity.civilianUnits + capacity.civilianQueued >= capacity.civilianCapacity) {
+        return { accepted: false, reason: "civilian-capacity-reached" };
+      }
+    } else {
+      if (capacity.militaryUnits + capacity.militaryQueued >= capacity.militaryCapacity) {
+        return { accepted: false, reason: "military-capacity-reached" };
+      }
+    }
+    const unitConfig = BALANCE.units[command.unitKind];
+    const stock = this.stocks[command.team];
+    if (stock.coins < unitConfig.coins) return { accepted: false, reason: "insufficient-coins" };
+    if (stock.wood < unitConfig.wood) return { accepted: false, reason: "insufficient-wood" };
+    stock.coins -= unitConfig.coins;
+    stock.wood -= unitConfig.wood;
+    const totalTicks = Math.round(unitConfig.productionSeconds * TICKS_PER_SECOND);
+    const item = {
+      unitKind: command.unitKind,
+      progressTicks: 0,
+      totalTicks
+    };
+    const queue = this.queues.get(building.id) ?? [];
+    queue.push(item);
+    this.queues.set(building.id, queue);
+    return { accepted: true };
+  }
+  update() {
+    for (const [buildingId, queue] of this.queues.entries()) {
+      if (queue.length === 0) continue;
+      const building = this.entities.get(buildingId);
+      if (!building || building.category !== "building" || building.hp <= 0) {
+        this.queues.delete(buildingId);
+        this.clearRallyPoint(buildingId);
+        continue;
+      }
+      const active = queue[0];
+      active.progressTicks += this.instantProduction ? active.totalTicks : 1;
+      if (active.progressTicks >= active.totalTicks) {
+        const spawnCell = this.findSpawnCell(building);
+        if (spawnCell) {
+          const unit = this.entities.spawnUnit(building.team, active.unitKind, spawnCell[0], spawnCell[1]);
+          queue.shift();
+          this.fog.update();
+          const rally = this.getRallyPoint(building.id);
+          if (rally) {
+            this.onUnitSpawned?.(unit, building, rally);
+          }
+        }
+      }
+    }
+  }
+  findSpawnCell(building) {
+    for (let distance = 1; distance <= 5; distance += 1) {
+      for (let y = building.y - distance; y <= building.y + building.height - 1 + distance; y += 1) {
+        for (let x = building.x - distance; x <= building.x + building.width - 1 + distance; x += 1) {
+          if (x >= building.x && x < building.x + building.width && y >= building.y && y < building.y + building.height) {
+            continue;
+          }
+          if (this.entities.map.contains(x, y) && this.entities.isFreeForUnit(x, y, "")) {
+            return [x, y];
+          }
+        }
+      }
+    }
+    return null;
+  }
+};
+
+// src/core/systems/CombatSystem.ts
+var CombatSystem = class {
+  constructor(entities, fog, onEntityDeath, isGameOver) {
+    this.entities = entities;
+    this.fog = fog;
+    this.onEntityDeath = onEntityDeath;
+    this.isGameOver = isGameOver;
+  }
+  events = [];
+  manualTargets = /* @__PURE__ */ new Map();
+  manualTargetFor(unitId) {
+    return this.manualTargets.get(unitId) ?? null;
+  }
+  setManualTarget(unitId, targetId) {
+    this.manualTargets.set(unitId, targetId);
+  }
+  cancel(unitId) {
+    this.manualTargets.delete(unitId);
+  }
+  issue(command, currentTick) {
+    const attacker = this.entities.get(command.unitId);
+    if (!attacker || attacker.category !== "unit") return { accepted: false, reason: "unknown-unit" };
+    if (attacker.team !== command.team) return { accepted: false, reason: "wrong-owner" };
+    if (attacker.damage <= 0) return { accepted: false, reason: "cannot-attack" };
+    if (currentTick < attacker.cooldownUntilTick) return { accepted: false, reason: "cooldown" };
+    const target = this.entities.get(command.targetId);
+    if (!target) return { accepted: false, reason: "target-not-found" };
+    if (target.team === command.team) return { accepted: false, reason: "target-friendly" };
+    if (!this.fog.isEntityVisible(command.team, target)) return { accepted: false, reason: "target-not-visible" };
+    const dist = this.distance(attacker, target);
+    if (dist > attacker.range) return { accepted: false, reason: "out-of-range" };
+    this.manualTargets.set(attacker.id, target.id);
+    this.executeAttack(attacker, target, currentTick);
+    return { accepted: true };
+  }
+  update(currentTick) {
+    if (this.isGameOver?.()) return 0;
+    const planned = [];
+    const attackers = this.entities.all().filter((e) => e.category === "unit" && e.damage > 0 && e.hp > 0).sort((a, b) => a.id.localeCompare(b.id));
+    for (const attacker of attackers) {
+      if (currentTick < attacker.cooldownUntilTick) continue;
+      if (attacker.moveTarget !== null) continue;
+      const manualTargetId = this.manualTargets.get(attacker.id);
+      if (manualTargetId) {
+        const manualTarget = this.entities.get(manualTargetId);
+        if (manualTarget && manualTarget.team !== attacker.team && manualTarget.hp > 0 && this.fog.isEntityVisible(attacker.team, manualTarget) && this.distance(attacker, manualTarget) <= attacker.range) {
+          planned.push({ attacker, target: manualTarget });
+          continue;
+        } else {
+          this.manualTargets.delete(attacker.id);
+        }
+      }
+      const candidates = this.entities.all().filter((target) => {
+        if (target.team === attacker.team || target.hp <= 0) return false;
+        if (!this.fog.isEntityVisible(attacker.team, target)) return false;
+        return this.distance(attacker, target) <= attacker.range;
+      });
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => {
+          const distA = this.distance(attacker, a);
+          const distB = this.distance(attacker, b);
+          if (Math.abs(distA - distB) > 1e-6) return distA - distB;
+          if (a.hp !== b.hp) return a.hp - b.hp;
+          return a.id.localeCompare(b.id);
+        });
+        const bestTarget = candidates[0];
+        planned.push({ attacker, target: bestTarget });
+      }
+    }
+    for (const { attacker, target } of planned) this.executeAttack(attacker, target, currentTick, true);
+    for (const entity of this.entities.all()) {
+      if (entity.hp <= 0) this.killEntity(entity);
+    }
+    return planned.length;
+  }
+  distance(attacker, target) {
+    if (target.category === "unit") {
+      return Math.hypot(attacker.x - target.x, attacker.y - target.y);
+    }
+    const closestX = Math.max(target.x, Math.min(attacker.x, target.x + target.width - 1));
+    const closestY = Math.max(target.y, Math.min(attacker.y, target.y + target.height - 1));
+    return Math.hypot(attacker.x - closestX, attacker.y - closestY);
+  }
+  drainEvents() {
+    return this.events.splice(0);
+  }
+  executeAttack(attacker, target, currentTick, deferDeath = false) {
+    const damage = attacker.damage;
+    target.hp = Math.max(0, target.hp - damage);
+    attacker.cooldownUntilTick = currentTick + Math.round(attacker.cooldownSeconds * TICKS_PER_SECOND);
+    let reflectedDamage = 0;
+    if (target.category === "unit" && target.kind === "shieldbearer") {
+      const isAdjacent = Math.max(Math.abs(attacker.x - target.x), Math.abs(attacker.y - target.y)) <= BALANCE.units.shieldbearer.reflectionMaxDistance;
+      if (isAdjacent) {
+        reflectedDamage = Math.floor(damage * (BALANCE.units.shieldbearer.reflectionPercent / 100));
+        attacker.hp = Math.max(0, attacker.hp - reflectedDamage);
+      }
+    }
+    const center = this.targetCenter(target);
+    this.events.push({
+      type: "attack",
+      tick: currentTick,
+      attackerId: attacker.id,
+      attackerTeam: attacker.team,
+      attackerX: attacker.x,
+      attackerY: attacker.y,
+      targetId: target.id,
+      targetTeam: target.team,
+      targetX: center.x,
+      targetY: center.y,
+      damage,
+      reflectedDamage
+    });
+    if (!deferDeath) {
+      if (target.hp <= 0) this.killEntity(target);
+      if (attacker.hp <= 0) this.killEntity(attacker);
+    }
+  }
+  killEntity(entity) {
+    this.entities.remove(entity.id);
+    this.manualTargets.delete(entity.id);
+    for (const [k, v] of this.manualTargets.entries()) {
+      if (v === entity.id) this.manualTargets.delete(k);
+    }
+    this.onEntityDeath?.(entity);
+    this.fog.update();
+  }
+  targetCenter(target) {
+    if (target.category === "unit") {
+      return { x: target.x, y: target.y };
+    }
+    return {
+      x: target.x + (target.width - 1) / 2,
+      y: target.y + (target.height - 1) / 2
+    };
+  }
+};
+
+// src/core/commands/dispatchGroupAttack.ts
+function findReachableAttackCell(simulation, unit, target, reserved) {
+  const maxRange = Math.max(1, Math.floor(unit.range));
+  const candidates = [];
+  if (target.category === "unit") {
+    for (let dy = -maxRange; dy <= maxRange; dy += 1) {
+      for (let dx = -maxRange; dx <= maxRange; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const x = target.x + dx;
+        const y = target.y + dy;
+        const key = `${x},${y}`;
+        if (reserved.has(key) || !simulation.map.contains(x, y)) continue;
+        if (!simulation.entities.isFreeForUnit(x, y, unit.id)) continue;
+        if (simulation.combat.distance({ ...unit, x, y }, target) <= unit.range) {
+          candidates.push({
+            cell: [x, y],
+            distToUnit: Math.hypot(unit.x - x, unit.y - y)
+          });
+        }
+      }
+    }
+  } else {
+    for (let dy = target.y - maxRange; dy <= target.y + target.height - 1 + maxRange; dy += 1) {
+      for (let dx = target.x - maxRange; dx <= target.x + target.width - 1 + maxRange; dx += 1) {
+        if (dx >= target.x && dx < target.x + target.width && dy >= target.y && dy < target.y + target.height) {
+          continue;
+        }
+        const key = `${dx},${dy}`;
+        if (reserved.has(key) || !simulation.map.contains(dx, dy)) continue;
+        if (!simulation.entities.isFreeForUnit(dx, dy, unit.id)) continue;
+        if (simulation.combat.distance({ ...unit, x: dx, y: dy }, target) <= unit.range) {
+          candidates.push({
+            cell: [dx, dy],
+            distToUnit: Math.hypot(unit.x - dx, unit.y - dy)
+          });
+        }
+      }
+    }
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => a.distToUnit - b.distToUnit);
+  return candidates[0].cell;
+}
+function dispatchGroupAttack(simulation, team, unitIds, targetId) {
+  const target = simulation.entities.get(targetId);
+  if (!target) {
+    return unitIds.map((unitId) => ({ unitId, result: { accepted: false, reason: "target-not-found" } }));
+  }
+  if (target.team === team) {
+    return unitIds.map((unitId) => ({ unitId, result: { accepted: false, reason: "target-friendly" } }));
+  }
+  if (!simulation.fog.isEntityVisible(team, target)) {
+    return unitIds.map((unitId) => ({ unitId, result: { accepted: false, reason: "target-not-visible" } }));
+  }
+  const results = [];
+  const reserved = /* @__PURE__ */ new Set();
+  for (const unitId of unitIds) {
+    const unit = simulation.entities.get(unitId);
+    if (!unit || unit.category !== "unit") {
+      results.push({ unitId, result: { accepted: false, reason: "unknown-unit" } });
+      continue;
+    }
+    if (unit.team !== team) {
+      results.push({ unitId, result: { accepted: false, reason: "wrong-owner" } });
+      continue;
+    }
+    if (unit.damage <= 0) {
+      results.push({ unitId, result: { accepted: false, reason: "cannot-attack" } });
+      continue;
+    }
+    const dist = simulation.combat.distance(unit, target);
+    if (dist <= unit.range) {
+      const result = simulation.issueCommand({ type: "attack", team, unitId, targetId });
+      results.push({ unitId, result });
+    } else {
+      if (unit.moveTarget !== null && simulation.combat.manualTargetFor(unitId) === targetId) {
+        results.push({ unitId, result: { accepted: true } });
+        continue;
+      }
+      const targetCell = findReachableAttackCell(simulation, unit, target, reserved);
+      if (!targetCell) {
+        results.push({ unitId, result: { accepted: false, reason: "no-path" } });
+        continue;
+      }
+      const moveRes = simulation.issueCommand({ type: "move", team, unitId, destination: targetCell });
+      if (moveRes.accepted) {
+        reserved.add(`${targetCell[0]},${targetCell[1]}`);
+        simulation.combat.setManualTarget(unitId, targetId);
+      }
+      results.push({ unitId, result: moveRes });
+    }
+  }
+  return results;
+}
+
+// src/core/systems/MarchEngagementSystem.ts
+function findBlockingEnemyStructure(simulation, unit, destination) {
+  if (unit.damage <= 0) return null;
+  let hasBarricade = false;
+  for (const ent of simulation.entities.all()) {
+    if (ent.category === "building" && ent.team !== unit.team && ent.hp > 0 && ent.kind === "barricade") {
+      hasBarricade = true;
+      break;
+    }
+  }
+  if (!hasBarricade) return null;
+  const path = findPath(
+    simulation.map,
+    [unit.x, unit.y],
+    destination,
+    (x, y) => {
+      if (!simulation.map.isPassable(x, y)) {
+        const ent = simulation.entities.atCell(x, y);
+        if (ent && ent.category === "building" && ent.team !== unit.team && ent.hp > 0) {
+          return true;
+        }
+        return false;
+      }
+      return simulation.entities.isFreeForUnit(x, y, unit.id);
+    }
+  );
+  if (!path) return null;
+  for (const [x, y] of path) {
+    const ent = simulation.entities.atCell(x, y);
+    if (ent && ent.category === "building" && ent.team !== unit.team && ent.hp > 0) {
+      return ent;
+    }
+  }
+  return null;
+}
+var MarchEngagementSystem = class {
+  constructor(simulation) {
+    this.simulation = simulation;
+  }
+  active = /* @__PURE__ */ new Map();
+  statusFor(unitId) {
+    const state = this.active.get(unitId);
+    return state ? { ...state, destination: [...state.destination] } : null;
+  }
+  setTarget(unitId, destination, targetId) {
+    this.active.set(unitId, { destination: [...destination], targetId });
+    this.simulation.movement.cancel(unitId);
+    const unit = this.simulation.entities.get(unitId);
+    const target = this.simulation.entities.get(targetId);
+    if (unit && unit.category === "unit" && target && this.simulation.combat.distance(unit, target) <= unit.range) {
+      this.simulation.combat.setManualTarget(unitId, targetId);
+    }
+  }
+  cancel(unitId) {
+    this.active.delete(unitId);
+  }
+  update(currentTick) {
+    for (const [unitId, state] of this.active) {
+      const unit = this.simulation.entities.get(unitId);
+      if (!unit || unit.category !== "unit" || unit.hp <= 0) {
+        this.active.delete(unitId);
+        continue;
+      }
+      const target = this.simulation.entities.get(state.targetId);
+      const targetValid = target && target.hp > 0 && target.team !== unit.team && this.seenByUnit(unit, target);
+      if (!targetValid) {
+        this.simulation.combat.cancel(unitId);
+        this.simulation.movement.cancel(unitId);
+        const nextTarget = this.pickTarget(unit);
+        if (nextTarget) {
+          state.targetId = nextTarget.id;
+          if (this.simulation.combat.distance(unit, nextTarget) <= unit.range) {
+            this.simulation.combat.setManualTarget(unitId, nextTarget.id);
+          }
+          continue;
+        }
+        const blocking = findBlockingEnemyStructure(this.simulation, unit, state.destination);
+        if (blocking) {
+          state.targetId = blocking.id;
+          if (this.simulation.combat.distance(unit, blocking) <= unit.range) {
+            this.simulation.combat.setManualTarget(unitId, blocking.id);
+          }
+          continue;
+        }
+        if (currentTick >= unit.cooldownUntilTick) {
+          unit.attackMoveTarget = state.destination;
+          const res = this.simulation.issueCommand({
+            type: "attack-move",
+            team: unit.team,
+            unitId,
+            destination: state.destination
+          });
+          if (res.accepted) {
+            this.active.delete(unitId);
+          }
+        }
+        continue;
+      }
+      if (this.simulation.combat.distance(unit, target) <= unit.range) {
+        this.simulation.movement.cancel(unitId);
+        this.simulation.combat.setManualTarget(unitId, target.id);
+        continue;
+      }
+      if (unit.moveTarget || currentTick < unit.cooldownUntilTick) continue;
+      const approach = findReachableAttackCell(this.simulation, unit, target, /* @__PURE__ */ new Set());
+      if (approach) {
+        this.simulation.movement.issue({ type: "move", team: unit.team, unitId, destination: approach }, currentTick);
+      }
+    }
+    for (const entity of this.simulation.entities.all()) {
+      if (entity.category !== "unit" || entity.hp <= 0 || entity.damage <= 0 || this.active.has(entity.id)) continue;
+      if (this.simulation.combat.manualTargetFor(entity.id)) continue;
+      if (!entity.attackMoveTarget) continue;
+      const destination = entity.attackMoveTarget;
+      const target = this.pickTarget(entity);
+      if (target) {
+        this.active.set(entity.id, { destination: [...destination], targetId: target.id });
+        this.simulation.movement.cancel(entity.id);
+        if (this.simulation.combat.distance(entity, target) <= entity.range) {
+          this.simulation.combat.setManualTarget(entity.id, target.id);
+        }
+        continue;
+      }
+      if (!entity.moveTarget && currentTick % 10 === 0) {
+        const blocking = findBlockingEnemyStructure(this.simulation, entity, destination);
+        if (blocking) {
+          this.active.set(entity.id, { destination: [...destination], targetId: blocking.id });
+          this.simulation.movement.cancel(entity.id);
+          if (this.simulation.combat.distance(entity, blocking) <= entity.range) {
+            this.simulation.combat.setManualTarget(entity.id, blocking.id);
+          }
+        }
+      }
+    }
+  }
+  pickTarget(unit) {
+    if (unit.damage <= 0) return null;
+    const candidates = this.simulation.entities.all().filter((target) => {
+      if (target.team === unit.team || target.hp <= 0) return false;
+      if (!this.seenByUnit(unit, target)) return false;
+      if (target.category === "building" && target.kind === "barricade") {
+        return false;
+      }
+      return true;
+    });
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => {
+      const aIsUnit = a.category === "unit" ? 0 : 1;
+      const bIsUnit = b.category === "unit" ? 0 : 1;
+      if (aIsUnit !== bIsUnit) return aIsUnit - bIsUnit;
+      return this.simulation.combat.distance(unit, a) - this.simulation.combat.distance(unit, b) || a.hp - b.hp || a.id.localeCompare(b.id);
+    });
+    return candidates[0] ?? null;
+  }
+  seenByUnit(unit, target) {
+    return this.simulation.fog.isEntityVisible(unit.team, target) && this.simulation.combat.distance(unit, target) <= unit.vision;
+  }
+};
+
+// src/core/formations/FormationController.ts
+var FormationController = class {
+  constructor(simulation) {
+    this.simulation = simulation;
+  }
+  groups = /* @__PURE__ */ new Map();
+  unitToGroup = /* @__PURE__ */ new Map();
+  nextGroupId = 1;
+  getAllGroups() {
+    return Array.from(this.groups.values());
+  }
+  getGroup(groupId) {
+    return this.groups.get(groupId);
+  }
+  getFormationForUnit(unitId) {
+    const groupId = this.unitToGroup.get(unitId);
+    return groupId ? this.groups.get(groupId) : void 0;
+  }
+  /**
+   * Creates or replaces a military formation for the given unit IDs.
+   */
+  createFormation(team, unitIds, type, destination, attackMove = false) {
+    const militaryEntities = [];
+    for (const id of unitIds) {
+      const entity = this.simulation.entities.get(id);
+      if (entity && entity.category === "unit" && entity.team === team && isMilitaryKind(entity.kind) && entity.hp > 0) {
+        this.removeUnit(id);
+        militaryEntities.push(entity);
+      }
+    }
+    if (militaryEntities.length < 2) {
+      return null;
+    }
+    let sumX = 0;
+    let sumY = 0;
+    for (const ent of militaryEntities) {
+      sumX += ent.x;
+      sumY += ent.y;
+    }
+    const centerX = Math.round(sumX / militaryEntities.length);
+    const centerY = Math.round(sumY / militaryEntities.length);
+    const spine = findPath(
+      this.simulation.map,
+      [centerX, centerY],
+      destination,
+      (x, y) => this.simulation.map.isPassable(x, y) && this.isCellFreeOfBuildings(x, y)
+    );
+    const spinePath = spine && spine.length >= 2 ? spine : [[centerX, centerY], destination];
+    const initialLookahead = Math.min(3, spinePath.length - 1);
+    const dir = getMarchDirection([centerX, centerY], destination);
+    const initialDir = spinePath.length >= 2 ? getMarchDirection(spinePath[0], spinePath[initialLookahead]) : dir;
+    const unitInfos = militaryEntities.map((ent) => ({
+      id: ent.id,
+      kind: ent.kind,
+      movement: ent.movement,
+      x: ent.x,
+      y: ent.y
+    }));
+    const rawAssignments = assignFormationSlots(unitInfos, type, destination, dir);
+    const reservedCells = /* @__PURE__ */ new Set();
+    const slots = /* @__PURE__ */ new Map();
+    for (const assign of rawAssignments) {
+      const validDest = this.findValidDestinationCell(assign.destination, reservedCells);
+      reservedCells.add(`${validDest[0]},${validDest[1]}`);
+      const ent = this.simulation.entities.get(assign.unitId);
+      let currentTarget = validDest;
+      if (initialLookahead < spinePath.length - 1) {
+        const [dx, dy] = transformOffsetToWorld(assign.offset.u, assign.offset.v, initialDir);
+        const spineTarget = spinePath[initialLookahead];
+        currentTarget = this.findNearestPassableCell([spineTarget[0] + dx, spineTarget[1] + dy]);
+      }
+      slots.set(assign.unitId, {
+        unitId: assign.unitId,
+        role: assign.role,
+        slotIndex: assign.slotIndex,
+        offset: assign.offset,
+        destination: validDest,
+        currentTarget,
+        isStuck: false,
+        stuckTicks: 0,
+        lastPosition: [ent.x, ent.y]
+      });
+    }
+    const groupId = `formation-${team}-${this.nextGroupId++}`;
+    const group = {
+      id: groupId,
+      team,
+      type,
+      state: "MARCHANDO",
+      targetDestination: destination,
+      attackMove,
+      slots,
+      collectiveSpeed: this.computeCollectiveSpeed(slots),
+      createdTick: this.simulation.clock.ticks,
+      spinePath,
+      spineIndex: 0,
+      currentDirection: initialDir
+    };
+    this.groups.set(groupId, group);
+    for (const unitId of slots.keys()) {
+      this.unitToGroup.set(unitId, groupId);
+    }
+    return group;
+  }
+  /**
+   * Dissolves a formation group.
+   */
+  dissolveFormation(groupId) {
+    const group = this.groups.get(groupId);
+    if (!group) return;
+    for (const unitId of group.slots.keys()) {
+      this.unitToGroup.delete(unitId);
+    }
+    this.groups.delete(groupId);
+  }
+  /**
+   * Removes a single unit from its formation (e.g. on manual order, detachment or death).
+   * Does NOT destroy the formation for other units unless fewer than 2 remain.
+   */
+  removeUnit(unitId) {
+    const groupId = this.unitToGroup.get(unitId);
+    if (!groupId) return;
+    this.unitToGroup.delete(unitId);
+    const group = this.groups.get(groupId);
+    if (!group) return;
+    group.slots.delete(unitId);
+    if (group.slots.size < 2) {
+      this.dissolveFormation(groupId);
+    } else {
+      group.collectiveSpeed = this.computeCollectiveSpeed(group.slots);
+    }
+  }
+  /**
+   * Handles unit death, reorganizing remaining slots if the formation is still marching.
+   */
+  handleUnitDeath(unitId) {
+    const groupId = this.unitToGroup.get(unitId);
+    if (!groupId) return;
+    const group = this.groups.get(groupId);
+    if (!group) return;
+    this.removeUnit(unitId);
+    if (this.groups.has(groupId) && group.state === "MARCHANDO") {
+      this.rebalanceSlots(group);
+    }
+  }
+  /**
+   * Returns the speed allowance for a unit:
+   * - Units in the front/regular march are capped to collectiveSpeed.
+   * - Units that are lagging behind (rejoining/regrouping) can move faster up to their native speed.
+   */
+  getEffectiveSpeed(unit) {
+    const group = this.getFormationForUnit(unit.id);
+    if (!group) return unit.movement;
+    const slot = group.slots.get(unit.id);
+    if (!slot) return unit.movement;
+    if (slot.isStuck || group.state === "EM_COMBATE") {
+      return unit.movement;
+    }
+    return Math.min(unit.movement, group.collectiveSpeed);
+  }
+  /**
+   * Updates all active formations:
+   * - Detects combat states
+   * - Checks for stuck units so they don't halt the whole army
+   * - Updates regrouping and arrival states
+   */
+  update(currentTick) {
+    for (const [groupId, group] of this.groups) {
+      let anyInCombat = false;
+      let anyRegrouping = false;
+      let allArrived = true;
+      for (const unitId of Array.from(group.slots.keys())) {
+        const entity = this.simulation.entities.get(unitId);
+        if (!entity || entity.hp <= 0) {
+          this.handleUnitDeath(unitId);
+        }
+      }
+      if (!this.groups.has(groupId)) continue;
+      let sumX = 0;
+      let sumY = 0;
+      let activeCount = 0;
+      for (const slot of group.slots.values()) {
+        if (slot.isStuck) continue;
+        const ent = this.simulation.entities.get(slot.unitId);
+        if (ent && ent.category === "unit" && ent.hp > 0) {
+          sumX += ent.x;
+          sumY += ent.y;
+          activeCount++;
+        }
+      }
+      if (activeCount > 0 && group.spinePath && group.spinePath.length >= 2) {
+        const centroidX = Math.round(sumX / activeCount);
+        const centroidY = Math.round(sumY / activeCount);
+        let bestIdx = group.spineIndex;
+        let bestDist = Infinity;
+        const maxSearch = Math.min(group.spinePath.length - 1, group.spineIndex + 6);
+        for (let i = group.spineIndex; i <= maxSearch; i++) {
+          const p = group.spinePath[i];
+          const dist = Math.hypot(p[0] - centroidX, p[1] - centroidY);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestIdx = i;
+          }
+        }
+        if (bestIdx > group.spineIndex) {
+          group.spineIndex = bestIdx;
+        }
+        const lookahead = Math.min(group.spinePath.length - 1, group.spineIndex + 3);
+        if (lookahead >= group.spinePath.length - 1) {
+          for (const slot of group.slots.values()) {
+            slot.currentTarget = slot.destination;
+          }
+        } else {
+          const currentSpine = group.spinePath[group.spineIndex];
+          const targetSpine = group.spinePath[lookahead];
+          const localDir = getMarchDirection(currentSpine, targetSpine);
+          group.currentDirection = localDir;
+          for (const slot of group.slots.values()) {
+            const [dx, dy] = transformOffsetToWorld(slot.offset.u, slot.offset.v, localDir);
+            slot.currentTarget = this.findNearestPassableCell([targetSpine[0] + dx, targetSpine[1] + dy]);
+          }
+        }
+      }
+      for (const slot of group.slots.values()) {
+        const unit = this.simulation.entities.get(slot.unitId);
+        if (!unit || unit.category !== "unit") continue;
+        if (unit.moveTarget) {
+          if (unit.x === slot.lastPosition[0] && unit.y === slot.lastPosition[1]) {
+            slot.stuckTicks += 1;
+            if (slot.stuckTicks > 8) {
+              slot.isStuck = true;
+            }
+          } else {
+            slot.stuckTicks = 0;
+            slot.isStuck = false;
+            slot.lastPosition = [unit.x, unit.y];
+          }
+        } else {
+          const distToDest2 = Math.max(Math.abs(unit.x - slot.destination[0]), Math.abs(unit.y - slot.destination[1]));
+          if (distToDest2 <= 1) {
+            slot.stuckTicks = 0;
+            slot.isStuck = false;
+          }
+        }
+        const inEngagement = this.simulation.engagements.statusFor(unit.id) !== null;
+        const manualTarget = this.simulation.combat.manualTargetFor(unit.id) !== null;
+        if (inEngagement || manualTarget) {
+          anyInCombat = true;
+        }
+        const distToDest = Math.max(Math.abs(unit.x - slot.destination[0]), Math.abs(unit.y - slot.destination[1]));
+        if (!inEngagement && !manualTarget && !slot.isStuck) {
+          if (!unit.moveTarget && distToDest > 1) {
+            anyRegrouping = true;
+            this.simulation.movement.issue(
+              {
+                type: "move",
+                team: group.team,
+                unitId: unit.id,
+                destination: slot.currentTarget,
+                attackMove: group.attackMove
+              },
+              currentTick
+            );
+          } else if (unit.moveTarget) {
+            const distToCurrent = Math.hypot(unit.moveTarget[0] - slot.currentTarget[0], unit.moveTarget[1] - slot.currentTarget[1]);
+            if (distToCurrent >= 2) {
+              unit.moveTarget = slot.currentTarget;
+              if (group.attackMove) {
+                unit.attackMoveTarget = slot.currentTarget;
+              }
+            }
+          }
+        }
+        if (distToDest > 1 && !slot.isStuck) {
+          allArrived = false;
+        }
+      }
+      group.collectiveSpeed = this.computeCollectiveSpeed(group.slots);
+      if (anyInCombat) {
+        group.state = "EM_COMBATE";
+      } else if (anyRegrouping) {
+        group.state = "REAGRUPANDO";
+      } else if (allArrived) {
+        group.state = "PARADO";
+      } else {
+        group.state = "MARCHANDO";
+      }
+    }
+  }
+  computeCollectiveSpeed(slots) {
+    let minSpeed = Infinity;
+    for (const slot of slots.values()) {
+      if (slot.isStuck) continue;
+      const entity = this.simulation.entities.get(slot.unitId);
+      if (entity && entity.category === "unit" && entity.hp > 0) {
+        if (entity.movement < minSpeed) {
+          minSpeed = entity.movement;
+        }
+      }
+    }
+    return minSpeed === Infinity ? 3 : minSpeed;
+  }
+  rebalanceSlots(group) {
+    const activeUnits = [];
+    for (const slot of group.slots.values()) {
+      const ent = this.simulation.entities.get(slot.unitId);
+      if (ent && ent.category === "unit" && ent.hp > 0) {
+        activeUnits.push({
+          id: ent.id,
+          kind: ent.kind,
+          movement: ent.movement,
+          x: ent.x,
+          y: ent.y
+        });
+      }
+    }
+    if (activeUnits.length < 2) {
+      this.dissolveFormation(group.id);
+      return;
+    }
+    let sumX = 0;
+    let sumY = 0;
+    for (const ent of activeUnits) {
+      sumX += ent.x;
+      sumY += ent.y;
+    }
+    const center = [Math.round(sumX / activeUnits.length), Math.round(sumY / activeUnits.length)];
+    const dir = getMarchDirection(center, group.targetDestination);
+    const raw = assignFormationSlots(activeUnits, group.type, group.targetDestination, dir);
+    const reserved = /* @__PURE__ */ new Set();
+    const spine = group.spinePath;
+    const lookahead = Math.min(spine.length - 1, group.spineIndex + 3);
+    const localDir = lookahead < spine.length - 1 ? getMarchDirection(spine[group.spineIndex], spine[lookahead]) : dir;
+    for (const assign of raw) {
+      const valid = this.findValidDestinationCell(assign.destination, reserved);
+      reserved.add(`${valid[0]},${valid[1]}`);
+      const existing = group.slots.get(assign.unitId);
+      if (existing) {
+        existing.destination = valid;
+        existing.offset = assign.offset;
+        existing.role = assign.role;
+        existing.slotIndex = assign.slotIndex;
+        if (lookahead < spine.length - 1) {
+          const [dx, dy] = transformOffsetToWorld(assign.offset.u, assign.offset.v, localDir);
+          const spineTarget = spine[lookahead];
+          existing.currentTarget = this.findNearestPassableCell([spineTarget[0] + dx, spineTarget[1] + dy]);
+        } else {
+          existing.currentTarget = valid;
+        }
+      }
+    }
+  }
+  findNearestPassableCell(point) {
+    const [x, y] = point;
+    if (this.simulation.map.contains(x, y) && this.simulation.map.isPassable(x, y) && this.isCellFreeOfBuildings(x, y)) {
+      return point;
+    }
+    for (let r = 1; r <= 6; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (this.simulation.map.contains(nx, ny) && this.simulation.map.isPassable(nx, ny) && this.isCellFreeOfBuildings(nx, ny)) {
+            return [nx, ny];
+          }
+        }
+      }
+    }
+    return point;
+  }
+  findValidDestinationCell(desired, reserved) {
+    const [targetX, targetY] = desired;
+    const key = `${targetX},${targetY}`;
+    if (!reserved.has(key) && this.simulation.map.contains(targetX, targetY) && this.simulation.map.isPassable(targetX, targetY) && this.isCellFreeOfBuildings(targetX, targetY)) {
+      return desired;
+    }
+    for (let r = 1; r <= 10; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = targetX + dx;
+          const y = targetY + dy;
+          const ringKey = `${x},${y}`;
+          if (!reserved.has(ringKey) && this.simulation.map.contains(x, y) && this.simulation.map.isPassable(x, y) && this.isCellFreeOfBuildings(x, y)) {
+            return [x, y];
+          }
+        }
+      }
+    }
+    return desired;
+  }
+  isCellFreeOfBuildings(x, y) {
+    const entity = this.simulation.entities.atCell(x, y);
+    return !entity || entity.category !== "building";
+  }
+};
+
+// src/core/ai/AIMemory.ts
+var AIMemory = class {
+  constructor(team) {
+    this.team = team;
+  }
+  discoveredMines = [];
+  discoveredForests = [];
+  discoveredStones = [];
+  knownEnemyBuildings = /* @__PURE__ */ new Map();
+  lastSeenEnemies = /* @__PURE__ */ new Map();
+  enemyBaseLocation = null;
+  scannedCells = /* @__PURE__ */ new Set();
+  lastResourceScanTick = -30;
+  update(fog, entities, map, currentTick) {
+    const visibleEntities = fog.visibleEntities(this.team);
+    const visibleEnemyUnits = /* @__PURE__ */ new Map();
+    for (const entity of visibleEntities) {
+      if (entity.team === this.team) continue;
+      if (entity.category === "unit") {
+        visibleEnemyUnits.set(entity.id, entity);
+        this.lastSeenEnemies.set(entity.id, {
+          id: entity.id,
+          kind: entity.kind,
+          x: entity.x,
+          y: entity.y,
+          lastSeenTick: currentTick
+        });
+      } else if (entity.category === "building") {
+        this.knownEnemyBuildings.set(entity.id, {
+          id: entity.id,
+          kind: entity.kind,
+          x: entity.x,
+          y: entity.y,
+          width: entity.width,
+          height: entity.height,
+          lastSeenTick: currentTick
+        });
+        if (entity.kind === "base") {
+          this.enemyBaseLocation = [entity.x, entity.y];
+        }
+      }
+    }
+    for (const [id, building] of this.knownEnemyBuildings.entries()) {
+      if (fog.stateAt(this.team, building.x, building.y) === "visible") {
+        const actual = entities.get(id);
+        if (!actual || actual.hp <= 0) {
+          this.knownEnemyBuildings.delete(id);
+          if (building.kind === "base" && this.enemyBaseLocation && this.enemyBaseLocation[0] === building.x && this.enemyBaseLocation[1] === building.y) {
+            this.enemyBaseLocation = null;
+          }
+        }
+      }
+    }
+    if (currentTick - this.lastResourceScanTick < 30) return;
+    this.lastResourceScanTick = currentTick;
+    const ownEntities = entities.all().filter((e) => e.team === this.team);
+    for (const ent of ownEntities) {
+      const radius = ent.category === "unit" ? ent.vision : BALANCE.buildings[ent.kind].vision;
+      const minX = Math.max(0, ent.x - radius);
+      const maxX = Math.min(map.width - 1, ent.x + (ent.category === "building" ? ent.width - 1 : 0) + radius);
+      const minY = Math.max(0, ent.y - radius);
+      const maxY = Math.min(map.height - 1, ent.y + (ent.category === "building" ? ent.height - 1 : 0) + radius);
+      for (let y = minY; y <= maxY; y += 1) {
+        for (let x = minX; x <= maxX; x += 1) {
+          const key = `${x},${y}`;
+          if (this.scannedCells.has(key)) continue;
+          if (fog.stateAt(this.team, x, y) !== "unknown") {
+            this.scannedCells.add(key);
+            const cell = map.cellAt(x, y);
+            if (cell?.terrain === "mine") {
+              this.discoveredMines.push([x, y]);
+            } else if (cell?.terrain === "forest") {
+              this.discoveredForests.push([x, y]);
+            } else if (cell?.terrain === "stone") {
+              this.discoveredStones.push([x, y]);
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+// src/core/ai/AIController.ts
+var AIController = class {
+  constructor(simulation, team, decisionIntervalTicks = 30) {
+    this.simulation = simulation;
+    this.team = team;
+    this.decisionIntervalTicks = decisionIntervalTicks;
+    this.memory = new AIMemory(team);
+    this.openingForward = 24 + Math.floor(simulation.rng.next() * 5) - 2;
+    this.openingVertical = -12 + Math.floor(simulation.rng.next() * 5) - 2;
+  }
+  memory;
+  lastDecisionTick = -999;
+  openingForward;
+  openingVertical;
+  guardUnitId = null;
+  raidUnitIds = /* @__PURE__ */ new Set();
+  retreatingUnitIds = /* @__PURE__ */ new Set();
+  currentIntent = "Idle";
+  currentDecision = "Idle";
+  currentPriority = 0;
+  currentGoal = "None";
+  desiredResources = { coins: 0, wood: 0, stone: 0 };
+  chosenAction = "None";
+  _desiredStone;
+  get desiredStone() {
+    return this._desiredStone ?? this.calculateDynamicDesiredStone();
+  }
+  set desiredStone(val) {
+    this._desiredStone = val;
+  }
+  getDebugState() {
+    return {
+      team: this.team,
+      decision: this.currentDecision,
+      priority: this.currentPriority,
+      goal: this.currentGoal,
+      desiredResources: { ...this.desiredResources },
+      chosenAction: this.chosenAction
+    };
+  }
+  update(currentTick) {
+    this.memory.update(this.simulation.fog, this.simulation.entities, this.simulation.map, currentTick);
+    if (currentTick - this.lastDecisionTick < this.decisionIntervalTicks) {
+      return;
+    }
+    this.lastDecisionTick = currentTick;
+    this.evaluateAndExecute(currentTick);
+  }
+  setDecision(intent, priority, goal, action) {
+    this.currentIntent = intent;
+    this.currentDecision = intent;
+    this.currentPriority = priority;
+    this.currentGoal = goal;
+    this.chosenAction = action;
+  }
+  calculateDynamicDesiredStone() {
+    const stats = this.simulation.stats.snapshot()[this.team];
+    const ownEntities = this.simulation.entities.all().filter((e) => e.team === this.team);
+    const ownAttackers = ownEntities.filter((e) => e.category === "unit" && e.kind !== "worker" && e.kind !== "builder" && e.damage > 0);
+    const hasOpeningTroop = ownAttackers.length > 0 || stats.troopsProduced > 0;
+    if (!hasOpeningTroop) return 0;
+    const hasDamagedStoneBuilding = ownEntities.some(
+      (e) => e.category === "building" && e.hp < e.maxHp && (e.kind === "base" || e.kind === "tower" || e.kind === "barracks" || e.kind === "barricade")
+    );
+    if (hasDamagedStoneBuilding) return 30;
+    const ownTowers = ownEntities.filter((e) => e.category === "building" && e.kind === "tower");
+    if (ownAttackers.length >= 2 && ownTowers.length < 2) return 100;
+    const ownBarricades = ownEntities.filter((e) => e.category === "building" && e.kind === "barricade");
+    if (ownBarricades.length < 2) return 15;
+    if (stats.troopsProduced >= 3) return 100;
+    return 20;
+  }
+  evaluateAndExecute(currentTick) {
+    this.setDecision("Idle", 10, "Maintain Base Operations", "Standing by");
+    const ownEntities = this.simulation.entities.all().filter((e) => e.team === this.team);
+    const ownBase = ownEntities.find((e) => e.category === "building" && e.kind === "base");
+    if (!ownBase || ownBase.hp <= 0) return;
+    const ownWorkers = ownEntities.filter((e) => e.category === "unit" && e.kind === "worker");
+    const ownBuilders = ownEntities.filter((e) => e.category === "unit" && e.kind === "builder");
+    const ownHouses = ownEntities.filter((e) => e.category === "building" && e.kind === "house");
+    const ownBarracks = ownEntities.filter((e) => e.category === "building" && e.kind === "barracks");
+    const ownBarricades = ownEntities.filter((e) => e.category === "building" && e.kind === "barricade");
+    const ownTowers = ownEntities.filter((e) => e.category === "building" && e.kind === "tower");
+    const ownMilitary = ownEntities.filter((e) => e.category === "unit" && e.kind !== "worker" && e.kind !== "builder");
+    const ownAttackers = ownMilitary.filter((unit) => unit.damage > 0);
+    const hasOpeningTroop = ownMilitary.length > 0 || ownBarracks.some((barracks) => this.simulation.production.queueFor(barracks.id).length > 0);
+    const stock = this.simulation.teams[this.team];
+    const capacity = this.simulation.production.getCapacity(this.team);
+    const visibleEnemies = this.simulation.fog.visibleEntities(this.team).filter((e) => e.team !== this.team);
+    const barracksConfig = BALANCE.buildings.barracks;
+    const houseConfig = BALANCE.buildings.house;
+    const wantsMoreMilitary = ownMilitary.length < 25;
+    const hasUnderConstructionBarracks = ownBarracks.some((b) => b.underConstruction);
+    const needsBarracks = ownBarracks.length === 0 || hasOpeningTroop && !hasUnderConstructionBarracks && capacity.militaryUnits + capacity.militaryQueued >= capacity.militaryCapacity && capacity.totalUnits + capacity.totalQueued < capacity.maxTotalUnits && wantsMoreMilitary;
+    const workerTarget = ownAttackers.length >= 6 ? 6 : ownAttackers.length >= 3 ? 5 : 3;
+    const queuedWorkers = ownHouses.reduce((total, house) => total + this.simulation.production.queueFor(house.id).filter((item) => item.unitKind === "worker").length, 0);
+    const needsWorkers = ownWorkers.length + queuedWorkers < workerTarget;
+    const needsHouseForWorkers = needsWorkers && capacity.civilianUnits + capacity.civilianQueued >= capacity.civilianCapacity;
+    const readyOrBuildingBarracks = ownBarracks.length > 0;
+    const readyOrBuildingHouses = ownHouses.length > 0;
+    const wantsHouse = hasOpeningTroop && readyOrBuildingBarracks && (!readyOrBuildingHouses || needsHouseForWorkers);
+    this.desiredResources = {
+      coins: needsBarracks ? barracksConfig.coins : wantsHouse ? houseConfig.coins : BALANCE.units.soldier.coins,
+      wood: needsBarracks ? barracksConfig.wood : wantsHouse ? houseConfig.wood : 50,
+      stone: this.desiredStone
+    };
+    this.assignIdleWorkers(ownWorkers, stock.wood, stock.stone);
+    if (!this.memory.enemyBaseLocation) {
+      const scoutUnit = ownMilitary.find((u) => u.kind === "scout" && !u.moveTarget && currentTick >= u.cooldownUntilTick);
+      const exploreTarget = scoutUnit ? this.findExplorationTarget() : null;
+      if (scoutUnit && exploreTarget && this.simulation.issueCommand({
+        type: "move",
+        team: this.team,
+        unitId: scoutUnit.id,
+        destination: exploreTarget
+      }).accepted) {
+        this.setDecision("Scout", 50, "Scout Fog to Locate Enemy Base", `Scout ${scoutUnit.id} moving to (${exploreTarget[0]}, ${exploreTarget[1]})`);
+      }
+    }
+    const militaryIntent = this.manageMilitary(ownBase, ownAttackers, visibleEnemies);
+    if (ownBuilders.length > 0) {
+      const activeRepair = ownBuilders.find((b) => {
+        const task = this.simulation.construction.taskFor(b.id);
+        return task?.phase === "repairing" || task?.phase === "travel" && this.simulation.entities.get(task.buildingId)?.category === "building" && this.simulation.entities.get(task.buildingId).hp < this.simulation.entities.get(task.buildingId).maxHp;
+      });
+      if (activeRepair) {
+        const task = this.simulation.construction.taskFor(activeRepair.id);
+        this.setDecision(
+          militaryIntent ?? "Repair",
+          80,
+          `Repairing Structure (${task.buildingId})`,
+          `Builder ${activeRepair.id} repairing ${task.buildingId}`
+        );
+        return;
+      }
+      const freeBuilder = this.findFreeBuilder(ownBuilders, currentTick);
+      if (freeBuilder) {
+        const buildingToRepair = this.findBuildingToRepair(ownEntities, stock.wood, stock.stone);
+        if (buildingToRepair) {
+          const res = this.simulation.issueCommand({
+            type: "repair",
+            team: this.team,
+            builderId: freeBuilder.id,
+            buildingId: buildingToRepair.id
+          });
+          if (res.accepted) {
+            this.setDecision(
+              militaryIntent ?? "Repair",
+              80,
+              `Repair Damaged ${buildingToRepair.kind} (${buildingToRepair.id})`,
+              `Builder ${freeBuilder.id} repairing ${buildingToRepair.id}`
+            );
+            return;
+          }
+        }
+      }
+    }
+    if (needsBarracks && stock.coins >= barracksConfig.coins && stock.wood >= barracksConfig.wood) {
+      const freeWorker = this.findFreeWorker(ownWorkers, currentTick);
+      if (freeWorker) {
+        const spot = this.findPlacementSpot(ownBase, barracksConfig.width, barracksConfig.height);
+        if (spot) {
+          const res = this.simulation.issueCommand({
+            type: "build",
+            team: this.team,
+            builderId: freeWorker.id,
+            buildingKind: "barracks",
+            position: spot
+          });
+          if (res.accepted) {
+            this.setDecision(
+              militaryIntent ?? "BuildBarracks",
+              75,
+              "Expand Military Capacity",
+              `Worker ${freeWorker.id} constructing barracks at (${spot[0]}, ${spot[1]})`
+            );
+            return;
+          }
+        }
+      }
+    }
+    const hasUnderConstructionHouse = ownHouses.some((h) => h.underConstruction);
+    if (wantsHouse && !hasUnderConstructionHouse && stock.coins >= houseConfig.coins && stock.wood >= houseConfig.wood) {
+      const freeWorker = this.findFreeWorker(ownWorkers, currentTick);
+      if (freeWorker) {
+        const spot = this.findPlacementSpot(ownBase, houseConfig.width, houseConfig.height);
+        if (spot) {
+          const res = this.simulation.issueCommand({
+            type: "build",
+            team: this.team,
+            builderId: freeWorker.id,
+            buildingKind: "house",
+            position: spot
+          });
+          if (res.accepted) {
+            this.setDecision(
+              militaryIntent ?? "BuildHouse",
+              72,
+              "Expand Civilian Capacity",
+              `Worker ${freeWorker.id} constructing house at (${spot[0]}, ${spot[1]})`
+            );
+            return;
+          }
+        }
+      }
+    }
+    const barricadeConfig = BALANCE.buildings.barricade;
+    const wantsBarricade = hasOpeningTroop && ownAttackers.length >= 1 && ownBarricades.length < 2 && !ownBarricades.some((b) => b.underConstruction);
+    if (wantsBarricade && stock.wood >= barricadeConfig.wood && stock.stone >= barricadeConfig.stone) {
+      const freeBuilder = this.findFreeBuilder(ownBuilders, currentTick);
+      if (freeBuilder) {
+        const spot = this.findBarricadePlacementSpot(ownBase);
+        if (spot) {
+          const res = this.simulation.issueCommand({
+            type: "build",
+            team: this.team,
+            builderId: freeBuilder.id,
+            buildingKind: "barrack" in BALANCE.buildings ? "barricade" : "barricade",
+            position: spot
+          });
+          if (res.accepted) {
+            this.setDecision(
+              militaryIntent ?? "BuildBarricade",
+              55,
+              "Fortify Base Perimeter with Barricade",
+              `Builder ${freeBuilder.id} constructing barricade at (${spot[0]}, ${spot[1]})`
+            );
+            return;
+          }
+        }
+      }
+    }
+    const towerConfig = BALANCE.buildings.tower;
+    if (hasOpeningTroop && ownAttackers.length >= 2 && ownTowers.length < 2 && !ownTowers.some((t) => t.underConstruction) && stock.coins >= towerConfig.coins && stock.wood >= towerConfig.wood && stock.stone >= towerConfig.stone) {
+      const freeBuilder = this.findFreeBuilder(ownBuilders, currentTick);
+      if (freeBuilder) {
+        const spot = this.findPlacementSpot(ownBase, towerConfig.width, towerConfig.height);
+        if (spot) {
+          const res = this.simulation.issueCommand({
+            type: "build",
+            team: this.team,
+            builderId: freeBuilder.id,
+            buildingKind: "tower",
+            position: spot
+          });
+          if (res.accepted) {
+            this.setDecision(
+              militaryIntent ?? "BuildTower",
+              62,
+              "Construct Watch Tower for Territorial Vision",
+              `Builder ${freeBuilder.id} constructing tower at (${spot[0]}, ${spot[1]})`
+            );
+            return;
+          }
+        }
+      }
+    }
+    if (needsWorkers && stock.coins >= BALANCE.units.worker.coins && capacity.civilianUnits + capacity.civilianQueued < capacity.civilianCapacity) {
+      const readyHouses = ownHouses.filter((h) => !h.underConstruction);
+      for (const building of readyHouses) {
+        const queue = this.simulation.production.queueFor(building.id);
+        if (queue.length === 0) {
+          const res = this.simulation.issueCommand({
+            type: "produce",
+            team: this.team,
+            buildingId: building.id,
+            unitKind: "worker"
+          });
+          if (res.accepted) {
+            this.setDecision(
+              militaryIntent ?? "ProduceWorker",
+              68,
+              "Expand Worker Economy",
+              `Produce worker at house ${building.id}`
+            );
+            return;
+          }
+        }
+      }
+    } else if (ownBuilders.length === 0 && ownAttackers.length >= 2 && stock.coins >= BALANCE.units.builder.coins && capacity.civilianUnits + capacity.civilianQueued < capacity.civilianCapacity) {
+      const readyHouses = ownHouses.filter((h) => !h.underConstruction);
+      for (const building of readyHouses) {
+        const queue = this.simulation.production.queueFor(building.id);
+        if (queue.length === 0) {
+          const res = this.simulation.issueCommand({
+            type: "produce",
+            team: this.team,
+            buildingId: building.id,
+            unitKind: "builder"
+          });
+          if (res.accepted) {
+            this.setDecision(
+              militaryIntent ?? "ProduceWorker",
+              60,
+              "Produce Builder for Fortifications & Repairs",
+              `Produce builder at house ${building.id}`
+            );
+            return;
+          }
+        }
+      }
+    }
+    const wantsBuilder = ownBuilders.length === 0 && ownAttackers.length >= 2;
+    const stats = this.simulation.stats.snapshot()[this.team];
+    const wantsTower = stats.troopsProduced >= 3 && ownTowers.length === 0 && stock.stone >= 50 && stock.wood >= 100;
+    const towerReserve = wantsTower ? towerConfig.coins : 0;
+    const reserve = (hasOpeningTroop && (!readyOrBuildingHouses || needsWorkers || wantsBuilder) ? BALANCE.units.worker.coins : 0) + towerReserve;
+    const readyBarracks = ownBarracks.filter((b) => !b.underConstruction);
+    if (capacity.militaryUnits + capacity.militaryQueued < capacity.militaryCapacity) {
+      for (const barracks of readyBarracks) {
+        const queue = this.simulation.production.queueFor(barracks.id);
+        if (queue.length < 2) {
+          const unitToTrain = this.selectMilitaryUnitToTrain(ownMilitary, stock.coins - reserve);
+          if (unitToTrain) {
+            const res = this.simulation.issueCommand({
+              type: "produce",
+              team: this.team,
+              buildingId: barracks.id,
+              unitKind: unitToTrain
+            });
+            if (res.accepted) {
+              this.setDecision(
+                militaryIntent ?? "ProduceMilitary",
+                65,
+                `Train ${unitToTrain} for Army Composition`,
+                `Produce ${unitToTrain} at barracks ${barracks.id}`
+              );
+              return;
+            }
+          }
+        }
+      }
+    }
+    if (militaryIntent) {
+      this.currentIntent = militaryIntent;
+    }
+  }
+  manageMilitary(base, attackers, visibleEnemies) {
+    const byId = new Map(attackers.map((unit) => [unit.id, unit]));
+    for (const id of this.raidUnitIds) if (!byId.has(id)) this.raidUnitIds.delete(id);
+    for (const id of this.retreatingUnitIds) if (!byId.has(id)) this.retreatingUnitIds.delete(id);
+    if (!this.guardUnitId || !byId.has(this.guardUnitId)) {
+      const candidates = attackers.filter((unit) => !this.raidUnitIds.has(unit.id));
+      const pool = candidates.length ? candidates : attackers;
+      const guard2 = [...pool].sort((a, b) => Number(b.kind === "soldier") - Number(a.kind === "soldier") || Math.hypot(a.x - base.x, a.y - base.y) - Math.hypot(b.x - base.x, b.y - base.y) || a.id.localeCompare(b.id))[0];
+      this.guardUnitId = guard2?.id ?? null;
+      if (guard2) {
+        this.raidUnitIds.delete(guard2.id);
+        this.retreatingUnitIds.delete(guard2.id);
+      }
+    }
+    if (!this.guardUnitId) return null;
+    const rallyPoint = this.findHomeRallyPoint(base);
+    const threat = visibleEnemies.find((enemy) => Math.hypot(enemy.x - base.x, enemy.y - base.y) <= 30);
+    const guard = byId.get(this.guardUnitId);
+    if (threat) {
+      const defenders = attackers.filter((unit) => unit.id === guard.id || !this.raidUnitIds.has(unit.id) && !this.retreatingUnitIds.has(unit.id) && Math.hypot(unit.x - base.x, unit.y - base.y) <= 30);
+      dispatchGroupAttack(this.simulation, this.team, defenders.map((unit) => unit.id), threat.id);
+      this.setDecision(
+        "Defend",
+        95,
+        "Defend Base against Hostile Invaders",
+        `Defenders engaging hostile threat ${threat.id}`
+      );
+    } else if (rallyPoint && Math.hypot(guard.x - base.x, guard.y - base.y) > 12) {
+      dispatchGroupMove(this.simulation, this.team, [guard.id], rallyPoint);
+    }
+    if (this.raidUnitIds.size === 1) {
+      for (const id of this.raidUnitIds) this.retreatingUnitIds.add(id);
+      this.raidUnitIds.clear();
+    }
+    for (const id of this.retreatingUnitIds) {
+      const unit = byId.get(id);
+      if (Math.hypot(unit.x - base.x, unit.y - base.y) <= 12) {
+        this.retreatingUnitIds.delete(id);
+      } else if (rallyPoint) {
+        dispatchGroupMove(this.simulation, this.team, [id], rallyPoint);
+      }
+    }
+    const reserves = attackers.filter((unit) => unit.id !== guard.id && !this.raidUnitIds.has(unit.id) && !this.retreatingUnitIds.has(unit.id));
+    for (const unit of reserves) {
+      if (Math.hypot(unit.x - base.x, unit.y - base.y) > 30) {
+        this.raidUnitIds.add(unit.id);
+      }
+    }
+    if (!threat && reserves.length >= 3) {
+      for (const unit of reserves) this.raidUnitIds.add(unit.id);
+    }
+    const raidIds = attackers.filter((unit) => this.raidUnitIds.has(unit.id)).map((unit) => unit.id);
+    if (raidIds.length === 0) {
+      if (threat) {
+        this.setDecision("Defend", 95, "Defend Base against Hostile Invaders", `Defenders engaging threat ${threat.id}`);
+        return "Defend";
+      }
+      if (reserves.length > 0) {
+        this.setDecision("Rally", 40, "Assemble Military Strike Force", `${reserves.length} reserves holding at home base`);
+        return "Rally";
+      }
+      return null;
+    }
+    if (this.memory.enemyBaseLocation) {
+      const enemyBase = this.simulation.entities.get(this.team === "red" ? "blue-base" : "red-base");
+      if (enemyBase && this.simulation.fog.isEntityVisible(this.team, enemyBase)) {
+        dispatchGroupAttack(this.simulation, this.team, raidIds, enemyBase.id);
+        this.setDecision(
+          threat ? "Defend" : "AttackBase",
+          threat ? 95 : 85,
+          "Assault Enemy Base",
+          `Raid force (${raidIds.length} units) attacking enemy base ${enemyBase.id}`
+        );
+        return threat ? "Defend" : "AttackBase";
+      }
+      const enemyTower2 = visibleEnemies.find((enemy) => enemy.category === "building" && enemy.kind === "tower");
+      if (enemyTower2) {
+        dispatchGroupAttack(this.simulation, this.team, raidIds, enemyTower2.id);
+        this.setDecision(
+          threat ? "Defend" : "AttackArmy",
+          75,
+          "Destroy Enemy Watch Tower",
+          `Raid force (${raidIds.length} units) attacking enemy tower ${enemyTower2.id}`
+        );
+        return threat ? "Defend" : "AttackArmy";
+      }
+      const enemyBarricade2 = visibleEnemies.find((enemy) => enemy.category === "building" && enemy.kind === "barricade");
+      if (enemyBarricade2) {
+        dispatchGroupAttack(this.simulation, this.team, raidIds, enemyBarricade2.id);
+        this.setDecision(
+          threat ? "Defend" : "AttackArmy",
+          70,
+          "Destroy Enemy Barricade",
+          `Raid force (${raidIds.length} units) attacking enemy barricade ${enemyBarricade2.id}`
+        );
+        return threat ? "Defend" : "AttackArmy";
+      }
+      this.marchRaid(raidIds, this.memory.enemyBaseLocation);
+      this.setDecision(
+        threat ? "Defend" : "AttackBase",
+        80,
+        "Advance Towards Enemy Base",
+        `Raid force (${raidIds.length} units) marching to (${this.memory.enemyBaseLocation[0]}, ${this.memory.enemyBaseLocation[1]})`
+      );
+      return threat ? "Defend" : "AttackBase";
+    }
+    const enemyTower = visibleEnemies.find((enemy) => enemy.category === "building" && enemy.kind === "tower");
+    if (enemyTower) {
+      dispatchGroupAttack(this.simulation, this.team, raidIds, enemyTower.id);
+      this.setDecision(
+        threat ? "Defend" : "AttackArmy",
+        75,
+        "Destroy Enemy Watch Tower",
+        `Raid force (${raidIds.length} units) attacking enemy tower ${enemyTower.id}`
+      );
+      return threat ? "Defend" : "AttackArmy";
+    }
+    const enemyBarricade = visibleEnemies.find((enemy) => enemy.category === "building" && enemy.kind === "barricade");
+    if (enemyBarricade) {
+      dispatchGroupAttack(this.simulation, this.team, raidIds, enemyBarricade.id);
+      this.setDecision(
+        threat ? "Defend" : "AttackArmy",
+        70,
+        "Destroy Enemy Barricade",
+        `Raid force (${raidIds.length} units) attacking enemy barricade ${enemyBarricade.id}`
+      );
+      return threat ? "Defend" : "AttackArmy";
+    }
+    const fieldEnemy = visibleEnemies.find((enemy) => Math.hypot(enemy.x - base.x, enemy.y - base.y) > 30);
+    if (fieldEnemy) {
+      dispatchGroupAttack(this.simulation, this.team, raidIds, fieldEnemy.id);
+      this.setDecision(
+        threat ? "Defend" : "AttackArmy",
+        72,
+        "Engage Hostile Forces in Field",
+        `Raid force (${raidIds.length} units) attacking enemy entity ${fieldEnemy.id}`
+      );
+      return threat ? "Defend" : "AttackArmy";
+    }
+    const defaultMarch = this.team === "red" ? [24, 100] : [175, 100];
+    this.marchRaid(raidIds, defaultMarch);
+    this.setDecision(
+      threat ? "Defend" : "AttackBase",
+      80,
+      "Advance Towards Enemy Territory",
+      `Raid force (${raidIds.length} units) marching to (${defaultMarch[0]}, ${defaultMarch[1]})`
+    );
+    return threat ? "Defend" : "AttackBase";
+  }
+  marchRaid(raidIds, destination) {
+    const ready = raidIds.filter((id) => {
+      const unit = this.simulation.entities.get(id);
+      return unit?.category === "unit" && !unit.moveTarget && !this.simulation.engagements.statusFor(id);
+    });
+    if (ready.length > 0) dispatchGroupAttackMove(this.simulation, this.team, ready, destination);
+  }
+  findHomeRallyPoint(base) {
+    const frontX = this.team === "red" ? base.x - 5 : base.x + base.width + 4;
+    const centerY = base.y + Math.floor(base.height / 2);
+    for (let radius = 0; radius <= 5; radius += 1) {
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+          const x = frontX + dx;
+          const y = centerY + dy;
+          if (this.simulation.map.contains(x, y) && this.simulation.entities.isFreeForUnit(x, y, "")) {
+            return [x, y];
+          }
+        }
+      }
+    }
+    return null;
+  }
+  findFreeWorker(workers, currentTick) {
+    for (const worker of workers) {
+      const hasEconomyTask = this.simulation.economy.taskFor(worker.id) !== null;
+      const hasBuildTask = this.simulation.construction.taskFor(worker.id) !== null;
+      const isMoving = worker.moveTarget !== null;
+      const isReady = currentTick >= worker.cooldownUntilTick;
+      if (!hasEconomyTask && !hasBuildTask && !isMoving && isReady) {
+        return worker;
+      }
+    }
+    for (const worker of workers) {
+      const hasBuildTask = this.simulation.construction.taskFor(worker.id) !== null;
+      const isReady = currentTick >= worker.cooldownUntilTick;
+      if (!hasBuildTask && isReady) {
+        return worker;
+      }
+    }
+    return null;
+  }
+  findFreeBuilder(builders, currentTick) {
+    for (const builder of builders) {
+      const hasBuildTask = this.simulation.construction.taskFor(builder.id) !== null;
+      const isMoving = builder.moveTarget !== null;
+      const isReady = currentTick >= builder.cooldownUntilTick;
+      if (!hasBuildTask && !isMoving && isReady) {
+        return builder;
+      }
+    }
+    return null;
+  }
+  assignIdleWorkers(workers, currentWood, currentStone) {
+    const hasIncomeWorker = workers.some((worker) => this.simulation.economy.taskFor(worker.id)?.kind === "mine");
+    let stoneAssigned = workers.some((worker) => {
+      const task = this.simulation.economy.taskFor(worker.id);
+      return task?.kind === "gather" && task.resourceKind === "stone";
+    });
+    let scoutingWorkerAssigned = false;
+    for (const worker of workers) {
+      const hasEconomyTask = this.simulation.economy.taskFor(worker.id) !== null;
+      const hasBuildTask = this.simulation.construction.taskFor(worker.id) !== null;
+      const isMoving = worker.moveTarget !== null;
+      if (hasEconomyTask || hasBuildTask || isMoving) continue;
+      if (currentWood < 150 && this.memory.discoveredForests.length > 0 && (hasIncomeWorker || workers.some((candidate) => candidate.id !== worker.id && !candidate.moveTarget && this.simulation.economy.taskFor(candidate.id) === null))) {
+        const nearestForest = this.findClosestPoint(worker, this.memory.discoveredForests);
+        if (nearestForest) {
+          const res = this.simulation.issueCommand({
+            type: "gather",
+            team: this.team,
+            unitId: worker.id,
+            target: nearestForest
+          });
+          if (res.accepted) {
+            this.setDecision("GatherWood", 64, "Harvest Wood for Construction", `Worker ${worker.id} gathering wood`);
+            continue;
+          }
+        }
+      }
+      const currentMiners = workers.filter((w) => this.simulation.economy.taskFor(w.id)?.kind === "mine").length;
+      const targetMiners = workers.length >= 4 ? 2 : 1;
+      if (currentMiners < targetMiners && this.memory.discoveredMines.length > 0) {
+        const nearestMine = this.findClosestPoint(worker, this.memory.discoveredMines);
+        if (nearestMine) {
+          const res = this.simulation.issueCommand({
+            type: "mine",
+            team: this.team,
+            unitId: worker.id,
+            target: nearestMine
+          });
+          if (res.accepted) {
+            this.setDecision("Mine", 70, "Mine Gold for Economy", `Worker ${worker.id} mining gold`);
+            continue;
+          }
+        }
+      }
+      const activeMiners = workers.filter((w) => this.simulation.economy.taskFor(w.id)?.kind === "mine").length;
+      if (currentStone < this.desiredStone && !stoneAssigned && activeMiners >= 1 && this.memory.discoveredStones.length > 0) {
+        const nearestStone = this.findClosestPoint(worker, this.memory.discoveredStones);
+        if (nearestStone) {
+          const res = this.simulation.issueCommand({
+            type: "gather",
+            team: this.team,
+            unitId: worker.id,
+            target: nearestStone
+          });
+          if (res.accepted) {
+            stoneAssigned = true;
+            this.setDecision("GatherStone", 62, "Harvest Stone for Fortifications & Repairs", `Worker ${worker.id} gathering stone`);
+            continue;
+          }
+        }
+      }
+      const needsResourceExploration = this.memory.discoveredMines.length === 0 || this.memory.discoveredForests.length === 0 && currentWood < 150 || this.memory.discoveredStones.length === 0 && this.desiredStone > 0;
+      if (needsResourceExploration) {
+        if (scoutingWorkerAssigned || workers.some((candidate) => candidate.id !== worker.id && candidate.moveTarget)) continue;
+        const exploreTarget = this.findWorkerExplorationTarget();
+        if (exploreTarget) {
+          const res = this.simulation.issueCommand({
+            type: "move",
+            team: this.team,
+            unitId: worker.id,
+            destination: exploreTarget
+          });
+          if (res.accepted) {
+            scoutingWorkerAssigned = true;
+            this.setDecision("Scout", 45, "Explore Territory to Discover Resources", `Worker ${worker.id} scouting for resources`);
+            continue;
+          }
+        }
+      }
+      if (this.memory.discoveredMines.length > 0) {
+        const nearestMine = this.findClosestPoint(worker, this.memory.discoveredMines);
+        if (nearestMine) {
+          const res = this.simulation.issueCommand({
+            type: "mine",
+            team: this.team,
+            unitId: worker.id,
+            target: nearestMine
+          });
+          if (res.accepted) {
+            this.setDecision("Mine", 70, "Mine Gold for Economy", `Worker ${worker.id} mining gold`);
+            continue;
+          }
+        }
+      }
+    }
+    if (currentWood >= 100) {
+      const woodWorkers = workers.filter((w) => {
+        const task = this.simulation.economy.taskFor(w.id);
+        const hasBuild = this.simulation.construction.taskFor(w.id) !== null;
+        return !hasBuild && task?.kind === "gather" && task.resourceKind !== "stone";
+      });
+      if (!stoneAssigned && currentStone < this.desiredStone && this.memory.discoveredStones.length > 0 && woodWorkers.length > 0) {
+        const workerToReassign = woodWorkers[0];
+        const nearestStone = this.findClosestPoint(workerToReassign, this.memory.discoveredStones);
+        if (nearestStone) {
+          const res = this.simulation.issueCommand({
+            type: "gather",
+            team: this.team,
+            unitId: workerToReassign.id,
+            target: nearestStone
+          });
+          if (res.accepted) {
+            this.setDecision("GatherStone", 63, "Reassign Worker to Stone Harvest", `Worker ${workerToReassign.id} switched to stone`);
+          }
+        }
+      } else if (this.memory.discoveredStones.length === 0 && this.desiredStone > 0 && !scoutingWorkerAssigned && woodWorkers.length > 0) {
+        const workerToScout = woodWorkers[0];
+        const exploreTarget = this.findWorkerExplorationTarget();
+        if (exploreTarget) {
+          const res = this.simulation.issueCommand({
+            type: "move",
+            team: this.team,
+            unitId: workerToScout.id,
+            destination: exploreTarget
+          });
+          if (res.accepted) {
+            this.setDecision("Scout", 48, "Explore Territory to Discover Stone Deposits", `Worker ${workerToScout.id} scouting for stone`);
+          }
+        }
+      } else if (currentWood >= 180 && woodWorkers.length > 1 && this.memory.discoveredMines.length > 0) {
+        const activeMiners = workers.filter((w) => this.simulation.economy.taskFor(w.id)?.kind === "mine").length;
+        if (activeMiners < 2) {
+          const workerToMine = woodWorkers[0];
+          const nearestMine = this.findClosestPoint(workerToMine, this.memory.discoveredMines);
+          if (nearestMine) {
+            const res = this.simulation.issueCommand({
+              type: "mine",
+              team: this.team,
+              unitId: workerToMine.id,
+              target: nearestMine
+            });
+            if (res.accepted) {
+              this.setDecision("Mine", 69, "Rebalance Wood Worker to Gold Mining", `Worker ${workerToMine.id} switched to gold mine`);
+            }
+          }
+        }
+      }
+    }
+  }
+  findWorkerExplorationTarget() {
+    const base = this.simulation.entities.get(`${this.team}-base`);
+    if (!base || base.category !== "building") return null;
+    const direction = this.team === "red" ? -1 : 1;
+    const offsets = [
+      [this.openingForward, this.openingVertical],
+      [24, 12],
+      [24, -30],
+      [24, 25],
+      [36, -24],
+      [40, -40],
+      [36, 24],
+      [40, 40],
+      [48, 0]
+    ];
+    for (const [forward, vertical] of offsets) {
+      const originX = this.team === "red" ? base.x + base.width - 1 : base.x;
+      const target = [originX + direction * forward, base.y + vertical];
+      if (this.simulation.map.isPassable(target[0], target[1]) && this.simulation.fog.stateAt(this.team, target[0], target[1]) === "unknown") return target;
+    }
+    return null;
+  }
+  selectMilitaryUnitToTrain(ownMilitary, coins) {
+    const soldiers = ownMilitary.filter((u) => u.kind === "soldier").length;
+    const archers = ownMilitary.filter((u) => u.kind === "archer").length;
+    if (soldiers < 2 && coins >= BALANCE.units.soldier.coins) {
+      return "soldier";
+    }
+    if (archers === 0 && coins >= BALANCE.units.archer.coins) return "archer";
+    if (soldiers < 3 && coins >= BALANCE.units.soldier.coins) return "soldier";
+    const hasScout = ownMilitary.some((u) => u.kind === "scout");
+    if (!hasScout && coins >= BALANCE.units.scout.coins) {
+      return "scout";
+    }
+    const shieldbearers = ownMilitary.filter((u) => u.kind === "shieldbearer").length;
+    if (archers < soldiers / 2 && coins >= BALANCE.units.archer.coins) {
+      return "archer";
+    }
+    if (shieldbearers < soldiers / 2 && coins >= BALANCE.units.shieldbearer.coins) {
+      return "shieldbearer";
+    }
+    if (coins >= BALANCE.units.soldier.coins) {
+      return "soldier";
+    }
+    return null;
+  }
+  findPlacementSpot(base, width, height) {
+    for (let r = 2; r <= 14; r += 1) {
+      for (let dy = -r; dy <= r; dy += 1) {
+        for (let dx = -r; dx <= r; dx += 1) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = this.team === "blue" ? base.x + base.width - width - dx : base.x + dx;
+          const y = base.y + dy;
+          if (!this.simulation.map.contains(x, y) || !this.simulation.map.contains(x + width - 1, y + height - 1)) {
+            continue;
+          }
+          let explored = true;
+          for (let cy = y; cy < y + height; cy += 1) {
+            for (let cx = x; cx < x + width; cx += 1) {
+              if (this.simulation.fog.stateAt(this.team, cx, cy) === "unknown") {
+                explored = false;
+                break;
+              }
+            }
+            if (!explored) break;
+          }
+          if (!explored) continue;
+          if (this.simulation.entities.isAreaFreeForBuilding(x, y, width, height)) {
+            return [x, y];
+          }
+        }
+      }
+    }
+    return null;
+  }
+  findBarricadePlacementSpot(base) {
+    const direction = this.team === "red" ? -1 : 1;
+    const originX = this.team === "red" ? base.x : base.x + base.width - 1;
+    const baseCenterY = base.y + Math.floor(base.height / 2);
+    const offsets = [
+      [7, -3],
+      [7, 0],
+      [7, 3],
+      [9, -2],
+      [9, 2],
+      [6, -4],
+      [6, 4],
+      [8, -1],
+      [8, 1],
+      [10, 0]
+    ];
+    for (const [fwd, dy] of offsets) {
+      const x = originX + direction * fwd;
+      const y = baseCenterY + dy;
+      if (!this.simulation.map.contains(x, y)) continue;
+      if (!this.simulation.map.isPassable(x, y)) continue;
+      if (this.simulation.fog.stateAt(this.team, x, y) === "unknown") continue;
+      if (this.simulation.entities.isAreaFreeForBuilding(x, y, 1, 1)) {
+        return [x, y];
+      }
+    }
+    return null;
+  }
+  findExplorationTarget() {
+    const enemyBaseApprox = this.team === "red" ? [24, 100] : [175, 100];
+    const candidateSectors = this.team === "red" ? [[120, 100], [90, 80], [90, 120], [60, 100], [30, 100], enemyBaseApprox] : [[79, 100], [109, 80], [109, 120], [139, 100], [169, 100], enemyBaseApprox];
+    for (const target of candidateSectors) {
+      if (this.simulation.fog.stateAt(this.team, target[0], target[1]) === "unknown") {
+        return target;
+      }
+    }
+    return enemyBaseApprox;
+  }
+  findClosestPoint(from, points) {
+    if (points.length === 0) return null;
+    let closest = points[0];
+    let minDist = (from.x - closest[0]) ** 2 + (from.y - closest[1]) ** 2;
+    for (let i = 1; i < points.length; i += 1) {
+      const p = points[i];
+      const d = (from.x - p[0]) ** 2 + (from.y - p[1]) ** 2;
+      if (d < minDist) {
+        minDist = d;
+        closest = p;
+      }
+    }
+    return closest;
+  }
+  findBuildingToRepair(ownEntities, wood, stone) {
+    const damaged = ownEntities.filter(
+      (e) => e.category === "building" && !e.underConstruction && e.hp < e.maxHp
+    );
+    if (damaged.length === 0) return null;
+    const affordable = damaged.filter((b) => {
+      const config = BALANCE.buildings[b.kind];
+      const costConfig = config.repairCostPerSecond;
+      const woodCost = costConfig?.wood ?? 0;
+      const stoneCost = costConfig?.stone ?? 0;
+      if (woodCost > 0 && wood < woodCost) return false;
+      if (stoneCost > 0 && stone < stoneCost) return false;
+      if (b.kind !== "base" && b.hp > b.maxHp * 0.85) return false;
+      return true;
+    });
+    if (affordable.length === 0) return null;
+    const priorityRank = (b) => {
+      switch (b.kind) {
+        case "base":
+          return 1;
+        case "tower":
+          return 2;
+        case "barracks":
+          return 3;
+        case "house":
+          return 4;
+        case "barricade":
+          return 5;
+        default:
+          return 6;
+      }
+    };
+    affordable.sort((a, b) => {
+      const rA = priorityRank(a);
+      const rB = priorityRank(b);
+      if (rA !== rB) return rA - rB;
+      return a.hp / a.maxHp - b.hp / b.maxHp;
+    });
+    return affordable[0];
+  }
+};
+
+// src/core/game/MatchStats.ts
+function emptyStats() {
+  return {
+    troopsProduced: 0,
+    workersProduced: 0,
+    troopsKilled: 0,
+    workersKilled: 0,
+    coinsCollected: 0,
+    coinsSpent: 0,
+    woodCollected: 0,
+    woodSpent: 0,
+    stoneCollected: 0,
+    stoneSpent: 0
+  };
+}
+var MatchStats = class {
+  teams = { blue: emptyStats(), red: emptyStats() };
+  produced(team, kind) {
+    if (kind === "worker" || kind === "builder") this.teams[team].workersProduced += 1;
+    else this.teams[team].troopsProduced += 1;
+  }
+  killed(victimTeam, kind) {
+    const opponent = victimTeam === "blue" ? "red" : "blue";
+    if (kind === "worker" || kind === "builder") this.teams[opponent].workersKilled += 1;
+    else this.teams[opponent].troopsKilled += 1;
+  }
+  collected(team, coins, wood, stone = 0) {
+    this.teams[team].coinsCollected += Math.round(coins);
+    this.teams[team].woodCollected += Math.round(wood);
+    this.teams[team].stoneCollected += Math.round(stone);
+  }
+  spent(team, coins, wood, stone = 0) {
+    this.teams[team].coinsSpent += Math.round(coins);
+    this.teams[team].woodSpent += Math.round(wood);
+    this.teams[team].stoneSpent += Math.round(stone);
+  }
+  snapshot() {
+    return { blue: { ...this.teams.blue }, red: { ...this.teams.red } };
+  }
+};
+
+// src/core/game/Simulation.ts
+var Simulation = class {
+  clock = new FixedStepClock();
+  rng;
+  map = new MapGrid(MAP_DEFINITION);
+  entities = new EntityStore(this.map);
+  movement = new MovementSystem(this.entities);
+  formations;
+  fog = new FogOfWar(this.map, this.entities);
+  teams = {
+    blue: {
+      coins: Math.round(BALANCE.startingState.coins),
+      wood: Math.round(BALANCE.startingState.wood),
+      stone: Math.round(BALANCE.startingState.stone ?? 0)
+    },
+    red: {
+      coins: Math.round(BALANCE.startingState.coins),
+      wood: Math.round(BALANCE.startingState.wood),
+      stone: Math.round(BALANCE.startingState.stone ?? 0)
+    }
+  };
+  economy = new EconomySystem(this.entities, this.movement, this.fog, this.teams);
+  construction = new ConstructionSystem(this.entities, this.movement, this.fog, this.teams);
+  production = new ProductionSystem(this.entities, this.teams, this.fog);
+  combat;
+  engagements = new MarchEngagementSystem(this);
+  aiControllers = /* @__PURE__ */ new Map();
+  stats = new MatchStats();
+  result = null;
+  constructor(seed, enableRedAI = false) {
+    this.rng = new SeededRng(seed);
+    this.formations = new FormationController(this);
+    this.movement.setSpeedLimitProvider((unit) => this.formations.getEffectiveSpeed(unit));
+    this.combat = new CombatSystem(this.entities, this.fog, (entity) => {
+      if (entity.category === "unit") {
+        this.stats.killed(entity.team, entity.kind);
+        this.formations.handleUnitDeath(entity.id);
+      }
+      this.movement.cancel(entity.id);
+      this.economy.cancel(entity.id);
+      this.construction.cancel(entity.id);
+      this.production.cancel(entity.id);
+      this.engagements.cancel(entity.id);
+      if (entity.category === "building" && entity.kind === "base" && !this.result) {
+        const winner = entity.team === "blue" ? "red" : "blue";
+        const units = this.entities.all().filter((item) => item.category === "unit");
+        this.result = {
+          winner,
+          loser: entity.team,
+          elapsedTicks: this.clock.ticks,
+          blueUnits: units.filter((item) => item.team === "blue").length,
+          redUnits: units.filter((item) => item.team === "red").length,
+          blueCoins: Math.round(this.teams.blue.coins),
+          redCoins: Math.round(this.teams.red.coins),
+          blueWood: Math.round(this.teams.blue.wood),
+          redWood: Math.round(this.teams.red.wood),
+          blueStone: Math.round(this.teams.blue.stone),
+          redStone: Math.round(this.teams.red.stone),
+          stats: this.stats.snapshot()
+        };
+      }
+    }, () => this.result !== null);
+    this.production.setOnUnitSpawned((unit, _building, rally) => {
+      dispatchGroupMove(this, unit.team, [unit.id], rally);
+    });
+    this.fog.update();
+    if (enableRedAI) {
+      this.enableAI("red");
+    }
+  }
+  get redAI() {
+    return this.aiControllers.get("red");
+  }
+  get blueAI() {
+    return this.aiControllers.get("blue");
+  }
+  enableAI(team = "red") {
+    const controller = new AIController(this, team);
+    this.aiControllers.set(team, controller);
+    return controller;
+  }
+  gameSpeed = 1;
+  aiPaused = false;
+  addResources(team, coins, wood, stone) {
+    this.teams[team].coins += coins;
+    this.teams[team].wood += wood;
+    this.teams[team].stone += stone;
+  }
+  instantSpawn(team, kind, atX, atY) {
+    const base = this.entities.get(team === "blue" ? "blue-base" : "red-base");
+    const startX = atX ?? (base?.x ? base.x + 3 : team === "blue" ? 30 : 170);
+    const startY = atY ?? (base?.y ? base.y + 3 : 100);
+    for (let r = 0; r <= 15; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = startX + dx;
+          const y = startY + dy;
+          if (this.map.contains(x, y) && this.entities.isFreeForUnit(x, y, "")) {
+            const unit = this.entities.spawnUnit(team, kind, x, y);
+            this.fog.update();
+            return unit;
+          }
+        }
+      }
+    }
+    return null;
+  }
+  advance(deltaMs) {
+    if (this.result) return 0;
+    const effective = deltaMs * this.gameSpeed;
+    return this.clock.advance(effective, () => {
+      this.tick();
+      return this.result === null;
+    });
+  }
+  issueCommand(command) {
+    if (this.result) return { accepted: false, reason: "game-over" };
+    if (command.type === "attack-move" || command.type === "move" && command.attackMove) {
+      return this.issueAttackMove(command);
+    }
+    if (command.type === "move") {
+      const formation = this.formations.getFormationForUnit(command.unitId);
+      if (formation) {
+        const slot = formation.slots.get(command.unitId);
+        const matchesDest = slot && slot.destination[0] === command.destination[0] && slot.destination[1] === command.destination[1];
+        const matchesCurrent = slot && slot.currentTarget[0] === command.destination[0] && slot.currentTarget[1] === command.destination[1];
+        if (!matchesDest && !matchesCurrent) {
+          this.formations.removeUnit(command.unitId);
+        }
+      }
+      const result = this.movement.issue(command, this.clock.ticks);
+      if (result.accepted) {
+        const entity = this.entities.get(command.unitId);
+        if (entity && entity.category === "unit") {
+          entity.attackMoveTarget = null;
+        }
+        this.engagements.cancel(command.unitId);
+        this.combat.cancel(command.unitId);
+        this.economy.cancel(command.unitId);
+        this.construction.cancel(command.unitId);
+      }
+      return result;
+    }
+    if (command.type === "mine" || command.type === "gather") {
+      this.formations.removeUnit(command.unitId);
+      const result = this.economy.issue(command, this.clock.ticks);
+      if (result.accepted) {
+        const entity = this.entities.get(command.unitId);
+        if (entity && entity.category === "unit") {
+          entity.attackMoveTarget = null;
+        }
+        this.engagements.cancel(command.unitId);
+        this.combat.cancel(command.unitId);
+        this.construction.cancel(command.unitId);
+      }
+      return result;
+    }
+    if (command.type === "build") {
+      const before = { ...this.teams[command.team] };
+      const result = this.construction.issue(command, this.clock.ticks);
+      if (result.accepted) {
+        this.stats.spent(
+          command.team,
+          before.coins - this.teams[command.team].coins,
+          before.wood - this.teams[command.team].wood,
+          before.stone - this.teams[command.team].stone
+        );
+        const entity = this.entities.get(command.builderId);
+        if (entity && entity.category === "unit") {
+          entity.attackMoveTarget = null;
+        }
+        this.engagements.cancel(command.builderId);
+        this.combat.cancel(command.builderId);
+        this.economy.cancel(command.builderId);
+      }
+      return result;
+    }
+    if (command.type === "repair") {
+      const result = this.construction.issueRepair(command, this.clock.ticks);
+      if (result.accepted) {
+        const entity = this.entities.get(command.builderId);
+        if (entity && entity.category === "unit") {
+          entity.attackMoveTarget = null;
+        }
+        this.engagements.cancel(command.builderId);
+        this.combat.cancel(command.builderId);
+        this.economy.cancel(command.builderId);
+      }
+      return result;
+    }
+    if (command.type === "produce") {
+      const before = { ...this.teams[command.team] };
+      const result = this.production.issue(command);
+      if (result.accepted) this.stats.spent(
+        command.team,
+        before.coins - this.teams[command.team].coins,
+        before.wood - this.teams[command.team].wood,
+        before.stone - this.teams[command.team].stone
+      );
+      return result;
+    }
+    if (command.type === "attack") {
+      this.formations.removeUnit(command.unitId);
+      const result = this.combat.issue(command, this.clock.ticks);
+      if (result.accepted) {
+        const entity = this.entities.get(command.unitId);
+        if (entity && entity.category === "unit") {
+          entity.attackMoveTarget = null;
+        }
+        this.engagements.cancel(command.unitId);
+        this.movement.cancel(command.unitId);
+        this.economy.cancel(command.unitId);
+        this.construction.cancel(command.unitId);
+      }
+      return result;
+    }
+    if (command.type === "set-rally-point") {
+      return this.production.setRallyPoint(command);
+    }
+    return { accepted: false, reason: "invalid-destination" };
+  }
+  issueAttackMove(command) {
+    const unit = this.entities.get(command.unitId);
+    if (!unit || unit.category !== "unit") return { accepted: false, reason: "unknown-unit" };
+    if (unit.team !== command.team) return { accepted: false, reason: "wrong-owner" };
+    if (this.clock.ticks < unit.cooldownUntilTick && !unit.moveTarget) return { accepted: false, reason: "cooldown" };
+    const [x, y] = command.destination;
+    const formation = this.formations.getFormationForUnit(command.unitId);
+    if (formation) {
+      const slot = formation.slots.get(command.unitId);
+      const matchesDest = slot && slot.destination[0] === x && slot.destination[1] === y;
+      const matchesCurrent = slot && slot.currentTarget[0] === x && slot.currentTarget[1] === y;
+      if (!matchesDest && !matchesCurrent) {
+        this.formations.removeUnit(command.unitId);
+      }
+    }
+    if (!this.map.contains(x, y) || !this.entities.isFreeForUnit(x, y, unit.id)) {
+      return { accepted: false, reason: "invalid-destination" };
+    }
+    if (unit.x === x && unit.y === y) return { accepted: false, reason: "already-there" };
+    const moveRes = this.movement.issue({
+      type: "move",
+      team: command.team,
+      unitId: command.unitId,
+      destination: [x, y],
+      attackMove: true
+    }, this.clock.ticks);
+    if (moveRes.accepted) {
+      unit.attackMoveTarget = [x, y];
+      this.engagements.cancel(command.unitId);
+      this.combat.cancel(command.unitId);
+      this.economy.cancel(command.unitId);
+      this.construction.cancel(command.unitId);
+      return { accepted: true };
+    }
+    if (moveRes.reason === "no-path" && unit.damage > 0) {
+      const blocking = findBlockingEnemyStructure(this, unit, [x, y]);
+      if (blocking) {
+        unit.attackMoveTarget = [x, y];
+        this.engagements.cancel(command.unitId);
+        this.combat.cancel(command.unitId);
+        this.economy.cancel(command.unitId);
+        this.construction.cancel(command.unitId);
+        this.engagements.setTarget(unit.id, [x, y], blocking.id);
+        return { accepted: true };
+      }
+    }
+    return moveRes;
+  }
+  tick() {
+    if (this.movement.update(this.clock.ticks) > 0) this.fog.update();
+    const beforeEconomy = { blue: { ...this.teams.blue }, red: { ...this.teams.red } };
+    this.economy.update(this.clock.ticks);
+    for (const team of ["blue", "red"]) {
+      this.stats.collected(
+        team,
+        this.teams[team].coins - beforeEconomy[team].coins,
+        this.teams[team].wood - beforeEconomy[team].wood,
+        this.teams[team].stone - beforeEconomy[team].stone
+      );
+    }
+    const beforeConstruction = { blue: { ...this.teams.blue }, red: { ...this.teams.red } };
+    this.construction.update(this.clock.ticks);
+    for (const team of ["blue", "red"]) {
+      const woodSpent = Math.round(beforeConstruction[team].wood - this.teams[team].wood);
+      const stoneSpent = Math.round(beforeConstruction[team].stone - this.teams[team].stone);
+      const coinsSpent = Math.round(beforeConstruction[team].coins - this.teams[team].coins);
+      if (coinsSpent > 0 || woodSpent > 0 || stoneSpent > 0) {
+        this.stats.spent(team, coinsSpent, woodSpent, stoneSpent);
+      }
+    }
+    const unitsBeforeProduction = new Set(this.entities.all().filter((entity) => entity.category === "unit").map((entity) => entity.id));
+    this.production.update();
+    for (const entity of this.entities.all()) {
+      if (entity.category === "unit" && !unitsBeforeProduction.has(entity.id)) this.stats.produced(entity.team, entity.kind);
+    }
+    this.engagements.update(this.clock.ticks);
+    this.formations.update(this.clock.ticks);
+    this.combat.update(this.clock.ticks);
+    if (this.result) return;
+    if (!this.aiPaused) {
+      for (const ai of this.aiControllers.values()) {
+        ai.update(this.clock.ticks);
+      }
+    }
+    for (const team of ["blue", "red"]) {
+      this.teams[team].coins = Math.round(this.teams[team].coins);
+      this.teams[team].wood = Math.round(this.teams[team].wood);
+      this.teams[team].stone = Math.round(this.teams[team].stone);
+    }
+  }
+};
+
+// src/presentation/VisualFog.ts
+var VisualFog = class {
+  constructor(map, entities, team) {
+    this.map = map;
+    this.entities = entities;
+    this.team = team;
+    this.states = new Uint8Array(map.width * map.height);
+    this.visible = new Uint8Array(map.width * map.height);
+    this.terrain = Array(map.width * map.height).fill(null);
+  }
+  states;
+  terrain;
+  buildings = /* @__PURE__ */ new Map();
+  dirtyTerrain = [];
+  visible;
+  positions = /* @__PURE__ */ new Map();
+  lastVisionSignature = "";
+  update(positions, force = false) {
+    this.positions = positions;
+    let sig = `${this.revealAll ? 1 : 0}|`;
+    for (const entity of this.entities.all()) {
+      if (entity.category === "unit") {
+        if (entity.team === this.team) {
+          const pos = this.positions.get(entity.id) ?? entity;
+          sig += `u:${entity.id}:${Math.round(pos.x)},${Math.round(pos.y)}:${entity.vision}|`;
+        }
+      } else {
+        sig += `b:${entity.id}:${entity.hp}:${entity.underConstruction ? 0 : 1}|`;
+      }
+    }
+    if (!force && sig === this.lastVisionSignature) {
+      return false;
+    }
+    this.lastVisionSignature = sig;
+    this.visible.fill(0);
+    const buildingsByCell = /* @__PURE__ */ new Map();
+    for (const entity of this.entities.all()) {
+      if (entity.category === "building") {
+        for (let y = entity.y; y < entity.y + entity.height; y += 1) {
+          for (let x = entity.x; x < entity.x + entity.width; x += 1) buildingsByCell.set(this.index(x, y), entity);
+        }
+      }
+      if (entity.team !== this.team) continue;
+      if (entity.category === "unit") {
+        const position = this.position(entity);
+        this.revealCircle(position.x, position.y, entity.vision);
+      } else {
+        this.revealBuilding(entity);
+      }
+    }
+    let changed = false;
+    for (let y = 0; y < this.map.height; y += 1) {
+      for (let x = 0; x < this.map.width; x += 1) {
+        const index = this.index(x, y);
+        const next = this.visible[index] ? 2 : this.states[index] ? 1 : 0;
+        if (this.states[index] !== next) {
+          this.states[index] = next;
+          changed = true;
+        }
+        if (!this.visible[index]) continue;
+        const cell = this.map.cellAt(x, y);
+        if (this.terrain[index] !== cell.terrain) {
+          this.terrain[index] = cell.terrain;
+          this.dirtyTerrain.push([x, y]);
+        }
+        const building = buildingsByCell.get(index);
+        if (building) this.buildings.set(index, this.snapshotBuilding(building));
+        else this.buildings.delete(index);
+      }
+    }
+    return changed;
+  }
+  revealAll = false;
+  drainDirtyTerrain() {
+    return this.dirtyTerrain.splice(0);
+  }
+  rawState(x, y) {
+    if (!this.map.contains(x, y)) return 0;
+    if (this.revealAll) return 2;
+    return this.states[this.index(x, y)];
+  }
+  rawTerrain(x, y) {
+    if (!this.map.contains(x, y)) return null;
+    return this.terrain[this.index(x, y)];
+  }
+  stateAt(x, y) {
+    if (!this.map.contains(x, y)) return null;
+    if (this.revealAll) return "visible";
+    return ["unknown", "explored", "visible"][this.states[this.index(x, y)]];
+  }
+  cellAt(x, y) {
+    if (!this.map.contains(x, y)) return null;
+    const index = this.index(x, y);
+    return {
+      state: this.stateAt(x, y),
+      terrain: this.terrain[index],
+      building: this.buildings.get(index) ? { ...this.buildings.get(index) } : null
+    };
+  }
+  knownBuildings() {
+    const unique = /* @__PURE__ */ new Map();
+    for (const building of this.buildings.values()) unique.set(building.id, building);
+    return [...unique.values()].map((building) => ({ ...building }));
+  }
+  visibleEntities() {
+    return this.entities.all().filter((entity) => this.isEntityVisible(entity));
+  }
+  isEntityVisible(entity) {
+    if (this.revealAll || entity.team === this.team) return true;
+    if (entity.category === "unit") {
+      const position = this.position(entity);
+      if (this.stateAt(Math.round(position.x), Math.round(position.y)) !== "visible") return false;
+      if (entity.kind === "scout") {
+        return this.isWithinTowerVision(position.x, position.y) || this.scoutDetected(position, entity.team);
+      }
+      return true;
+    }
+    for (let y = entity.y; y < entity.y + entity.height; y += 1) {
+      for (let x = entity.x; x < entity.x + entity.width; x += 1) {
+        if (this.stateAt(x, y) === "visible") return true;
+      }
+    }
+    return false;
+  }
+  isWithinTowerVision(x, y) {
+    for (const entity of this.entities.all()) {
+      if (entity.team === this.team && entity.category === "building" && entity.kind === "tower" && !entity.underConstruction) {
+        const halfSpan = 9;
+        const minX = entity.x - halfSpan;
+        const maxX = entity.x + entity.width - 1 + halfSpan;
+        const minY = entity.y - halfSpan;
+        const maxY = entity.y + entity.height - 1 + halfSpan;
+        if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  position(entity) {
+    const pos = entity.category === "unit" ? this.positions.get(entity.id) ?? entity : entity;
+    return { x: Math.round(pos.x), y: Math.round(pos.y) };
+  }
+  revealCircle(cx, cy, radius) {
+    for (let y = Math.max(0, Math.floor(cy - radius)); y <= Math.min(this.map.height - 1, Math.ceil(cy + radius)); y += 1) {
+      for (let x = Math.max(0, Math.floor(cx - radius)); x <= Math.min(this.map.width - 1, Math.ceil(cx + radius)); x += 1) {
+        if ((x - cx) ** 2 + (y - cy) ** 2 <= radius ** 2) this.visible[this.index(x, y)] = 1;
+      }
+    }
+  }
+  revealBuilding(building) {
+    if (building.kind === "tower") {
+      if (!building.underConstruction) {
+        const halfSpan = 9;
+        const minX = Math.max(0, building.x - halfSpan);
+        const maxX = Math.min(this.map.width - 1, building.x + building.width - 1 + halfSpan);
+        const minY = Math.max(0, building.y - halfSpan);
+        const maxY = Math.min(this.map.height - 1, building.y + building.height - 1 + halfSpan);
+        for (let y = minY; y <= maxY; y += 1) {
+          for (let x = minX; x <= maxX; x += 1) {
+            this.visible[this.index(x, y)] = 1;
+          }
+        }
+      }
+      return;
+    }
+    const radius = BALANCE.buildings[building.kind].vision;
+    for (let y = Math.max(0, building.y - radius); y <= Math.min(this.map.height - 1, building.y + building.height - 1 + radius); y += 1) {
+      for (let x = Math.max(0, building.x - radius); x <= Math.min(this.map.width - 1, building.x + building.width - 1 + radius); x += 1) {
+        const nearX = Math.max(building.x, Math.min(x, building.x + building.width - 1));
+        const nearY = Math.max(building.y, Math.min(y, building.y + building.height - 1));
+        if ((x - nearX) ** 2 + (y - nearY) ** 2 <= radius ** 2) this.visible[this.index(x, y)] = 1;
+      }
+    }
+  }
+  scoutDetected(position, scoutTeam) {
+    const radius = BALANCE.units.scout.stealthDetectionDistance;
+    return this.entities.all().some((enemy) => {
+      if (enemy.team === scoutTeam) return false;
+      if (enemy.category === "unit") {
+        const other = this.position(enemy);
+        return Math.hypot(other.x - position.x, other.y - position.y) <= radius;
+      }
+      const nearX = Math.max(enemy.x, Math.min(position.x, enemy.x + enemy.width - 1));
+      const nearY = Math.max(enemy.y, Math.min(position.y, enemy.y + enemy.height - 1));
+      return Math.hypot(nearX - position.x, nearY - position.y) <= radius;
+    });
+  }
+  snapshotBuilding(building) {
+    return {
+      id: building.id,
+      team: building.team,
+      kind: building.kind,
+      x: building.x,
+      y: building.y,
+      width: building.width,
+      height: building.height,
+      hp: building.hp,
+      maxHp: building.maxHp
+    };
+  }
+  index(x, y) {
+    return y * this.map.width + x;
+  }
+};
+export {
+  BALANCE,
+  Simulation,
+  VisualFog,
+  dispatchGroupMove,
+  findPath
+};

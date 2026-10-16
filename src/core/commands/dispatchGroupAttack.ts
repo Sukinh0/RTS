@@ -8,7 +8,7 @@ export interface GroupAttackResult {
   result: CommandResult;
 }
 
-function findReachableAttackCell(
+export function findReachableAttackCell(
   simulation: Simulation,
   unit: UnitEntity,
   target: GameEntity,
@@ -99,6 +99,10 @@ export function dispatchGroupAttack(
       const result = simulation.issueCommand({ type: 'attack', team, unitId, targetId });
       results.push({ unitId, result });
     } else {
+      if (unit.moveTarget !== null && simulation.combat.manualTargetFor(unitId) === targetId) {
+        results.push({ unitId, result: { accepted: true } });
+        continue;
+      }
       const targetCell = findReachableAttackCell(simulation, unit, target, reserved);
       if (!targetCell) {
         results.push({ unitId, result: { accepted: false, reason: 'no-path' } });

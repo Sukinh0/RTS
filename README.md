@@ -71,7 +71,9 @@ npm run simulate -- --games=100 --seed=123
 
 O método e a leitura da linha de base estão em `docs/BALANCE_REPORT.md`.
 
-Abra `/?debug=1` para clicar em uma célula e ver suas coordenadas, tipo de terreno e bloqueio. Clique em uma unidade ou base azul para selecionar; arraste com o botão esquerdo para seleção em caixa; use Shift para adicionar ou remover da seleção. Clique com o botão direito para ordenar movimento das unidades selecionadas. Arraste com o botão direito/meio ou use WASD/setas para pan; use a roda do mouse para zoom.
+As correções do playtest de 2026-10-06 e o estado do novo aceite estão em `BACKLOG.md`. O HUD fica ao lado do mapa em telas largas e abaixo dele em telas compactas. Cada classe de unidade tem uma cor própria, com contorno azul ou vermelho para a equipe.
+
+Abra `/?debug=1` para clicar em uma célula e ver suas coordenadas, tipo de terreno e bloqueio. Clique em uma unidade ou base azul para selecionar; arraste com o botão esquerdo para seleção em caixa; use Shift para adicionar ou remover da seleção. Clique com o botão direito para ordenar movimento, ataque contra um inimigo visível, coleta ou mineração conforme o alvo. Arraste com o botão direito/meio ou use WASD/setas para pan; use a roda do mouse para zoom.
 
 O terreno começa encoberto pela fog; mova os operários para explorar. Células exploradas permanecem descobertas com suas cores normais, enquanto tropas inimigas só aparecem na visão atual de uma unidade ou construção aliada. Clique com o botão direito numa floresta ou mina descoberta para ordenar coleta ou mineração com operários selecionados.
 

@@ -6,7 +6,9 @@ import { EntityStore, type BuildingEntity, type UnitEntity } from '../entities/E
 import { FogOfWar } from './FogOfWar';
 import { MovementSystem } from './MovementSystem';
 
-export type TeamStock = Record<Team, { coins: number; wood: number }>;
+export type TeamStock = Record<Team, { coins: number; wood: number; stone: number }>;
+
+export type ResourceKind = 'wood' | 'stone';
 
 interface MineTask {
   kind: 'mine';
@@ -18,6 +20,7 @@ interface MineTask {
 
 interface GatherTask {
   kind: 'gather';
+  resourceKind: ResourceKind;
   source: Point;
   workCell: Point;
   depot: Point | null;
@@ -27,7 +30,7 @@ interface GatherTask {
 
 export type WorkerTask = MineTask | GatherTask;
 
-/** Passive income, mine cycles and the forest-to-base hauling loop. */
+/** Passive income, mine cycles and the forest/stone-to-base hauling loop. */
 export class EconomySystem {
   private readonly tasks = new Map<string, WorkerTask>();
 
@@ -56,18 +59,21 @@ export class EconomySystem {
     const [x, y] = command.target;
     if (this.fog.stateAt(command.team, x, y) === 'unknown') return { accepted: false, reason: 'invalid-destination' };
     const terrain = this.entities.map.cellAt(x, y)?.terrain;
-    if (terrain !== (command.type === 'mine' ? 'mine' : 'forest')) return { accepted: false, reason: 'wrong-terrain' };
     if (command.type === 'mine') {
+      if (terrain !== 'mine') return { accepted: false, reason: 'wrong-terrain' };
       const assigned = [...this.tasks.entries()].filter(([id, task]) => id !== worker.id && task.kind === 'mine'
         && task.source[0] === x && task.source[1] === y).length;
       if (assigned >= BALANCE.economy.mine.maxWorkersPerMine) return { accepted: false, reason: 'mine-full' };
+    } else {
+      if (terrain !== 'forest' && terrain !== 'stone') return { accepted: false, reason: 'wrong-terrain' };
     }
 
-    const workCell = this.assignWorkCell(worker, command.type, command.target, currentTick);
+    const resourceKind: ResourceKind = terrain === 'stone' ? 'stone' : 'wood';
+    const workCell = this.assignWorkCell(worker, command.type, command.target, currentTick, resourceKind);
     if (!workCell) return { accepted: false, reason: 'no-path' };
     this.tasks.set(worker.id, command.type === 'mine'
       ? { kind: 'mine', source: command.target, workCell, phase: 'travel', progressTicks: 0 }
-      : { kind: 'gather', source: command.target, workCell, depot: null, phase: 'toForest', progressTicks: 0 });
+      : { kind: 'gather', resourceKind, source: command.target, workCell, depot: null, phase: 'toForest', progressTicks: 0 });
     return { accepted: true };
   }
 
@@ -86,7 +92,7 @@ export class EconomySystem {
       for (const entity of this.entities.all()) {
         if (entity.category === 'unit' && entity.kind === 'worker'
           && !this.tasks.has(entity.id) && !entity.moveTarget && entity.hp > 0) {
-          this.stocks[entity.team].coins += BALANCE.economy.passiveCoinsPerFreeWorkerPerSecond;
+          this.stocks[entity.team].coins += Math.floor(BALANCE.economy.passiveCoinsPerFreeWorkerPerSecond);
         }
       }
     }
@@ -104,23 +110,31 @@ export class EconomySystem {
     }
     task.progressTicks += 1;
     if (task.progressTicks >= BALANCE.economy.mine.cycleSeconds * TICKS_PER_SECOND) {
-      this.stocks[worker.team].coins += BALANCE.economy.mine.coinsPerCycle;
+      this.stocks[worker.team].coins += Math.floor(BALANCE.economy.mine.coinsPerCycle);
       task.progressTicks = 0;
     }
   }
 
   private updateGather(worker: UnitEntity, task: GatherTask, tick: number): void {
+    const expectedTerrain = task.resourceKind === 'stone' ? 'stone' : 'forest';
+    const capacity = task.resourceKind === 'stone'
+      ? BALANCE.economy.stone.workerCapacity
+      : BALANCE.economy.wood.workerCapacity;
+    const gatherPerSecond = task.resourceKind === 'stone'
+      ? BALANCE.economy.stone.gatherPerSecond
+      : BALANCE.economy.wood.gatherPerSecond;
+
     if (task.phase === 'toForest') {
       if (!this.at(worker, task.workCell)) {
-        if (this.entities.map.cellAt(task.workCell[0], task.workCell[1])?.terrain !== 'forest') {
-          this.sendToForest(worker, task, tick);
+        if (this.entities.map.cellAt(task.workCell[0], task.workCell[1])?.terrain !== expectedTerrain) {
+          this.sendToResource(worker, task, tick);
           return;
         }
-        if (!worker.moveTarget && tick >= worker.cooldownUntilTick) this.sendToForest(worker, task, tick);
+        if (!worker.moveTarget && tick >= worker.cooldownUntilTick) this.sendToResource(worker, task, tick);
         return;
       }
-      if (this.entities.map.cellAt(task.workCell[0], task.workCell[1])?.terrain !== 'forest') {
-        this.sendToForest(worker, task, tick);
+      if (this.entities.map.cellAt(task.workCell[0], task.workCell[1])?.terrain !== expectedTerrain) {
+        this.sendToResource(worker, task, tick);
         return;
       }
       if (tick < worker.cooldownUntilTick) return;
@@ -133,36 +147,53 @@ export class EconomySystem {
         this.tasks.delete(worker.id);
         return;
       }
-      if (this.entities.map.cellAt(task.workCell[0], task.workCell[1])?.terrain !== 'forest') {
-        if (worker.carriedWood > 0) this.sendToBase(worker, task, tick);
-        else this.sendToForest(worker, task, tick);
+      if (this.entities.map.cellAt(task.workCell[0], task.workCell[1])?.terrain !== expectedTerrain) {
+        const carried = task.resourceKind === 'stone' ? worker.carriedStone : worker.carriedWood;
+        if (carried > 0) this.sendToBase(worker, task, tick);
+        else this.sendToResource(worker, task, tick);
         return;
       }
       task.progressTicks += 1;
       if (task.progressTicks % TICKS_PER_SECOND === 0) {
-        worker.carriedWood = Math.min(BALANCE.economy.wood.workerCapacity,
-          worker.carriedWood + BALANCE.economy.wood.gatherPerSecond);
+        if (task.resourceKind === 'stone') {
+          worker.carriedStone = Math.min(capacity, worker.carriedStone + Math.floor(gatherPerSecond));
+        } else {
+          worker.carriedWood = Math.min(capacity, worker.carriedWood + Math.floor(gatherPerSecond));
+        }
       }
-      if (worker.carriedWood >= BALANCE.economy.wood.workerCapacity) {
+      const currentCarried = task.resourceKind === 'stone' ? worker.carriedStone : worker.carriedWood;
+      if (currentCarried >= capacity) {
         this.entities.map.setTerrain(task.workCell[0], task.workCell[1], 'plain');
         this.sendToBase(worker, task, tick);
       }
       return;
     }
     if (task.phase === 'toBase' && task.depot && this.at(worker, task.depot) && tick >= worker.cooldownUntilTick) {
-      this.stocks[worker.team].wood += worker.carriedWood;
-      worker.carriedWood = 0;
+      if (task.resourceKind === 'stone') {
+        this.stocks[worker.team].stone += Math.floor(worker.carriedStone);
+        worker.carriedStone = 0;
+      } else {
+        this.stocks[worker.team].wood += Math.floor(worker.carriedWood);
+        worker.carriedWood = 0;
+      }
       task.depot = null;
       task.phase = 'toForest';
-      this.sendToForest(worker, task, tick);
+      this.sendToResource(worker, task, tick);
     } else if (task.phase === 'toBase' && !worker.moveTarget && tick >= worker.cooldownUntilTick) {
       this.sendToBase(worker, task, tick);
     }
   }
 
-  private assignWorkCell(worker: UnitEntity, kind: WorkCommand['type'], source: Point, tick: number): Point | null {
+  private assignWorkCell(
+    worker: UnitEntity,
+    kind: WorkCommand['type'],
+    source: Point,
+    tick: number,
+    resourceKind: ResourceKind = 'wood',
+  ): Point | null {
     const [sourceX, sourceY] = source;
     const radius = kind === 'mine' ? 1 : 16;
+    const expectedTerrain = kind === 'mine' ? 'mine' : resourceKind === 'stone' ? 'stone' : 'forest';
     const reserved = new Set([...this.tasks.entries()]
       .filter(([id]) => id !== worker.id)
       .map(([, task]) => `${task.workCell[0]},${task.workCell[1]}`));
@@ -173,7 +204,7 @@ export class EconomySystem {
           const x = sourceX + dx;
           const y = sourceY + dy;
           if (!this.entities.map.contains(x, y) || reserved.has(`${x},${y}`)) continue;
-          if (kind === 'gather' && this.entities.map.cellAt(x, y)?.terrain !== 'forest') continue;
+          if (kind === 'gather' && this.entities.map.cellAt(x, y)?.terrain !== expectedTerrain) continue;
           if (!this.entities.isFreeForUnit(x, y, worker.id)) continue;
           if (this.at(worker, [x, y])) {
             worker.moveTarget = null;
@@ -209,8 +240,8 @@ export class EconomySystem {
     }
   }
 
-  private sendToForest(worker: UnitEntity, task: GatherTask, tick: number): void {
-    const workCell = this.assignWorkCell(worker, 'gather', task.source, tick);
+  private sendToResource(worker: UnitEntity, task: GatherTask, tick: number): void {
+    const workCell = this.assignWorkCell(worker, 'gather', task.source, tick, task.resourceKind);
     if (workCell) {
       task.workCell = workCell;
       task.source = workCell;
