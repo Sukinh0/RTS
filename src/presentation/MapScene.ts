@@ -1406,13 +1406,11 @@ export class MapScene extends Phaser.Scene {
           graphics.fillStyle(0xffe600, 1).fillRect(position.x * CELL_SIZE + 3, position.y * CELL_SIZE + 1, CELL_SIZE - 6, 2.5);
           graphics.fillStyle(0xffffff, 0.9).fillRect(position.x * CELL_SIZE + 5, position.y * CELL_SIZE + 4, 2, 3);
         }
-        if (entity.hp < entity.maxHp) {
-          const hpPct = Math.max(0, entity.hp / entity.maxHp);
-          const barW = CELL_SIZE - 2;
-          graphics.fillStyle(0x3a0000, 0.9).fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE - 3, barW, 2);
-          graphics.fillStyle(entity.team === 'blue' ? 0x55ff55 : 0xff5555, 0.95)
-            .fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE - 3, Math.max(1, barW * hpPct), 2);
-        }
+        const hpPct = Math.max(0, Math.min(1, entity.hp / entity.maxHp));
+        const barW = CELL_SIZE - 2;
+        graphics.fillStyle(0x160f12, 0.9).fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE - 3, barW, 2);
+        graphics.fillStyle(entity.team === 'blue' ? 0x55ff55 : 0xff5555, 0.95)
+          .fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE - 3, Math.max(1, barW * hpPct), 2);
       } else {
         const sprite = this.updateBuildingSprite(entity);
         if (sprite && !entity.underConstruction) {
