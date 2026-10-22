@@ -43,7 +43,7 @@ export class AIController {
   private lastDecisionTick = -999;
   private readonly openingForward: number;
   private readonly openingVertical: number;
-  private readonly assaultWaypoint: Point;
+  private readonly assaultWaypoint: Point | null;
   private waypointReached = false;
   private guardUnitId: string | null = null;
   private readonly raidUnitIds = new Set<string>();
@@ -76,7 +76,12 @@ export class AIController {
     // Seeds alternate strategic approaches without privileged enemy intelligence.
     const blueNorth = (simulation.seed & 1) === 0;
     const north = team === 'blue' ? blueNorth : !blueNorth;
-    this.assaultWaypoint = [team === 'blue' ? 89 : 110, north ? 62 : 137];
+    // Vary strategy fairly for both teams: 1 in 4 seeds assaults the
+    // central objective directly; others stage a north/south flank.
+    // Strategic variety avoids teaching every opponent the same route.
+    const directOpening = Math.abs(simulation.seed) % 4 === 0;
+    this.assaultWaypoint = directOpening ? null
+      : [team === 'blue' ? 89 : 110, north ? 62 : 137];
   }
 
   getDebugState(): AIDebugState {
@@ -647,18 +652,19 @@ export class AIController {
   }
 
   private marchRaid(raidIds: string[], destination: Point): void {
-    if (!this.waypointReached) {
+    const waypoint = this.assaultWaypoint;
+    if (waypoint && !this.waypointReached) {
       this.waypointReached = raidIds.some((id) => {
         const unit = this.simulation.entities.get(id);
         return unit?.category === 'unit'
-          && Math.max(Math.abs(unit.x - this.assaultWaypoint[0]), Math.abs(unit.y - this.assaultWaypoint[1])) <= 7;
+          && Math.max(Math.abs(unit.x - waypoint[0]), Math.abs(unit.y - waypoint[1])) <= 7;
       });
     }
     // Once the enemy base is remembered, use the objective directly rather
     // than forcing the army through a known detour. Pathfinding still respects
     // the actual grid and blockers.
-    const route: Point = !this.memory.enemyBaseLocation && !this.waypointReached
-      ? this.assaultWaypoint : destination;
+    const route: Point = waypoint && !this.memory.enemyBaseLocation && !this.waypointReached
+      ? waypoint : destination;
     const ready = raidIds.filter((id) => {
       const unit = this.simulation.entities.get(id);
       return unit?.category === 'unit' && !unit.moveTarget && !this.simulation.engagements.statusFor(id);
