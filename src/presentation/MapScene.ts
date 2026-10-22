@@ -1585,15 +1585,15 @@ export class MapScene extends Phaser.Scene {
     this.mapGraphics.fillStyle(terrain === 'plain' ? green : COLORS[terrain])
       .fillRect(px, py, CELL_SIZE, CELL_SIZE);
     if (this.terrainTiles) return;
-    if (terrain === 'forest') {
+    if (terrain === 'forest' && hash % 5 === 0) {
       this.mapGraphics.fillStyle(0x24553a, 0.9).fillCircle(px + 7, py + 7, 4);
       this.mapGraphics.fillStyle(0x408551, 0.95).fillCircle(px + 5, py + 4, 3);
-    } else if (terrain === 'mountain') {
+    } else if (terrain === 'mountain' && hash % 6 === 0) {
       this.mapGraphics.fillStyle(0xa0a490, 0.85)
         .fillTriangle(px + 1, py + 10, px + 6, py + 2, px + 11, py + 10);
     } else if (terrain === 'water' && hash % 6 === 0) {
       this.mapGraphics.fillStyle(0x8ac6c4, 0.75).fillRect(px + 2, py + 5, 7, 1);
-    } else if (terrain === 'stone') {
+    } else if (terrain === 'stone' && hash % 4 === 0) {
       this.mapGraphics.fillStyle(0xb8baa6, 0.8)
         .fillTriangle(px + 2, py + 10, px + 6, py + 3, px + 10, py + 10);
     } else if (terrain === 'mine') {
