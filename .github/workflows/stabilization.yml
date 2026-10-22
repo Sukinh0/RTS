@@ -50,6 +50,10 @@ jobs:
         run: |
           npm run simulate -- --games=20 --seed=123 --max-seconds=1200 --out=reports-ci
           node -e "const r=require('./reports-ci/simulation-20games-seed123.json'); const n=r.matches.filter(m=>m.firstCombatSeconds!==null).length; const b=r.matches.filter(m=>m.firstBaseAttackSeconds!==null).length; console.log(JSON.stringify({wins:r.wins,draws:r.draws,combats:n,basePressure:b,matches:r.matches.map(m=>({seed:m.seed,order:m.aiOrder,winner:m.winner,first:m.firstCombatSeconds,firstBase:m.firstBaseAttackSeconds,damage:m.baseDamageDealt}))},null,2)); if(n!==r.games || b<15 || r.wins.blue===0 || r.wins.red===0) { console.error('Organic-map AI regression: missing combat, base pressure or team victories'); process.exit(1); }"
+      - name: Independent seeds — check strategy outside the tuning sample
+        run: |
+          npm run simulate -- --games=20 --seed=201 --max-seconds=1200 --out=reports-ci
+          node -e "const r=require('./reports-ci/simulation-20games-seed201.json'); console.log(JSON.stringify({sample:'201-210',wins:r.wins,draws:r.draws,combats:r.matches.filter(m=>m.firstCombatSeconds!==null).length,basePressure:r.matches.filter(m=>m.firstBaseAttackSeconds!==null).length},null,2))"
       - name: Preserve tournament artifacts
         if: always()
         uses: actions/upload-artifact@v4
