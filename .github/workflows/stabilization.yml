@@ -38,6 +38,31 @@ jobs:
             test-results/
           if-no-files-found: ignore
 
+  zip-import-smoke:
+    name: Local ZIP import and scene restart
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Prepare headless Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test asset import and invalid ZIP handling
+        run: npx playwright test tests/e2e/tiny-swords-import.spec.ts tests/e2e/tiny-swords.spec.ts --workers=1
+      - name: Preserve import failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1-2-zip-import-evidence
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+
   organic-map-ai:
     runs-on: ubuntu-latest
     timeout-minutes: 25
