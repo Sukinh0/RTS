@@ -10,6 +10,7 @@ import type { MovementEvent } from '../core/systems/MovementSystem';
 import { TICKS_PER_SECOND } from '../config/runtime';
 import { SelectionModel } from '../input/SelectionModel';
 import type { Point, Team, Terrain } from '../map/MapGrid';
+import { loadTinySwordsZip } from './TinySwordsZip';
 import { VisualFog } from './VisualFog';
 import { Minimap } from './Minimap';
 import { SoundSystem } from './SoundSystem';
@@ -263,6 +264,30 @@ export class MapScene extends Phaser.Scene {
     this.formationPreviewGraphics.setDepth(WORLD_LAYER_DEPTHS.interaction);
     this.refreshSelection();
     this.refreshTeamStatus();
+    // The downloaded pack remains inside this browser session; the app never uploads it.
+    const zipButton = document.querySelector<HTMLButtonElement>('#btn-load-tiny');
+    const zipInput = document.querySelector<HTMLInputElement>('#tiny-zip-file');
+    const zipStatus = document.querySelector<HTMLElement>('#tiny-assets-status');
+    const status = (message: string) => { if (zipStatus) zipStatus.textContent = message; };
+    status(availableUnitKey(this, 'blue', 'soldier', 'idle')
+      ? 'Tiny Swords ativo nesta aba' : 'Arte provisória · importe o ZIP oficial Tiny Swords');
+    if (zipButton) zipButton.onclick = () => zipInput?.click();
+    if (zipInput) zipInput.onchange = async () => {
+      const zip = zipInput.files?.[0];
+      if (!zip) return;
+      if (zipButton) zipButton.disabled = true;
+      status('Lendo os sprites localmente, sem envio...');
+      try {
+        const result = await loadTinySwordsZip(this, zip);
+        status(`Carregadas ${result.loaded} de ${result.total} texturas; reiniciando partida...`);
+        this.scene.restart();
+      } catch (error) {
+        status(error instanceof Error ? error.message : 'Falha ao importar o ZIP');
+      } finally {
+        if (zipButton) zipButton.disabled = false;
+        zipInput.value = '';
+      }
+    };
     this.input.mouse?.disableContextMenu();
     (window as Window & { __simulation?: Simulation }).__simulation = this.simulation;
     if (this.fxDebug) this.installFxDebugPanel();

@@ -1273,3 +1273,19 @@ body:not(.visual-calibration-mode) #hud { color: #f4efdd; font-size: 13px; }
   #hud #selection-details, #action-placeholder { margin-top: 3px; font-size: 12px; }
   #action-bar button { width: 68px; min-width: 58px; min-height: 38px; font-size: 11px; }
 }
+
+/* Optional licensed art pack is loaded entirely in-browser, never redistributed. */
+#btn-load-tiny {
+  border: 1px solid #789574; border-radius: 6px; color: #f1e3b7;
+  background: #2b473b; cursor: pointer;
+}
+#btn-load-tiny:disabled { opacity: .55; cursor: wait; }
+#tiny-assets-status {
+  position: fixed; z-index: 13; top: 65px; left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: min(450px, calc(100vw - 18px)); padding: 3px 9px;
+  border-radius: 6px; background: #132c2ddc; color: #efd49c;
+  text-align: center; font-size: 10px; pointer-events: none;
+}
+@media (max-width: 620px) {
+  #tiny-assets-status { top: 93px; font-size: 9px; }
+}
