@@ -1,4 +1,11 @@
 import Phaser from 'phaser';
+declare const __TINY_SWORDS_INSTALLED__: boolean;
+const missingAssetWarnings = new Set<string>();
+function warnMissingAsset(message: string): void {
+  if (!import.meta.env.DEV || !__TINY_SWORDS_INSTALLED__ || missingAssetWarnings.has(message)) return;
+  missingAssetWarnings.add(message);
+  console.warn(message);
+}
 import type { BuildingKind, UnitKind } from '../core/entities/EntityStore';
 import type { Team } from '../map/MapGrid';
 
@@ -304,6 +311,9 @@ export function tinySwordsLocalManifest(): TinySwordsLocalAsset[] {
 }
 
 export function preloadTinySwords(scene: Phaser.Scene): void {
+  // The original pack is only available after local install. Public builds use
+  // fallback rendering or the private ZIP importer instead of fetching 100+ 404s.
+  if (!__TINY_SWORDS_INSTALLED__) return;
   const loaded = new Set<string>();
   for (const [key, file] of Object.entries(staticAssets)) {
     const id = `tiny-${key}`;
@@ -356,9 +366,9 @@ export function availableUnitKey(scene: Phaser.Scene, team: Team, kind: UnitKind
   if (scene.textures.exists(requested)) return requested;
   const fallback = unitSheetKey(team, kind, 'idle');
   if (scene.textures.exists(fallback)) {
-    if (import.meta.env.DEV) console.warn(`Tiny Swords: missing ${requested}; using idle`);
+    warnMissingAsset(`Tiny Swords: missing ${requested}; using idle`);
     return fallback;
   }
-  if (import.meta.env.DEV) console.warn(`Tiny Swords: missing ${requested} and idle`);
+  warnMissingAsset(`Tiny Swords: missing ${requested} and idle`);
   return null;
 }
