@@ -2,8 +2,6 @@ name: RTS V1.2 — CI and organic-map AI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [fix/v1-2-main-stabilization]
   workflow_dispatch:
 permissions:
   contents: read
