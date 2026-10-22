@@ -35,6 +35,31 @@ Regra arquitetural principal: **a simulação do jogo NÃO deve depender do Phas
 - `config/map-test-01.json` — contrato inicial do mapa de teste
 - `references/visual_reference.png` — referência visual do protótipo
 
+## RTS V1.2 — como avaliar a versão atual
+
+O ramo de estabilização é `fix/v1-2-main-stabilization` ([PR #5](https://github.com/Sukinh0/RTS/pull/5)).
+Ele preserva o `MAP_ORGANIC_01`, HUD completo, FX, unidades, construções,
+formações e economia já incluídos na `main`, integrando correções de IA.
+
+**Primeiro uso local (arte do jogo):** o pacote oficial Tiny Swords precisa ser
+obtido diretamente do [Pixel Frog](https://pixelfrog-assets.itch.io/tiny-swords).
+Para visualizar sprites na prévia sem publicar os arquivos, clique no botão 🎨
+e selecione `Tiny Swords (Free Pack).zip` no navegador. Eles ficam apenas
+na memória da aba. A partida reinicia para aplicar as texturas; a página
+recarregada perde as texturas importadas. Alternativamente, instale os PNGs
+localmente em `external-assets/` e rode `npm run assets:install`, depois
+**reinicie o servidor de desenvolvimento**.
+
+O construtor com chapéu cobre usa derivados gerados **somente localmente**
+por `python scripts/recolor-builder.py` (requer Pillow). Os 14 PNGs antigos
+foram retirados desta branch para não redistribuir arte licenciada.
+
+A CI executa lint, TypeScript, Vitest, torneios IA×IA e Playwright;
+os resultados reproduzíveis ficam nos artifacts do GitHub Actions. O build
+de prévia (com base `/RTS/`) está disponível para avaliação, mas não
+equivale a uma publicação pública automática. Ver
+[`docs/MAIN_STABILIZATION_V1_2.md`](docs/MAIN_STABILIZATION_V1_2.md).
+
 ## Como começar
 1. Crie o projeto TypeScript + Phaser + Vite.
 2. Copie este pacote para a raiz do repositório.
@@ -75,7 +100,7 @@ npm run simulate -- --games=100 --seed=123
 
 O método e a leitura da linha de base estão em `docs/BALANCE_REPORT.md`.
 
-As correções do playtest de 2026-10-06 e o estado do novo aceite estão em `BACKLOG.md`. O HUD fica ao lado do mapa em telas largas e abaixo dele em telas compactas. Cada classe de unidade tem uma cor própria, com contorno azul ou vermelho para a equipe.
+As correções do playtest de 2026-10-06 e o estado do novo aceite estão em `BACKLOG.md`. O HUD atual é **fullscreen**, com comandos em uma barra inferior e recursos no topo. O mapa em `MAP_ORGANIC_01` é assimétrico e possui oito jazidas de ouro. Cada classe tem cor própria e identificação de equipe.
 
 Abra `/?debug=1` para clicar em uma célula e ver suas coordenadas, tipo de terreno e bloqueio. Clique em uma unidade ou base azul para selecionar; arraste com o botão esquerdo para seleção em caixa; use Shift para adicionar ou remover da seleção. Clique com o botão direito para ordenar movimento, ataque contra um inimigo visível, coleta ou mineração conforme o alvo. Arraste com o botão direito/meio ou use WASD/setas para pan; use a roda do mouse para zoom.
 
