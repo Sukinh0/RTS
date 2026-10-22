@@ -474,9 +474,21 @@ export class AIController {
       dispatchGroupMove(this.simulation, this.team, [guard.id], rallyPoint);
     }
 
+    // Do not abort a breakthrough when the last raider can already see the enemy base.
+    // Otherwise two-unit waves retreat before pressuring buildings, perpetuating draws.
+    // Away from the enemy base, a lone survivor still regroups as before.
     if (this.raidUnitIds.size === 1) {
-      for (const id of this.raidUnitIds) this.retreatingUnitIds.add(id);
-      this.raidUnitIds.clear();
+      const [lastRaiderId] = this.raidUnitIds;
+      const survivor = byId.get(lastRaiderId);
+      const enemyBase = this.simulation.entities.get(this.team === 'red' ? 'blue-base' : 'red-base');
+      const canFinishAssault = survivor && enemyBase?.category === 'building'
+        && enemyBase.hp > 0
+        && this.simulation.fog.isEntityVisible(this.team, enemyBase)
+        && Math.hypot(survivor.x - enemyBase.x, survivor.y - enemyBase.y) <= 30;
+      if (!canFinishAssault) {
+        this.retreatingUnitIds.add(lastRaiderId);
+        this.raidUnitIds.clear();
+      }
     }
     for (const id of this.retreatingUnitIds) {
       const unit = byId.get(id)!;
