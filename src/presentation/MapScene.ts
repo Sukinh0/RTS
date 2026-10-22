@@ -144,6 +144,7 @@ export class MapScene extends Phaser.Scene {
   private terrainTexture?: Phaser.GameObjects.RenderTexture;
   private terrainTiles?: Phaser.GameObjects.TileSprite;
   private readonly entitySprites = new Map<string, Phaser.GameObjects.Image>();
+  private readonly visibleSpriteIds = new Set<string>();
   private readonly spriteVisualCache = new Map<string, { key: string; frame: number; x: number; y: number; size: number; depth?: number }>();
   private readonly terrainDetails: Phaser.GameObjects.Image[] = [];
   private readonly mountainFoliage: Phaser.GameObjects.Image[] = [];
@@ -1574,7 +1575,9 @@ export class MapScene extends Phaser.Scene {
     const graphics = this.entityGraphics;
     graphics.clear();
     this.drawTerrainDetails();
-    for (const sprite of this.entitySprites.values()) sprite.setVisible(false);
+    // Keep sprites that stay on-screen visible; avoid a needless hide/show of
+    // every displayed object on each render pass.
+    this.visibleSpriteIds.clear();
     Object.assign(this.lastEntityView, this.cameras.main.worldView);
     const visibleEntities = this.visualFog.visibleEntities();
     this.barricadeTopology.sync(this.simulation.entities.revision, visibleEntities
@@ -1588,6 +1591,7 @@ export class MapScene extends Phaser.Scene {
         const position = this.displayPositions.get(entity.id) ?? entity;
         const sprite = this.updateUnitSprite(entity, position.x, position.y);
         if (sprite) {
+          this.visibleSpriteIds.add(entity.id);
           graphics.lineStyle(1, entity.team === 'blue' ? 0x3a9f67 : 0xa84b4c, 0.9);
           graphics.strokeEllipse((position.x + 0.5) * CELL_SIZE, (position.y + 0.96) * CELL_SIZE,
             UNIT_VISUALS[entity.kind].visibleWidth + 2, WORLD_VISUAL_METRICS.unitSelectionEllipseHeight);
@@ -1610,6 +1614,7 @@ export class MapScene extends Phaser.Scene {
           .fillRect(barX, barY, Math.max(1, barW * hpPct), WORLD_VISUAL_METRICS.unitHpBarHeight);
       } else {
         const sprite = this.updateBuildingSprite(entity);
+        if (sprite) this.visibleSpriteIds.add(entity.id);
         if (sprite && !entity.underConstruction) {
           graphics.lineStyle(1, entity.team === 'blue' ? 0x3a9f67 : 0xa84b4c, 0.8);
           graphics.strokeRect(entity.x * CELL_SIZE, entity.y * CELL_SIZE,
@@ -1722,6 +1727,8 @@ export class MapScene extends Phaser.Scene {
         this.entitySprites.delete(id);
         this.spriteVisualCache.delete(id);
         this.attackVisualUntil.delete(id);
+      } else if (!this.visibleSpriteIds.has(id) && sprite.visible) {
+        sprite.setVisible(false);
       }
     }
   }
@@ -1762,7 +1769,8 @@ export class MapScene extends Phaser.Scene {
     if (motion && motion.path.length > 1) {
       sprite.setFlipX(motion.path[motion.path.length - 1][0] < motion.path[0][0]);
     }
-    sprite.setVisible(true).setAlpha(1);
+    if (!sprite.visible) sprite.setVisible(true);
+    if (sprite.alpha !== 1) sprite.setAlpha(1);
     this.spriteVisualCache.set(unit.id, { key, frame, x: px, y: py, size, depth });
     return sprite;
   }
