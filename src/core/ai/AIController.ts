@@ -43,6 +43,8 @@ export class AIController {
   private lastDecisionTick = -999;
   private readonly openingForward: number;
   private readonly openingVertical: number;
+  private readonly raidFlank: Point;
+  private raidFlankReached = false;
   private guardUnitId: string | null = null;
   private readonly raidUnitIds = new Set<string>();
   private readonly retreatingUnitIds = new Set<string>();
@@ -70,6 +72,11 @@ export class AIController {
     this.memory = new AIMemory(team);
     this.openingForward = 24 + Math.floor(simulation.rng.next() * 5) - 2;
     this.openingVertical = -12 + Math.floor(simulation.rng.next() * 5) - 2;
+    // Separate mirrored AI armies into different passable side corridors, varying
+    // the preferred side by match seed instead of using enemy information through fog.
+    const blueTakesNorth = (simulation.seed & 1) === 0;
+    const takesNorth = team === 'blue' ? blueTakesNorth : !blueTakesNorth;
+    this.raidFlank = [team === 'blue' ? 137 : 62, takesNorth ? 63 : 137];
   }
 
   getDebugState(): AIDebugState {
@@ -515,6 +522,7 @@ export class AIController {
     }
     const raidIds = attackers.filter((unit) => this.raidUnitIds.has(unit.id)).map((unit) => unit.id);
     if (raidIds.length === 0) {
+      this.raidFlankReached = false;
       if (threat) {
         this.setDecision('Defend', 95, 'Defend Base against Hostile Invaders', `Defenders engaging threat ${threat.id}`);
         return 'Defend';
@@ -563,12 +571,12 @@ export class AIController {
         return threat ? 'Defend' : 'AttackArmy';
       }
 
-      this.marchRaid(raidIds, this.memory.enemyBaseLocation);
+      const destination = this.marchRaid(raidIds, this.memory.enemyBaseLocation);
       this.setDecision(
         threat ? 'Defend' : 'AttackBase',
         80,
         'Advance Towards Enemy Base',
-        `Raid force (${raidIds.length} units) marching to (${this.memory.enemyBaseLocation[0]}, ${this.memory.enemyBaseLocation[1]})`,
+        `Raid force (${raidIds.length} units) marching to (${destination[0]}, ${destination[1]})`,
       );
       return threat ? 'Defend' : 'AttackBase';
     }
@@ -611,22 +619,37 @@ export class AIController {
     }
 
     const defaultMarch: Point = this.team === 'red' ? [24, 100] : [175, 100];
-    this.marchRaid(raidIds, defaultMarch);
+    const destination = this.marchRaid(raidIds, defaultMarch);
     this.setDecision(
       threat ? 'Defend' : 'AttackBase',
       80,
       'Advance Towards Enemy Territory',
-      `Raid force (${raidIds.length} units) marching to (${defaultMarch[0]}, ${defaultMarch[1]})`,
+      `Raid force (${raidIds.length} units) marching to (${destination[0]}, ${destination[1]})`,
     );
     return threat ? 'Defend' : 'AttackBase';
   }
 
-  private marchRaid(raidIds: string[], destination: Point): void {
+  private marchRaid(raidIds: string[], destination: Point): Point {
+    // One staging waypoint per wave; after crossing the side corridor the troops
+    // continue to the original objective instead of looping back to the flank.
+    if (!this.raidFlankReached) {
+      this.raidFlankReached = raidIds.some((id) => {
+        const unit = this.simulation.entities.get(id);
+        return unit?.category === 'unit'
+          && Math.max(Math.abs(unit.x - this.raidFlank[0]), Math.abs(unit.y - this.raidFlank[1])) <= 7;
+      });
+    }
+    const leadUnit = this.simulation.entities.get(raidIds[0]);
+    const canStage = !this.memory.enemyBaseLocation && !this.raidFlankReached
+      && leadUnit?.category === 'unit'
+      && this.simulation.map.hasStaticConnection([leadUnit.x, leadUnit.y], this.raidFlank);
+    const effectiveDestination: Point = canStage ? this.raidFlank : destination;
     const ready = raidIds.filter((id) => {
       const unit = this.simulation.entities.get(id);
       return unit?.category === 'unit' && !unit.moveTarget && !this.simulation.engagements.statusFor(id);
     });
-    if (ready.length > 0) dispatchGroupAttackMove(this.simulation, this.team, ready, destination);
+    if (ready.length > 0) dispatchGroupAttackMove(this.simulation, this.team, ready, effectiveDestination);
+    return effectiveDestination;
   }
 
   private findHomeRallyPoint(base: BuildingEntity): Point | null {
