@@ -1797,7 +1797,9 @@ export class MapScene extends Phaser.Scene {
     if (!cached || cached.depth !== depth) sprite.setDepth(depth);
     if (!cached || cached.x !== px || cached.y !== py) sprite.setPosition(px, py);
     this.spriteVisualCache.set(building.id, { key: resolvedKey, frame: 0, x: px, y: py, size: width, depth });
-    sprite.setVisible(true).setAlpha(building.underConstruction ? 0.52 : 1);
+    if (!sprite.visible) sprite.setVisible(true);
+    const opacity = building.underConstruction ? 0.52 : 1;
+    if (sprite.alpha !== opacity) sprite.setAlpha(opacity);
     return sprite;
   }
 
