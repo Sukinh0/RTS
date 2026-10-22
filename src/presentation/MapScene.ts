@@ -131,6 +131,8 @@ interface WorldEffect {
 
 /** Map rendering and camera input; logical terrain remains in MapGrid. */
 export class MapScene extends Phaser.Scene {
+  // All DOM controls are scoped to this scene instance and removed on shutdown.
+  private readonly domListeners = new AbortController();
   private readonly simulation = new Simulation(123, !new URLSearchParams(window.location.search).has('noai'));
   private readonly map = this.simulation.map;
   private readonly selection = new SelectionModel(this.simulation.entities, 'blue');
@@ -210,6 +212,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.events.once('shutdown', () => this.domListeners.abort());
     if (new URLSearchParams(window.location.search).has('perf')) this.events.once('create', () => this.installDiagnostics());
     const worldWidth = this.map.width * CELL_SIZE;
     const worldHeight = this.map.height * CELL_SIZE;
@@ -218,12 +221,14 @@ export class MapScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
     this.cameras.main.setZoom(this.getMapCoverZoom());
     this.cameras.main.centerOn((MAP_DEFINITION.teamStarts.blue.base[0] + 10) * CELL_SIZE, (MAP_DEFINITION.teamStarts.blue.base[1] + 2) * CELL_SIZE);
-    this.scale.on(Phaser.Scale.Events.RESIZE, () => {
+    const handleResize = () => {
       const camera = this.cameras.main;
       const minZoom = this.getMapCoverZoom();
       if (camera.zoom < minZoom) camera.setZoom(minZoom);
       camera.centerOn(camera.midPoint.x, camera.midPoint.y);
-    });
+    };
+    this.scale.on(Phaser.Scale.Events.RESIZE, handleResize);
+    this.events.once('shutdown', () => this.scale.off(Phaser.Scale.Events.RESIZE, handleResize));
     for (const entity of this.simulation.entities.all()) {
       if (entity.category === 'unit') this.displayPositions.set(entity.id, { x: entity.x, y: entity.y });
     }
@@ -322,7 +327,7 @@ export class MapScene extends Phaser.Scene {
       this.soundSystem.unlock();
       this.soundSystem.toggle();
       updateSoundBtn();
-    });
+    }, { signal: this.domListeners.signal });
 
     const keyboard = this.input.keyboard;
     if (keyboard) {
@@ -889,7 +894,7 @@ export class MapScene extends Phaser.Scene {
         this.handleEscape();
       }
     };
-    window.addEventListener('keydown', onEscapeKey);
+    window.addEventListener('keydown', onEscapeKey, { signal: this.domListeners.signal });
     this.events.on('shutdown', () => {
       window.removeEventListener('keydown', onEscapeKey);
     });
@@ -952,7 +957,7 @@ export class MapScene extends Phaser.Scene {
       this.hoverTooltipTimer = null;
       this.tooltipManager?.hideAt();
     };
-    gameCanvas?.addEventListener('pointerleave', hideWorldTooltip);
+    gameCanvas?.addEventListener('pointerleave', hideWorldTooltip, { signal: this.domListeners.signal });
     this.events.once('shutdown', () => {
       gameCanvas?.removeEventListener('pointerleave', hideWorldTooltip);
       this.tooltipManager?.destroy();
@@ -966,11 +971,11 @@ export class MapScene extends Phaser.Scene {
     const button = document.querySelector<HTMLButtonElement>('#btn-help');
     const closeButton = document.querySelector<HTMLButtonElement>('#btn-close-help');
     const dialog = document.querySelector<HTMLDialogElement>('#help-dialog');
-    button?.addEventListener('click', () => dialog?.showModal());
-    closeButton?.addEventListener('click', () => dialog?.close());
+    button?.addEventListener('click', () => dialog?.showModal(), { signal: this.domListeners.signal });
+    closeButton?.addEventListener('click', () => dialog?.close(), { signal: this.domListeners.signal });
     dialog?.addEventListener('click', (event) => {
       if (event.target === dialog) dialog.close();
-    });
+    }, { signal: this.domListeners.signal });
   }
 
   private setupSandboxControls(): void {
@@ -998,7 +1003,7 @@ export class MapScene extends Phaser.Scene {
       }
     };
 
-    toggleBtn?.addEventListener('click', () => togglePanel());
+    toggleBtn?.addEventListener('click', () => togglePanel(), { signal: this.domListeners.signal });
 
     if (isSandboxQuery) {
       togglePanel(true);
@@ -1012,7 +1017,7 @@ export class MapScene extends Phaser.Scene {
       this.simulation.addResources('blue', 5000, 5000, 5000);
       this.refreshTeamStatus();
       setMsg('Sandbox: +5.000 moedas, madeira e pedra adicionados!');
-    });
+    }, { signal: this.domListeners.signal });
 
     document.querySelector('#sb-inf-res')?.addEventListener('click', () => {
       this.simulation.teams.blue.coins = 99999;
@@ -1020,20 +1025,20 @@ export class MapScene extends Phaser.Scene {
       this.simulation.teams.blue.stone = 99999;
       this.refreshTeamStatus();
       setMsg('Sandbox: Recursos definidos para 99.999!');
-    });
+    }, { signal: this.domListeners.signal });
 
     // 2. Produção e Obra Instantânea
     const fastProd = document.querySelector<HTMLInputElement>('#sb-fast-prod');
     fastProd?.addEventListener('change', () => {
       this.simulation.production.instantProduction = !!fastProd.checked;
       setMsg(`Sandbox: Treino instantâneo ${fastProd.checked ? 'ATIVADO' : 'desativado'}.`);
-    });
+    }, { signal: this.domListeners.signal });
 
     const fastBuild = document.querySelector<HTMLInputElement>('#sb-fast-build');
     fastBuild?.addEventListener('change', () => {
       this.simulation.construction.instantBuild = !!fastBuild.checked;
       setMsg(`Sandbox: Obra instantânea ${fastBuild.checked ? 'ATIVADA' : 'desativada'}.`);
-    });
+    }, { signal: this.domListeners.signal });
 
     // 3. Velocidade
     const speedButtons = [
@@ -1047,7 +1052,7 @@ export class MapScene extends Phaser.Scene {
         document.querySelectorAll('.btn-speed').forEach((btn) => btn.classList.remove('active'));
         (e.currentTarget as HTMLElement)?.classList.add('active');
         setMsg(`Sandbox: Velocidade ajustada para ${speed}x.`);
-      });
+      }, { signal: this.domListeners.signal });
     }
 
     // 4. Spawns Instantâneos (Azul)
@@ -1068,7 +1073,7 @@ export class MapScene extends Phaser.Scene {
           this.refreshTeamStatus();
           setMsg(`Sandbox: ${LABELS[kind]} azul gerado em (${u.x}, ${u.y})!`);
         }
-      });
+      }, { signal: this.domListeners.signal });
     }
 
     document.querySelector('#sb-spawn-squad')?.addEventListener('click', () => {
@@ -1079,7 +1084,7 @@ export class MapScene extends Phaser.Scene {
       this.drawEntities();
       this.refreshTeamStatus();
       setMsg('Sandbox: Esquadrão de 5 soldados azuis gerado na base!');
-    });
+    }, { signal: this.domListeners.signal });
 
     document.querySelector('#sb-spawn-mixed-army')?.addEventListener('click', () => {
       const kinds: import('../core/entities/EntityStore').UnitKind[] = [
@@ -1095,7 +1100,7 @@ export class MapScene extends Phaser.Scene {
       this.drawEntities();
       this.refreshTeamStatus();
       setMsg('Sandbox: Exército misto de 10 tropas (2 escudeiros, 4 soldados, 2 arqueiros, 2 batedores) gerado!');
-    });
+    }, { signal: this.domListeners.signal });
 
     // 5. Inimigos & IA
     document.querySelector('#sb-spawn-enemy-squad')?.addEventListener('click', () => {
@@ -1105,7 +1110,7 @@ export class MapScene extends Phaser.Scene {
       }
       this.drawEntities();
       setMsg('Sandbox: 3 soldados inimigos vermelhos gerados no centro do mapa!');
-    });
+    }, { signal: this.domListeners.signal });
 
     const aiToggleBtn = document.querySelector<HTMLButtonElement>('#sb-toggle-ai');
     aiToggleBtn?.addEventListener('click', () => {
@@ -1114,7 +1119,7 @@ export class MapScene extends Phaser.Scene {
         aiToggleBtn.textContent = this.simulation.aiPaused ? 'Retomar IA' : 'Pausar IA';
       }
       setMsg(`Sandbox: IA Vermelha ${this.simulation.aiPaused ? 'PAUSADA' : 'RETOMADA'}.`);
-    });
+    }, { signal: this.domListeners.signal });
 
     // 6. Revelar Mapa
     const revealCheck = document.querySelector<HTMLInputElement>('#sb-reveal-map');
@@ -1126,7 +1131,7 @@ export class MapScene extends Phaser.Scene {
       this.drawEntities();
       this.minimap.render(this.cameras.main.worldView, CELL_SIZE, this.displayPositions, true);
       setMsg(`Sandbox: Visão de mapa inteiro ${revealCheck.checked ? 'ATIVADA' : 'desativada'}.`);
-    });
+    }, { signal: this.domListeners.signal });
   }
 
   private toggleAttackMoveMode(): void {
@@ -1532,7 +1537,7 @@ export class MapScene extends Phaser.Scene {
       }
     }
     panel?.removeAttribute('hidden');
-    document.querySelector('#restart-game')?.addEventListener('click', () => window.location.reload(), { once: true });
+    document.querySelector('#restart-game')?.addEventListener('click', () => window.location.reload(), { once: true , signal: this.domListeners.signal });
     (document.querySelector('#restart-game') as HTMLButtonElement | null)?.focus();
   }
 
@@ -2142,7 +2147,7 @@ export class MapScene extends Phaser.Scene {
         minHeight: '28px', border: '1px solid #d4b06a', borderRadius: '4px',
         background: item.color, color: '#fff4d4', font: 'bold 12px Arial, sans-serif', cursor: 'pointer',
       });
-      button.addEventListener('click', item.run);
+      button.addEventListener('click', item.run, { signal: this.domListeners.signal });
       grid.append(button);
     }
     panel.append(grid);
@@ -2556,32 +2561,32 @@ export class MapScene extends Phaser.Scene {
           document.querySelector('#btn-attack-move')?.addEventListener('click', () => {
             this.soundSystem.play('click');
             this.toggleAttackMoveMode();
-          });
+          }, { signal: this.domListeners.signal });
           document.querySelector('#btn-build-house')?.addEventListener('click', () => {
             this.soundSystem.play('click');
             this.placementMode = { kind: 'house', width: 2, height: 2 };
             const fb = document.querySelector('#command-feedback');
             if (fb) fb.textContent = 'Clique no mapa para posicionar a Casa (2×2). Botão direito cancela.';
-          });
+          }, { signal: this.domListeners.signal });
           document.querySelector('#btn-build-barracks')?.addEventListener('click', () => {
             this.soundSystem.play('click');
             this.placementMode = { kind: 'barracks', width: 3, height: 3 };
             const fb = document.querySelector('#command-feedback');
             if (fb) fb.textContent = 'Clique no mapa para posicionar o Quartel (3×3). Botão direito cancela.';
-          });
+          }, { signal: this.domListeners.signal });
           if (isBuilder) {
             document.querySelector('#btn-build-barricade')?.addEventListener('click', () => {
               this.soundSystem.play('click');
               this.placementMode = { kind: 'barricade', width: 1, height: 1 };
               const fb = document.querySelector('#command-feedback');
               if (fb) fb.textContent = 'Clique no mapa para posicionar a Barricada (1×1). Botão direito cancela.';
-            });
+            }, { signal: this.domListeners.signal });
             document.querySelector('#btn-build-tower')?.addEventListener('click', () => {
               this.soundSystem.play('click');
               this.placementMode = { kind: 'tower', width: 2, height: 2 };
               const fb = document.querySelector('#command-feedback');
               if (fb) fb.textContent = 'Clique no mapa para posicionar a Torre de Vigilância (2×2). Botão direito cancela.';
-            });
+            }, { signal: this.domListeners.signal });
           }
         } else if (targetMode.startsWith('units:')) {
           const militaryCount = blueUnits.filter((u) => isMilitaryKind(u.kind)).length;
@@ -2604,7 +2609,7 @@ export class MapScene extends Phaser.Scene {
           document.querySelector('#btn-attack-move')?.addEventListener('click', () => {
             this.soundSystem.play('click');
             this.toggleAttackMoveMode();
-          });
+          }, { signal: this.domListeners.signal });
           if (militaryCount >= 2) {
             document.querySelector('#btn-formation-none')?.addEventListener('click', () => {
               this.soundSystem.play('click');
@@ -2616,7 +2621,7 @@ export class MapScene extends Phaser.Scene {
               const fb = document.querySelector('#command-feedback');
               if (fb) fb.textContent = 'Modo Livre selecionado (sem formação). Movimentação e ataque livres.';
               this.refreshSelection();
-            });
+            }, { signal: this.domListeners.signal });
             const bindFormation = (id: string, fmt: FormationType, label: string) => {
               document.querySelector(id)?.addEventListener('click', () => {
                 this.soundSystem.play('click');
@@ -2624,7 +2629,7 @@ export class MapScene extends Phaser.Scene {
                 const fb = document.querySelector('#command-feedback');
                 if (fb) fb.textContent = `Formação ${label} selecionada. Clique com o botão direito para movimentar.`;
                 this.refreshSelection();
-              });
+              }, { signal: this.domListeners.signal });
             };
             bindFormation('#btn-formation-line', 'line', 'Linha');
             bindFormation('#btn-formation-wedge', 'wedge', 'Cunha');
@@ -2658,7 +2663,7 @@ export class MapScene extends Phaser.Scene {
               if (fb) fb.textContent = res.accepted ? 'Operário adicionado à fila de produção.' : `Produção indisponível: ${rejection(res.reason)}.`;
               this.refreshSelection();
               this.refreshTeamStatus();
-            });
+            }, { signal: this.domListeners.signal });
             document.querySelector('#btn-produce-builder')?.addEventListener('click', () => {
               const res = this.simulation.issueCommand({ type: 'produce', team: 'blue', buildingId: house.id, unitKind: 'builder' });
               if (res.accepted) this.soundSystem.play('order');
@@ -2666,18 +2671,18 @@ export class MapScene extends Phaser.Scene {
               if (fb) fb.textContent = res.accepted ? 'Construtor adicionado à fila de produção.' : `Produção indisponível: ${rejection(res.reason)}.`;
               this.refreshSelection();
               this.refreshTeamStatus();
-            });
+            }, { signal: this.domListeners.signal });
             document.querySelector('#btn-set-rally')?.addEventListener('click', () => {
               this.soundSystem.play('click');
               this.toggleRallyPlacementMode(house.id);
-            });
+            }, { signal: this.domListeners.signal });
             document.querySelector('#btn-clear-rally')?.addEventListener('click', () => {
               this.soundSystem.play('click');
               const res = this.simulation.issueCommand({ type: 'set-rally-point', team: 'blue', buildingId: house.id, point: null });
               const fb = document.querySelector('#command-feedback');
               if (fb) fb.textContent = res.accepted ? 'Ponto de reunião removido.' : 'Erro ao remover ponto de reunião.';
               this.refreshSelection();
-            });
+            }, { signal: this.domListeners.signal });
           }
         } else if (targetMode.startsWith('barracks:')) {
           const barracks = (selected.find((e): e is BuildingEntity => e.category === 'building' && e.team === 'blue') ?? selected[0]) as BuildingEntity;
@@ -2706,7 +2711,7 @@ export class MapScene extends Phaser.Scene {
                 if (fb) fb.textContent = res.accepted ? `${LABELS[kind]} adicionado à fila de produção.` : `Produção indisponível: ${rejection(res.reason)}.`;
                 this.refreshSelection();
                 this.refreshTeamStatus();
-              });
+              }, { signal: this.domListeners.signal });
             };
             bindProduce('#btn-produce-soldier', 'soldier');
             bindProduce('#btn-produce-archer', 'archer');
@@ -2715,14 +2720,14 @@ export class MapScene extends Phaser.Scene {
             document.querySelector('#btn-set-rally')?.addEventListener('click', () => {
               this.soundSystem.play('click');
               this.toggleRallyPlacementMode(barracks.id);
-            });
+            }, { signal: this.domListeners.signal });
             document.querySelector('#btn-clear-rally')?.addEventListener('click', () => {
               this.soundSystem.play('click');
               const res = this.simulation.issueCommand({ type: 'set-rally-point', team: 'blue', buildingId: barracks.id, point: null });
               const fb = document.querySelector('#command-feedback');
               if (fb) fb.textContent = res.accepted ? 'Ponto de reunião removido.' : 'Erro ao remover ponto de reunião.';
               this.refreshSelection();
-            });
+            }, { signal: this.domListeners.signal });
           }
         } else if (targetMode.startsWith('tower:')) {
           const tower = (selected.find((e): e is BuildingEntity => e.category === 'building' && e.kind === 'tower' && e.team === 'blue') ?? selected[0]) as BuildingEntity;
