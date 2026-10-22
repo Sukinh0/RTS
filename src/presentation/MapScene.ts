@@ -1385,7 +1385,9 @@ export class MapScene extends Phaser.Scene {
     const graphics = this.entityGraphics;
     graphics.clear();
     this.drawTerrainDetails();
-    for (const sprite of this.entitySprites.values()) sprite.setVisible(false);
+    // Preserve visibility for sprites that remain on screen; hiding all and
+    // re-showing every sprite on each redraw causes unnecessary display-list churn.
+    const activeSpriteIds = new Set<string>();
     Object.assign(this.lastEntityView, this.cameras.main.worldView);
     for (const entity of this.visualFog.visibleEntities()) {
       const position = entity.category === 'unit' ? this.displayPositions.get(entity.id) ?? entity : entity;
@@ -1395,6 +1397,7 @@ export class MapScene extends Phaser.Scene {
         const position = this.displayPositions.get(entity.id) ?? entity;
         const sprite = this.updateUnitSprite(entity, position.x, position.y);
         if (sprite) {
+          activeSpriteIds.add(entity.id);
           graphics.lineStyle(1, entity.team === 'blue' ? 0x3a9f67 : 0xa84b4c, 0.9);
           graphics.strokeEllipse((position.x + 0.5) * CELL_SIZE, (position.y + 0.88) * CELL_SIZE, 10, 4);
         }
@@ -1413,6 +1416,7 @@ export class MapScene extends Phaser.Scene {
           .fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE - 3, Math.max(1, barW * hpPct), 2);
       } else {
         const sprite = this.updateBuildingSprite(entity);
+        if (sprite) activeSpriteIds.add(entity.id);
         if (sprite && !entity.underConstruction) {
           graphics.lineStyle(1, entity.team === 'blue' ? 0x3a9f67 : 0xa84b4c, 0.8);
           graphics.strokeRect(entity.x * CELL_SIZE, entity.y * CELL_SIZE,
@@ -1522,6 +1526,8 @@ export class MapScene extends Phaser.Scene {
         this.entitySprites.delete(id);
         this.spriteVisualCache.delete(id);
         this.attackVisualUntil.delete(id);
+      } else if (!activeSpriteIds.has(id) && sprite.visible) {
+        sprite.setVisible(false);
       }
     }
   }
@@ -1557,7 +1563,8 @@ export class MapScene extends Phaser.Scene {
     if (motion && motion.path.length > 1) {
       sprite.setFlipX(motion.path[motion.path.length - 1][0] < motion.path[0][0]);
     }
-    sprite.setVisible(true).setAlpha(1);
+    if (!sprite.visible) sprite.setVisible(true);
+    if (sprite.alpha !== 1) sprite.setAlpha(1);
     this.spriteVisualCache.set(unit.id, { key, frame, x: px, y: py, size });
     return sprite;
   }
@@ -1578,7 +1585,9 @@ export class MapScene extends Phaser.Scene {
     if (!cached || cached.size !== width) sprite.setDisplaySize(width, height);
     if (!cached || cached.x !== px || cached.y !== py) sprite.setPosition(px, py);
     this.spriteVisualCache.set(building.id, { key, frame: 0, x: px, y: py, size: width });
-    sprite.setVisible(true).setAlpha(building.underConstruction ? 0.52 : 1);
+    if (!sprite.visible) sprite.setVisible(true);
+    const alpha = building.underConstruction ? 0.52 : 1;
+    if (sprite.alpha !== alpha) sprite.setAlpha(alpha);
     return sprite;
   }
 
