@@ -50,10 +50,16 @@ jobs:
         run: npx vitest run src/core/ai/AIController.test.ts
       - name: Replay natural-resource AI vs AI match
         run: npm run diagnose:ai -- --seed=123 --seconds=900 --interval=120 | tee ai-diagnostics.log
+      - name: Run four seeded tournament games (20 minute cap)
+        run: |
+          npm run simulate -- --games=4 --seed=123 --max-seconds=1200 --out=reports-ci
+          node -e "const r=require('./reports-ci/simulation-4games-seed123.json'); console.log(JSON.stringify({wins:r.wins,draws:r.draws,combats:r.matches.map(x=>({seed:x.seed,order:x.aiOrder,first:x.firstCombatSeconds,attacks:x.attacks,baseHp:x.baseHp}))},null,2))"
       - name: Save headless diagnostic
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ai-offense-diagnostics
-          path: ai-diagnostics.log
+          path: |
+            ai-diagnostics.log
+            reports-ci/
           if-no-files-found: ignore
