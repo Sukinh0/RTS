@@ -280,8 +280,13 @@ export class MapScene extends Phaser.Scene {
       status('Lendo os sprites localmente, sem envio...');
       try {
         const result = await loadTinySwordsZip(this, zip);
-        status(`Carregadas ${result.loaded} de ${result.total} texturas; reiniciando partida...`);
-        this.scene.restart();
+        status(`Carregadas ${result.loaded} de ${result.total} texturas; iniciando uma nova partida...`);
+        // Phaser.scene.restart() reuses this MapScene instance and retains stale
+        // caches/sprites. Replace the Scene instance, keeping textures in Game.
+        const game = this.game;
+        this.scene.stop();
+        game.scene.remove('Map');
+        game.scene.add('Map', new MapScene(), true);
       } catch (error) {
         status(error instanceof Error ? error.message : 'Falha ao importar o ZIP');
       } finally {
