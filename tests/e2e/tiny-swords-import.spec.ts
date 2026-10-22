@@ -1,4 +1,4 @@
-import { deflateSync } from 'node:zlib';
+import { deflateRawSync, deflateSync } from 'node:zlib';
 import { expect, test } from '@playwright/test';
 
 const files = [
@@ -62,28 +62,32 @@ function zipWithStoredPngs(): Buffer {
   const localParts: Buffer[] = [];
   const directoryParts: Buffer[] = [];
   let localOffset = 0;
-  for (const file of files) {
+  for (const [index, file] of files.entries()) {
     const name = Buffer.from(`Tiny Swords (Free Pack)/${file}`);
+    const method = index % 2 === 0 ? 8 : 0;
+    const payload = method === 8 ? deflateRawSync(png) : png;
     const check = crc32(png);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50);
     local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(method, 8);
     local.writeUInt32LE(check, 14);
-    local.writeUInt32LE(png.length, 18);
+    local.writeUInt32LE(payload.length, 18);
     local.writeUInt32LE(png.length, 22);
     local.writeUInt16LE(name.length, 26);
-    localParts.push(local, name, png);
+    localParts.push(local, name, payload);
     const central = Buffer.alloc(46);
     central.writeUInt32LE(0x02014b50);
     central.writeUInt16LE(20, 4);
     central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(method, 10);
     central.writeUInt32LE(check, 16);
-    central.writeUInt32LE(png.length, 20);
+    central.writeUInt32LE(payload.length, 20);
     central.writeUInt32LE(png.length, 24);
     central.writeUInt16LE(name.length, 28);
     central.writeUInt32LE(localOffset, 42);
     directoryParts.push(central, name);
-    localOffset += local.length + name.length + png.length;
+    localOffset += local.length + name.length + payload.length;
   }
   const directory = Buffer.concat(directoryParts);
   const end = Buffer.alloc(22);
@@ -95,7 +99,7 @@ function zipWithStoredPngs(): Buffer {
   return Buffer.concat([...localParts, directory, end]);
 }
 
-test('imports an original synthetic local ZIP, reboots match and keeps graphics available', async ({ page }) => {
+test('imports a synthetic ZIP with stored and deflate-raw PNGs and reboots without duplicate listeners', async ({ page }) => {
   await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
   const initial = await page.locator('#gold-value').textContent();
