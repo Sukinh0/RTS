@@ -37,6 +37,21 @@ describe('Fase 1 map', () => {
     }
   });
 
+  it('maintains a wider southern side passage for small squad formations', () => {
+    // Flank balance experiment: x=76..81 and its mirror are water walls.
+    // Southern passage y=129..142 is now wide enough for two squads to maneuver.
+    for (const x of [76, 79, 81, 118, 120, 123]) {
+      for (const y of [129, 130, 131, 132, 137, 142]) {
+        expect(map.isPassable(x, y)).toBe(true);
+      }
+      expect(map.isPassable(x, 128)).toBe(false);
+      expect(map.isPassable(x, 143)).toBe(false);
+    }
+    // Do not accidentally open new cross-map passages through northern water.
+    expect(map.isPassable(76, 67)).toBe(true);
+    expect(map.isPassable(76, 68)).toBe(false);
+  });
+
   it('rejects terrain patches outside map bounds', () => {
     expect(() => new MapGrid({
       ...MAP_DEFINITION,
