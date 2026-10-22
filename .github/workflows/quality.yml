@@ -21,7 +21,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
       - name: Diagnose AI offense from initial resources
         run: npm run diagnose:ai -- --seconds=900 --interval=180
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
