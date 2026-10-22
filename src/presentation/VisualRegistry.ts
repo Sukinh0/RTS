@@ -255,10 +255,59 @@ export function buildingKey(team: Team, kind: BuildingKind): string {
   return kind === 'barricade' ? 'tiny-stone' : `tiny-building-${team}-${kind}`;
 }
 
+
+export interface TinySwordsLocalAsset {
+  key: string;
+  path: string;
+  frameWidth?: number;
+  frameHeight?: number;
+  frames?: number;
+}
+
+/** Mirrors the regular Phaser loader, but never includes generated builder derivatives. */
+export function tinySwordsLocalManifest(): TinySwordsLocalAsset[] {
+  const specs: TinySwordsLocalAsset[] = [];
+  for (const [name, path] of Object.entries(staticAssets)) {
+    const asset: TinySwordsLocalAsset = { key: `tiny-${name}`, path };
+    if (name === 'tree1' || name === 'tree2') { asset.frameWidth = 192; asset.frameHeight = 256; }
+    else if (['tree3', 'tree4', 'waterFoam', 'explosion'].includes(name)) {
+      asset.frameWidth = 192; asset.frameHeight = 192;
+    } else if (name.startsWith('bush')) { asset.frameWidth = 128; asset.frameHeight = 128; }
+    else if (name.startsWith('waterRock') || name === 'dust') {
+      asset.frameWidth = 64; asset.frameHeight = 64;
+    }
+    specs.push(asset);
+  }
+  const seen = new Set<string>();
+  for (const team of ['blue', 'red'] as const) {
+    const color = teamColor[team];
+    for (const [kind, definition] of Object.entries(UNIT_VISUALS) as [UnitKind, UnitVisualDefinition][]) {
+      for (const [state, sheet] of Object.entries(definition.states) as [UnitVisualState, Sheet][]) {
+        const key = unitSheetKey(team, kind, state);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const size = sheet.frameSize ?? 192;
+        specs.push({
+          key, path: `Units/${color} Units/${definition.family}/${sheet.file}.png`,
+          frameWidth: size, frameHeight: size, frames: sheet.frames,
+        });
+      }
+    }
+    for (const [kind, file] of Object.entries(buildingFiles) as [BuildingKind, string][]) {
+      if (file) specs.push({
+        key: buildingKey(team, kind),
+        path: `Buildings/${color} Buildings/${file}.png`,
+      });
+    }
+  }
+  return specs;
+}
+
 export function preloadTinySwords(scene: Phaser.Scene): void {
   const loaded = new Set<string>();
   for (const [key, file] of Object.entries(staticAssets)) {
     const id = `tiny-${key}`;
+    if (scene.textures.exists(id)) continue;
     if (key === 'tree1' || key === 'tree2') scene.load.spritesheet(id, encodeURI(root + file), { frameWidth: 192, frameHeight: 256 });
     else if (key === 'tree3' || key === 'tree4') scene.load.spritesheet(id, encodeURI(root + file), { frameWidth: 192, frameHeight: 192 });
     else if (key === 'bush') scene.load.spritesheet(id, encodeURI(root + file), { frameWidth: 128, frameHeight: 128 });
@@ -275,7 +324,7 @@ export function preloadTinySwords(scene: Phaser.Scene): void {
     for (const [kind, definition] of Object.entries(UNIT_VISUALS) as [UnitKind, UnitVisualDefinition][]) {
       for (const [state, sheet] of Object.entries(definition.states) as [UnitVisualState, Sheet][]) {
         const key = unitSheetKey(team, kind, state);
-        if (loaded.has(key)) continue;
+        if (loaded.has(key) || scene.textures.exists(key)) continue;
         loaded.add(key);
         const size = sheet.frameSize ?? 192;
         scene.load.spritesheet(key,
@@ -284,11 +333,11 @@ export function preloadTinySwords(scene: Phaser.Scene): void {
       }
     }
     for (const [kind, file] of Object.entries(buildingFiles) as [BuildingKind, string][]) {
-      if (file) scene.load.image(buildingKey(team, kind), encodeURI(`${root}Buildings/${color} Buildings/${file}.png`));
+      if (file && !scene.textures.exists(buildingKey(team, kind))) scene.load.image(buildingKey(team, kind), encodeURI(`${root}Buildings/${color} Buildings/${file}.png`));
     }
     for (const [state, sheet] of Object.entries(UNIT_VISUALS.builder.states) as [UnitVisualState, Sheet][]) {
       const key = builderUnitSheetKey(team, state);
-      if (loaded.has(key)) continue;
+      if (loaded.has(key) || scene.textures.exists(key)) continue;
       loaded.add(key);
       const size = sheet.frameSize ?? 192;
       scene.load.spritesheet(key,
