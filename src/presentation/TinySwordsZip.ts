@@ -85,19 +85,16 @@ export async function loadTinySwordsZip(scene: Phaser.Scene, zip: File): Promise
     const normalized = record.name.replace(/^.*?(?=Terrain\/|Units\/|Buildings\/|Particle FX\/)/, '');
     entries.set(normalized.toLowerCase(), record);
   }
-  const matching = manifest.flatMap((asset) => {
-    // Reusing cached textures also avoids needless decompression on re-import.
+  const found = manifest.flatMap((asset) => {
     const record = entries.get(asset.path.toLowerCase());
-    return record && !scene.textures.exists(asset.key) ? [{ asset, record }] : [];
+    return record ? [{ asset, record }] : [];
   });
-  if (matching.length < 15) {
-    // A fully imported pack can be selected again in the same browser tab.
-    const alreadyPresent = manifest.filter((asset) => scene.textures.exists(asset.key)).length;
-    if (alreadyPresent >= 15 && matching.length === 0) return { loaded: 0, total: manifest.length };
-    if (matching.length + alreadyPresent < 15) {
-      throw new Error('O ZIP não corresponde ao Tiny Swords (Free Pack) oficial.');
-    }
+  if (found.length < 15) {
+    throw new Error('O ZIP não corresponde ao Tiny Swords (Free Pack) oficial.');
   }
+  // Reusing cached textures also avoids needless decompression on re-import.
+  const matching = found.filter(({ asset }) => !scene.textures.exists(asset.key));
+  if (matching.length === 0) return { loaded: 0, total: manifest.length };
   const urls: string[] = [];
   let success = 0;
   try {
