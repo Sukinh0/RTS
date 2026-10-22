@@ -216,8 +216,8 @@ export class MapScene extends Phaser.Scene {
     const displayTinyStatus = (message: string) => { if (tinyStatus) tinyStatus.textContent = message; };
     displayTinyStatus(this.textures.exists('tiny-unit-blue-Warrior-WarriorIdle')
       ? 'Tiny Swords ativo' : 'Arte provisória — selecione o ZIP oficial');
-    tinyButton?.addEventListener('click', () => tinyInput?.click());
-    tinyInput?.addEventListener('change', async () => {
+    if (tinyButton) tinyButton.onclick = () => tinyInput?.click();
+    if (tinyInput) tinyInput.onchange = async () => {
       const zip = tinyInput.files?.[0];
       if (!zip) return;
       tinyButton?.setAttribute('disabled', 'true');
@@ -233,7 +233,7 @@ export class MapScene extends Phaser.Scene {
         tinyButton?.removeAttribute('disabled');
         tinyInput.value = '';
       }
-    });
+    };
     this.input.mouse?.disableContextMenu();
     (window as Window & { __simulation?: Simulation }).__simulation = this.simulation;
 
