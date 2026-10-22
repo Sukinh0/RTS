@@ -6,3 +6,6 @@ debug.log
 external-assets/
 public/assets/tiny-swords/
 reports/performance/tiny-swords*
+
+# Derived Tiny Swords sprites are generated locally; never redistribute the pack.
+public/assets/generated/builder/

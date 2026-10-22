@@ -479,8 +479,18 @@ export class AIController {
     }
 
     if (this.raidUnitIds.size === 1) {
-      for (const id of this.raidUnitIds) this.retreatingUnitIds.add(id);
-      this.raidUnitIds.clear();
+      const [lastId] = this.raidUnitIds;
+      const survivor = byId.get(lastId);
+      const target = this.simulation.entities.get(this.team === 'red' ? 'blue-base' : 'red-base');
+      // A breakthrough must not retreat just because it lost one raider.
+      // Keep the ordinary withdrawal outside visible enemy-base territory.
+      const nearVisibleBase = survivor && target?.category === 'building'
+        && target.hp > 0 && this.simulation.fog.isEntityVisible(this.team, target)
+        && Math.hypot(survivor.x - target.x, survivor.y - target.y) <= 30;
+      if (!nearVisibleBase) {
+        this.retreatingUnitIds.add(lastId);
+        this.raidUnitIds.clear();
+      }
     }
     for (const id of this.retreatingUnitIds) {
       const unit = byId.get(id)!;
@@ -499,8 +509,9 @@ export class AIController {
         this.raidUnitIds.add(unit.id);
       }
     }
-    // A new wave needs three fighters. Fresh reinforcements wait for another full wave.
-    if (!threat && reserves.length >= 3) {
+    // Two raiders plus a home guard can leave with natural starting resources.
+    // Waiting for three reserves kept both AIs in Rally for entire matches.
+    if (!threat && reserves.length >= 2) {
       for (const unit of reserves) this.raidUnitIds.add(unit.id);
     }
     const raidIds = attackers.filter((unit) => this.raidUnitIds.has(unit.id)).map((unit) => unit.id);
@@ -519,6 +530,17 @@ export class AIController {
     if (this.memory.enemyBaseLocation) {
       const enemyBase = this.simulation.entities.get(this.team === 'red' ? 'blue-base' : 'red-base');
       if (enemyBase && this.simulation.fog.isEntityVisible(this.team, enemyBase)) {
+        // Only target support units perceived through normal fog-of-war.
+        // Builders close to the base can otherwise repair faster than a small wave attacks.
+        const repairSupport = visibleEnemies.find((enemy) => enemy.category === 'unit'
+          && enemy.kind === 'builder'
+          && Math.hypot(enemy.x - enemyBase.x, enemy.y - enemyBase.y) <= 12);
+        if (repairSupport) {
+          dispatchGroupAttack(this.simulation, this.team, raidIds, repairSupport.id);
+          this.setDecision('AttackArmy', 90, 'Disable Visible Repair Support',
+            `Raid targeting visible repair support ${repairSupport.id}`);
+          return 'AttackArmy';
+        }
         dispatchGroupAttack(this.simulation, this.team, raidIds, enemyBase.id);
         this.setDecision(
           threat ? 'Defend' : 'AttackBase',

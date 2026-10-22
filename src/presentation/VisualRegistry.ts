@@ -198,7 +198,7 @@ export function ySortedWorldDepth(footCellY: number, tieBreak = 0): number {
     + tieBreak * WORLD_VISUAL_METRICS.ySortTieBreak;
 }
 
-const root = '/assets/tiny-swords/';
+const root = `${import.meta.env.BASE_URL}assets/tiny-swords/`;
 const teamColor: Record<Team, string> = { blue: 'Yellow', red: 'Red' };
 const staticAssets = {
   terrain: 'Terrain/Tileset/Tilemap_color3.png',
@@ -292,7 +292,7 @@ export function preloadTinySwords(scene: Phaser.Scene): void {
       loaded.add(key);
       const size = sheet.frameSize ?? 192;
       scene.load.spritesheet(key,
-        encodeURI(`/assets/generated/builder/${color} Units/Pawn/${sheet.file}.png`),
+        encodeURI(`${import.meta.env.BASE_URL}assets/generated/builder/${color} Units/Pawn/${sheet.file}.png`),
         { frameWidth: size, frameHeight: size, endFrame: sheet.frames - 1 });
     }
   }
