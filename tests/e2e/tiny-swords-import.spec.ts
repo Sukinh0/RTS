@@ -108,4 +108,9 @@ test('imports an original synthetic local ZIP, reboots match and keeps graphics 
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('#gold-value')).toHaveText(initial ?? '');
   await expect(page.locator('#btn-load-tiny')).toBeEnabled();
+  // Old scenes must not leave duplicate DOM handlers behind: one click = one toggle.
+  const sound = page.locator('#btn-sound-toggle');
+  const initialSoundLabel = await sound.getAttribute('aria-label');
+  await sound.click();
+  await expect(sound).not.toHaveAttribute('aria-label', initialSoundLabel ?? '');
 });
