@@ -53,7 +53,7 @@ jobs:
       - name: Run twenty mirrored tournament games (20 minute cap)
         run: |
           npm run simulate -- --games=20 --seed=123 --max-seconds=1200 --out=reports-ci
-          node -e "const r=require('./reports-ci/simulation-20games-seed123.json'); console.log(JSON.stringify({wins:r.wins,draws:r.draws,firstCombats:r.matches.filter(x=>x.firstCombatSeconds!==null).length,basePressure:r.matches.filter(x=>x.firstBaseAttackSeconds!==null).length,northTeamWins:r.matches.filter(x=>x.winner!==null&&x.winner===(x.seed%2===0?'blue':'red')).length,examples:r.matches.map(x=>({seed:x.seed,order:x.aiOrder,winner:x.winner,first:x.firstCombatSeconds,firstBase:x.firstBaseAttackSeconds,baseDamage:x.baseDamageDealt}))},null,2))"
+          node -e "const r=require('./reports-ci/simulation-20games-seed123.json'); console.log(JSON.stringify({wins:r.wins,draws:r.draws,firstCombats:r.matches.filter(x=>x.firstCombatSeconds!==null).length,basePressure:r.matches.filter(x=>x.firstBaseAttackSeconds!==null).length,northTeamWins:r.matches.filter(x=>x.winner!==null&&x.winner===(x.seed%2===0?'blue':'red')).length,examples:r.matches.map(x=>({seed:x.seed,order:x.aiOrder,winner:x.winner,first:x.firstCombatSeconds,firstBase:x.firstBaseAttackSeconds,baseDamage:x.baseDamageDealt}))},null,2)); if (r.wins.blue===0 || r.wins.red===0 || r.matches.filter(x=>x.firstCombatSeconds!==null).length!==r.games || r.matches.filter(x=>x.firstBaseAttackSeconds!==null).length<10) {console.error('AI tournament regression: missing combat, base pressure, or a winner from each team');process.exit(1)}"
       - name: Save headless diagnostic
         if: always()
         uses: actions/upload-artifact@v4
