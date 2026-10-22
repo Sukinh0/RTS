@@ -16,6 +16,7 @@ export function readZipDirectory(buffer: ArrayBuffer): ZipRecord[] {
   const start = view.getUint32(tail + 16, true);
   if (count > 1600 || start > bytes.length) throw new Error('Pacote ZIP inválido ou grande demais.');
   const results: ZipRecord[] = [];
+  let expandedTotal = 0;
   let offset = start;
   for (let i = 0; i < count; i++) {
     if (offset + 46 > bytes.length || view.getUint32(offset, true) !== 0x02014b50) {
@@ -33,6 +34,12 @@ export function readZipDirectory(buffer: ArrayBuffer): ZipRecord[] {
     const name = new TextDecoder().decode(bytes.subarray(offset + 46, offset + 46 + nameLength)).replaceAll('\\', '/');
     if (name.toLowerCase().endsWith('.png')) {
       if (expanded > 12 * 1024 * 1024) throw new Error('Imagem ZIP excessivamente grande.');
+      expandedTotal += expanded;
+      // Bound the *expanded* data, not only the compressed ZIP size, to avoid
+      // exhausting browser memory on accidentally/maliciously huge archives.
+      if (expandedTotal > 160 * 1024 * 1024) {
+        throw new Error('ZIP descompactado excede o limite seguro de 160 MB.');
+      }
       if (local + 30 > bytes.length || view.getUint32(local, true) !== 0x04034b50) {
         throw new Error('Cabeçalho ZIP inválido.');
       }
@@ -57,7 +64,7 @@ async function decodePng(buffer: ArrayBuffer, item: ZipRecord): Promise<Blob> {
     decoded = new Blob([await new Response(stream).arrayBuffer()], { type: 'image/png' });
   } else throw new Error('Compressão ZIP não suportada.');
   const data = new Uint8Array(await decoded.slice(0, 8).arrayBuffer());
-  if (data.length !== 8 || data[0] !== 137 || data[1] !== 80 || data[2] !== 78 || data[3] !== 71) {
+  if (data.length !== 8 || ![137, 80, 78, 71, 13, 10, 26, 10].every((byte, index) => data[index] === byte)) {
     throw new Error('PNG inválido no pacote Tiny Swords.');
   }
   if (decoded.size !== item.expanded) throw new Error('Tamanho de PNG inválido no ZIP.');
@@ -79,11 +86,17 @@ export async function loadTinySwordsZip(scene: Phaser.Scene, zip: File): Promise
     entries.set(normalized.toLowerCase(), record);
   }
   const matching = manifest.flatMap((asset) => {
+    // Reusing cached textures also avoids needless decompression on re-import.
     const record = entries.get(asset.path.toLowerCase());
-    return record ? [{ asset, record }] : [];
+    return record && !scene.textures.exists(asset.key) ? [{ asset, record }] : [];
   });
   if (matching.length < 15) {
-    throw new Error('O ZIP não corresponde ao Tiny Swords (Free Pack) oficial.');
+    // A fully imported pack can be selected again in the same browser tab.
+    const alreadyPresent = manifest.filter((asset) => scene.textures.exists(asset.key)).length;
+    if (alreadyPresent >= 15 && matching.length === 0) return { loaded: 0, total: manifest.length };
+    if (matching.length + alreadyPresent < 15) {
+      throw new Error('O ZIP não corresponde ao Tiny Swords (Free Pack) oficial.');
+    }
   }
   const urls: string[] = [];
   let success = 0;
