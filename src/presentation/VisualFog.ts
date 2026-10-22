@@ -100,6 +100,7 @@ export class VisualFog {
 
   rawTerrain(x: number, y: number): Terrain | null {
     if (!this.map.contains(x, y)) return null;
+    if (this.revealAll) return this.map.cellAt(x, y)?.terrain ?? null;
     return this.terrain[this.index(x, y)];
   }
 

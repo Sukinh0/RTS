@@ -4,7 +4,28 @@
   <body>
     <main id="game" aria-label="Mapa RTS V1"></main>
     <aside id="hud" aria-label="Painel do jogo">
-      <header><div class="header-title"><strong>RTS V1</strong><span>MAPA DE TESTE 01</span></div><div class="header-controls"><button id="btn-sound-toggle" type="button" class="btn-sound-toggle" title="Ativar/Desativar áudio">🔊 Som: ON</button><button id="btn-toggle-sandbox" type="button" class="btn-sandbox-toggle" title="Abrir/Fechar Ambiente de Testes">🧪 Sandbox</button></div></header>
+      <div class="top-hud" aria-label="Informações da partida">
+        <section id="resource-bar" aria-label="Recursos da colônia">
+          <div class="resource-pill" tabindex="0" aria-label="Ouro" data-tooltip-title="Ouro" data-tooltip-description="Usado para treinar unidades e construir estruturas. Operários livres também geram moedas; minas produzem 50 moedas por ciclo de 30 segundos.">
+            <span class="resource-icon gold-icon" aria-hidden="true">✦</span><span class="resource-label sr-only">Ouro</span><strong id="gold-value">0</strong>
+          </div>
+          <div class="resource-pill" tabindex="0" aria-label="Madeira" data-tooltip-title="Madeira" data-tooltip-description="Coletada em florestas e usada em construções, barricadas e reparos.">
+            <span class="resource-icon wood-icon" aria-hidden="true">▰</span><span class="resource-label sr-only">Madeira</span><strong id="wood-value">0</strong>
+          </div>
+          <div class="resource-pill" tabindex="0" aria-label="Pedra" data-tooltip-title="Pedra" data-tooltip-description="Coletada em depósitos e usada em barricadas, torres e reparos de estruturas.">
+            <span class="resource-icon stone-icon" aria-hidden="true">◆</span><span class="resource-label sr-only">Pedra</span><strong id="stone-value">0</strong>
+          </div>
+          <div class="resource-pill population-pill" tabindex="0" aria-label="População" data-tooltip-title="População" data-tooltip-description="Unidades atuais e limite total da equipe. Casas aumentam capacidade civil; quartéis aumentam capacidade militar.">
+            <span class="resource-icon population-icon" aria-hidden="true">♟</span><span class="resource-label sr-only">População</span><strong id="population-value">0 / 60</strong><small id="capacity-status" class="resource-note sr-only"></small>
+          </div>
+        </section>
+        <div class="match-clock" aria-label="Tempo de partida" tabindex="0" data-tooltip-title="Tempo de partida" data-tooltip-description="Tempo decorrido nesta partida."><strong id="match-timer">00:00</strong></div>
+        <div class="header-controls">
+          <button id="btn-help" type="button" aria-label="Ajuda" aria-haspopup="dialog" aria-controls="help-dialog" data-tooltip-title="Ajuda" data-tooltip-description="Consulte os comandos de seleção, movimentação e formações.">?</button>
+          <button id="btn-sound-toggle" type="button" class="btn-sound-toggle" aria-label="Ativar ou desativar áudio" data-tooltip-title="Áudio" data-tooltip-description="Alterna os sons do jogo">🔊</button>
+          <button id="btn-toggle-sandbox" type="button" class="btn-sandbox-toggle" aria-label="Sandbox" data-tooltip-title="Sandbox" data-tooltip-description="Abre ferramentas de teste. Elas não fazem parte da partida normal.">🧪</button>
+        </div>
+      </div>
       <section class="hud-section sandbox-panel" id="sandbox-section" aria-label="Ambiente de Testes / Sandbox" hidden>
         <div class="sandbox-header">
           <h2>🧪 Ambiente de Testes</h2>
@@ -57,13 +78,38 @@
           <label><input type="checkbox" id="sb-reveal-map" /> Revelar Mapa Inteiro (Sem Fog)</label>
         </div>
       </section>
-      <div class="match-clock" aria-label="Tempo de partida"><span>Tempo de partida</span><strong id="match-timer">00:00</strong></div>
-      <section class="hud-section" id="minimap-section" aria-label="Minimapa"><h2>Minimapa</h2><div id="minimap-container"><canvas id="minimap" width="200" height="200" aria-label="Minimapa de navegação e estratégia"></canvas></div></section>
-      <section class="hud-section" aria-label="Recursos"><h2>Colônia azul</h2><p id="team-status"></p><p id="capacity-status"></p><p id="fog-status"></p></section>
-      <section class="hud-section" aria-label="Seleção"><h2 id="selection-count">Nenhuma seleção</h2><p id="selection-details">Clique em uma unidade ou base azul.</p><dl id="selection-status"></dl><div id="action-bar" hidden></div></section>
-      <section class="hud-section" aria-label="Ordens"><h2>Última ordem</h2><p id="command-feedback" role="status">Aguardando comando.</p></section>
-      <section class="hud-section" aria-label="Legenda"><h2>Legenda</h2><div class="legend"><span class="worker">Operário</span><span class="builder">Construtor</span><span class="soldier">Soldado</span><span class="archer">Arqueiro</span><span class="shieldbearer">Escudeiro</span><span class="scout">Batedor</span></div><p>Dourado/verde: aliado · vermelho: inimigo · amarelo: seleção.</p></section>
-      <section class="hud-section help"><h2>Controles</h2><p>Clique: selecionar · arraste: seleção em área · Shift: somar seleção</p><p>Ctrl + 1..9: gravar grupo · 1..9: selecionar grupo</p><p>Formações: Linha, Cunha, Bloco, 2 Fileiras</p><p>Clique direito: mover/atacar em formação · A: Attack Move</p><p>Zoom: <span id="zoom-value">125%</span> · 200 × 200 células</p></section>
+      <div id="bottom-command-hud" data-state="empty" aria-label="Comandos e estado">
+        <section class="hud-section minimap-frame" id="minimap-section" aria-label="Minimapa">
+          <h2 class="dock-section-label">MINIMAPA</h2>
+          <div id="minimap-container"><canvas id="minimap" width="200" height="200" aria-label="Minimapa de navegação e estratégia"></canvas></div>
+        </section>
+        <section class="hud-section selection-panel" id="selection-panel" aria-label="Seleção">
+          <div class="selection-heading"><h2 class="dock-section-label">SELEÇÃO</h2><strong id="selection-count" tabindex="0">Nenhuma seleção</strong></div>
+          <p id="selection-details">Selecione uma unidade ou estrutura para ver seus detalhes.</p>
+          <dl id="selection-status"></dl>
+        </section>
+        <section class="hud-section action-panel" id="action-panel" aria-label="Ações disponíveis">
+          <h2 class="dock-section-label">AÇÕES</h2>
+          <p id="action-placeholder">As opções de comando aparecem aqui quando você seleciona algo.</p>
+          <div id="action-bar" hidden></div>
+        </section>
+        <div id="command-feedback" role="status" aria-live="polite"></div>
+      </div>
+      <dialog id="help-dialog" aria-labelledby="help-title">
+        <div class="dialog-heading"><div><span class="eyebrow">GUIA RÁPIDO</span><h2 id="help-title">Comandos do campo</h2></div><button id="btn-close-help" type="button" aria-label="Fechar ajuda">×</button></div>
+        <div class="help-grid">
+          <p><kbd>Clique</kbd> Selecionar · <kbd>Shift</kbd> adicionar à seleção</p>
+          <p><kbd>Arrastar</kbd> Seleção em área</p>
+          <p><kbd>Botão direito</kbd> Mover ou atacar</p>
+          <p><kbd>A</kbd> Ativar Attack Move</p>
+          <p><kbd>Ctrl + 1–9</kbd> Gravar grupo · <kbd>1–9</kbd> Selecionar grupo</p>
+          <p><kbd>Roda</kbd> Ajustar zoom · <kbd>Esc</kbd> Cancelar ação atual</p>
+          <p>Formações: Linha, Cunha, Bloco e Duas Fileiras.</p>
+        </div>
+      </dialog>
+      <div id="game-tooltip" role="tooltip" hidden><strong></strong><span></span></div>
+      <p id="fog-status" class="sr-only" aria-live="polite"></p>
+      <p id="team-status" class="sr-only" aria-live="polite"></p>
       <p id="inspect" hidden>Debug: clique em uma célula para inspecionar.</p>
       <p id="ai-debug" hidden>Debug IA: aguardando ciclo de decisão.</p>
     </aside>

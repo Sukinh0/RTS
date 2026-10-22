@@ -323,6 +323,7 @@ describe('Fase 7 — Combate e atributos das tropas', () => {
     const simulation = new Simulation(1);
     const soldier = simulation.entities.spawnUnit('blue', 'soldier', 28, 99);
     const shieldbearer = simulation.entities.spawnUnit('red', 'shieldbearer', 29, 99);
+    const soldierHpBefore = soldier.hp;
     simulation.fog.update();
 
     simulation.combat.drainEvents();
@@ -335,6 +336,12 @@ describe('Fase 7 — Combate e atributos das tropas', () => {
     expect(newEvents[0]).toMatchObject({
       damage: 5,
       reflectedDamage: 4,
+      targetCategory: 'unit',
+      targetKind: 'shieldbearer',
+      targetDied: false,
+      targetHpAfter: shieldbearer.hp,
+      attackerHpAfter: soldierHpBefore - 4,
+      attackerDied: false,
     });
     // Shieldbearer did not take reflected damage from soldier
     expect(shieldbearer.hp).toBe(20);

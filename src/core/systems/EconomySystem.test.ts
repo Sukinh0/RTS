@@ -17,9 +17,9 @@ describe('Fase 5 economy', () => {
 
   it('pays a mine cycle only after 30 complete seconds, without passive income for its worker', () => {
     const simulation = new Simulation(1);
-    expect(simulation.entities.moveUnit('blue-worker-1', 58, 62)).toBe(true);
+    expect(simulation.entities.moveUnit('blue-worker-1', 48, 92)).toBe(true);
     simulation.fog.update();
-    expect(simulation.issueCommand({ type: 'mine', team: 'blue', unitId: 'blue-worker-1', target: [58, 62] })).toEqual({ accepted: true });
+    expect(simulation.issueCommand({ type: 'mine', team: 'blue', unitId: 'blue-worker-1', target: [48, 92] })).toEqual({ accepted: true });
     advanceSeconds(simulation, 29);
     expect(simulation.teams.blue.coins).toBe(129);
     advanceSeconds(simulation, 1);
@@ -29,9 +29,9 @@ describe('Fase 5 economy', () => {
 
   it('loses incomplete mining progress when interrupted', () => {
     const simulation = new Simulation(1);
-    simulation.entities.moveUnit('blue-worker-1', 58, 62);
+    simulation.entities.moveUnit('blue-worker-1', 48, 92);
     simulation.fog.update();
-    expect(simulation.issueCommand({ type: 'mine', team: 'blue', unitId: 'blue-worker-1', target: [58, 62] }).accepted).toBe(true);
+    expect(simulation.issueCommand({ type: 'mine', team: 'blue', unitId: 'blue-worker-1', target: [48, 92] }).accepted).toBe(true);
     advanceSeconds(simulation, 15);
     expect(simulation.issueCommand({ type: 'move', team: 'blue', unitId: 'blue-worker-1', destination: [59, 62] }).accepted).toBe(true);
     expect(simulation.economy.taskFor('blue-worker-1')).toBeNull();
@@ -41,16 +41,16 @@ describe('Fase 5 economy', () => {
 
   it('limits each mine to four workers', () => {
     const simulation = new Simulation(1);
-    simulation.entities.moveUnit('blue-worker-1', 58, 62);
+    simulation.entities.moveUnit('blue-worker-1', 48, 92);
     simulation.entities.spawnUnit('blue', 'worker', 57, 61);
     simulation.entities.spawnUnit('blue', 'worker', 57, 62);
     simulation.entities.spawnUnit('blue', 'worker', 57, 63);
     simulation.fog.update();
     for (const id of ['blue-worker-1', 'blue-worker-2', 'blue-worker-3', 'blue-worker-4']) {
-      expect(simulation.issueCommand({ type: 'mine', team: 'blue', unitId: id, target: [58, 62] }).accepted).toBe(true);
+      expect(simulation.issueCommand({ type: 'mine', team: 'blue', unitId: id, target: [48, 92] }).accepted).toBe(true);
     }
     const fifth = simulation.entities.spawnUnit('blue', 'worker', 59, 63);
-    expect(simulation.issueCommand({ type: 'mine', team: 'blue', unitId: fifth.id, target: [58, 62] }))
+    expect(simulation.issueCommand({ type: 'mine', team: 'blue', unitId: fifth.id, target: [48, 92] }))
       .toEqual({ accepted: false, reason: 'mine-full' });
   });
 
@@ -135,22 +135,22 @@ describe('Fase 5 economy', () => {
 
   it('depletes stone cell upon harvest and redirects worker to adjacent stone', () => {
     const simulation = new Simulation(1);
-    expect(simulation.map.cellAt(45, 125)?.terrain).toBe('stone');
-    simulation.entities.moveUnit('blue-worker-1', 45, 125);
+    expect(simulation.map.cellAt(27, 127)?.terrain).toBe('stone');
+    simulation.entities.moveUnit('blue-worker-1', 27, 127);
     simulation.fog.update();
-    expect(simulation.issueCommand({ type: 'gather', team: 'blue', unitId: 'blue-worker-1', target: [45, 125] }).accepted).toBe(true);
+    expect(simulation.issueCommand({ type: 'gather', team: 'blue', unitId: 'blue-worker-1', target: [27, 127] }).accepted).toBe(true);
 
     advanceSeconds(simulation, 10);
     const worker = simulation.entities.get('blue-worker-1');
     expect(worker?.category === 'unit' && worker.carriedStone).toBe(20);
-    expect(simulation.map.cellAt(45, 125)?.terrain).toBe('plain');
+    expect(simulation.map.cellAt(27, 127)?.terrain).toBe('plain');
 
     advanceSeconds(simulation, 40);
     expect(simulation.teams.blue.stone).toBeGreaterThanOrEqual(20);
     const task = simulation.economy.taskFor('blue-worker-1');
     expect(task?.kind).toBe('gather');
     expect(simulation.map.cellAt(task!.workCell[0], task!.workCell[1])?.terrain).toBe('stone');
-    expect(task!.workCell).not.toEqual([45, 125]);
+    expect(task!.workCell).not.toEqual([27, 127]);
   });
 
   it('garante que todos os recursos permanecem estritamente inteiros ao longo de avanços e coletas', () => {

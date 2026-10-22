@@ -22,6 +22,7 @@ test('an enemy becomes visible at the displayed position and moves continuously'
     const simulation = (window as Window & { __simulation?: Simulation }).__simulation!;
     simulation.issueCommand({ type: 'move', team: 'red', unitId: id, destination: [99, 100] });
   }, enemyId);
+  await page.evaluate(() => (window as Window & { __simulation?: Simulation }).__simulation!.advance(7_000));
   await expect(page.locator('#game')).toHaveAttribute('data-visible-enemy-ids', new RegExp(enemyId));
   await expect.poll(async () => page.evaluate(() => Math.min(...((window as Window & { __enemySamples?: number[] }).__enemySamples ?? [105])))).toBeLessThan(102);
   const samples = await page.evaluate(() => (window as Window & { __enemySamples?: number[] }).__enemySamples ?? []);
@@ -59,7 +60,7 @@ test('a marching soldier engages a newly seen enemy and resumes the route in the
   }, ids), { timeout: 15_000 }).toBe(120);
 });
 
-test('HUD stays outside the map and the troop palette identifies each team', async ({ page }) => {
+test('HUD overlays the full map and the troop palette identifies each team', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
@@ -74,15 +75,19 @@ test('HUD stays outside the map and the troop palette identifies each team', asy
     simulation.fog.update();
   });
   await expect(page.locator('#game')).toHaveAttribute('data-visible-enemy-ids', /red-soldier.*red-scout/);
-  const map = await page.locator('#game').boundingBox();
+  const map = await page.locator('#game canvas').boundingBox();
   const hud = await page.locator('#hud').boundingBox();
-  expect(map && hud && map.x + map.width <= hud.x).toBe(true);
+  expect(map && hud && map.x === hud.x && map.y === hud.y && map.width === hud.width && map.height === hud.height).toBe(true);
   await page.screenshot({ path: 'artifacts/playtest-palette-desktop.png', fullPage: true });
 
   await page.setViewportSize({ width: 760, height: 800 });
-  const compactMap = await page.locator('#game').boundingBox();
+  await expect.poll(async () => {
+    const box = await page.locator('#game canvas').boundingBox();
+    return box && { width: box.width, height: box.height };
+  }).toEqual({ width: 760, height: 800 });
+  const compactMap = await page.locator('#game canvas').boundingBox();
   const compactHud = await page.locator('#hud').boundingBox();
-  expect(compactMap && compactHud && compactMap.y + compactMap.height <= compactHud.y).toBe(true);
+  expect(compactMap && compactHud && compactMap.x === compactHud.x && compactMap.y === compactHud.y && compactMap.width === compactHud.width && compactMap.height === compactHud.height, JSON.stringify({ compactMap, compactHud })).toBe(true);
   expect(compactMap && compactMap.x + compactMap.width <= 760).toBe(true);
   expect(compactHud && compactHud.x + compactHud.width <= 760).toBe(true);
   await page.screenshot({ path: 'artifacts/playtest-palette-compact.png', fullPage: true });
@@ -96,11 +101,13 @@ test('a player order coexists with an active AI developing from starting resourc
   if (!box) throw new Error('Canvas is not visible');
   const root = page.locator('#game');
   const zoom = Number(await root.getAttribute('data-zoom'));
-  const scrollX = Number(await root.getAttribute('data-camera-x'));
-  const scrollY = Number(await root.getAttribute('data-camera-y'));
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(root).toHaveAttribute('data-pointer-world', /,/);
+  const pointerWorld = (await root.getAttribute('data-pointer-world'))!.split(',').map(Number);
+  const backing = await canvas.evaluate((element) => ({ width: (element as HTMLCanvasElement).width, height: (element as HTMLCanvasElement).height }));
   const click = async (x: number, y: number, button: 'left' | 'right') => page.mouse.click(
-    box.x + ((((x + 0.5) * 12 - scrollX - 480) * zoom) + 480) * box.width / 960,
-    box.y + ((((y + 0.5) * 12 - scrollY - 300) * zoom) + 300) * box.height / 600,
+    box.x + box.width / 2 + ((x + 0.5) * 12 - pointerWorld[0]) * zoom * box.width / backing.width,
+    box.y + box.height / 2 + ((y + 0.5) * 12 - pointerWorld[1]) * zoom * box.height / backing.height,
     { button },
   );
   await click(25, 99, 'left');

@@ -7,6 +7,9 @@ test('minimap renders in HUD, reflects camera viewport, and clicking/dragging na
 
   const minimap = page.locator('#minimap');
   await expect(minimap).toBeVisible();
+  // Zoom in so the full-width initial view has room to pan horizontally.
+  for (let step = 0; step < 5; step += 1) await page.mouse.wheel(0, -1000);
+  await expect.poll(async () => Number(await page.locator('#game').getAttribute('data-zoom'))).toBeGreaterThan(0.8);
 
   // Minimapa deve exibir atributos iniciais
   await expect.poll(async () => minimap.getAttribute('data-camera-center')).toBeTruthy();
@@ -18,7 +21,9 @@ test('minimap renders in HUD, reflects camera viewport, and clicking/dragging na
 
   // Clique no minimapa em direção ao centro-leste do mapa (ex: pixel 150, 100 no canvas de 200x200)
   // No mapa 200x200, pixel 150 equivale à célula 150
-  await minimap.click({ position: { x: 150, y: 100 } });
+  const minimapBounds = await minimap.boundingBox();
+  if (!minimapBounds) throw new Error('Minimap bounding box missing');
+  await minimap.click({ position: { x: minimapBounds.width * 0.75, y: minimapBounds.height * 0.5 } });
 
   // A câmera deve ter se movido para a nova região
   await expect.poll(async () => page.locator('#game').getAttribute('data-camera-x')).not.toBe(initialCamX);
@@ -26,15 +31,16 @@ test('minimap renders in HUD, reflects camera viewport, and clicking/dragging na
 
   const [afterClickX, afterClickY] = (await minimap.getAttribute('data-camera-center'))!.split(',').map(Number);
   expect(afterClickX).toBeGreaterThan(120);
-  expect(afterClickY).toBeCloseTo(100, 20);
+  // O centro reportado pode deslocar alguns tiles devido ao arredondamento da worldView da câmera.
+  expect(Math.abs(afterClickY - 100)).toBeLessThanOrEqual(10);
 
   // Arrastar pelo minimapa deve continuar movendo a câmera dinamicamente
   const bounds = await minimap.boundingBox();
   if (!bounds) throw new Error('Minimap bounding box missing');
 
-  await page.mouse.move(bounds.x + 150, bounds.y + 100);
+  await page.mouse.move(bounds.x + bounds.width * 0.75, bounds.y + bounds.height * 0.5);
   await page.mouse.down({ button: 'left' });
-  await page.mouse.move(bounds.x + 50, bounds.y + 50, { steps: 5 });
+  await page.mouse.move(bounds.x + bounds.width * 0.25, bounds.y + bounds.height * 0.25, { steps: 5 });
   await page.mouse.up({ button: 'left' });
 
   // O centro da câmera deve agora refletir a região noroeste (próximo a 50, 50)

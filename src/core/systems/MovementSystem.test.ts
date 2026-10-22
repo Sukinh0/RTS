@@ -56,7 +56,7 @@ describe('archer pacing', () => {
 describe('Fase 3 movement', () => {
   it('rejects water, mountain, building and occupied destinations', () => {
     const simulation = new Simulation(1);
-    for (const [x, y] of [[76, 40], [90, 30], [20, 100], [25, 101]]) {
+    for (const [x, y] of [[70, 25], [73, 86], [20, 100], [25, 101]]) {
       expect(move(simulation, 'blue-worker-1', x, y)).toEqual({ accepted: false, reason: 'invalid-destination' });
     }
     expect(simulation.entities.get('blue-worker-1')).toMatchObject({ x: 25, y: 99 });

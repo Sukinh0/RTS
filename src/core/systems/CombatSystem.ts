@@ -1,22 +1,30 @@
 import { BALANCE } from '../../config/balance';
 import { TICKS_PER_SECOND } from '../../config/runtime';
 import type { AttackCommand, CommandResult } from '../commands/MoveCommand';
-import { EntityStore, type GameEntity, type UnitEntity } from '../entities/EntityStore';
+import { EntityStore, type BuildingKind, type GameEntity, type UnitEntity, type UnitKind } from '../entities/EntityStore';
 import { FogOfWar } from './FogOfWar';
+import type { Team } from '../../map/MapGrid';
 
 export interface CombatEvent {
   type: 'attack';
   tick: number;
   attackerId: string;
-  attackerTeam: string;
+  attackerTeam: Team;
+  attackerKind: UnitKind;
   attackerX: number;
   attackerY: number;
   targetId: string;
-  targetTeam: string;
+  targetTeam: Team;
+  targetCategory: GameEntity['category'];
+  targetKind: UnitKind | BuildingKind;
   targetX: number;
   targetY: number;
   damage: number;
+  targetHpAfter: number;
+  targetDied: boolean;
   reflectedDamage: number;
+  attackerHpAfter: number;
+  attackerDied: boolean;
 }
 
 /** Handles manual attack orders, auto-targeting, deterministic damage, range, and reflection. */
@@ -151,14 +159,21 @@ export class CombatSystem {
       tick: currentTick,
       attackerId: attacker.id,
       attackerTeam: attacker.team,
+      attackerKind: attacker.kind,
       attackerX: attacker.x,
       attackerY: attacker.y,
       targetId: target.id,
       targetTeam: target.team,
+      targetCategory: target.category,
+      targetKind: target.kind,
       targetX: center.x,
       targetY: center.y,
       damage,
+      targetHpAfter: target.hp,
+      targetDied: target.hp <= 0,
       reflectedDamage,
+      attackerHpAfter: attacker.hp,
+      attackerDied: attacker.hp <= 0,
     });
 
     if (!deferDeath) {

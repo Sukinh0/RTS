@@ -1,5 +1,11 @@
 # Progresso
 
+## Segundo passe visual — Terrain & Environment
+
+- Ampliado o catálogo Tiny Swords de terreno, árvores, bushes, rochas, ouro, água e espuma.
+- Terreno base, água, montanhas, florestas, minas, pedra e decorações agora usam variantes determinísticas por coordenada, mantendo fog, passabilidade e economia no core.
+- Bordas e pequenos clusters ambientais foram adicionados sem novos objetos de gameplay.
+
 ## Integração visual provisória — Tiny Swords (Free Pack)
 
 - Inventariados os 410 PNGs do ZIP local, variantes de equipe, tamanhos de frames, FX, UI e ausência de licença separada no arquivo. Condições consultadas na página oficial de Pixel Frog; assets extraídos ficam fora do Git.
@@ -791,4 +797,56 @@
 
 
 
+
+
+## MAP_ORGANIC_01 — redesenho geográfico
+
+- Mapa 200 × 200 com patches irregulares determinísticos; removida a dependência de espelhamento no território novo.
+- Oito minas de ouro em zonas iniciais, de expansão e contestadas; madeira e pedra distribuídas em múltiplas regiões.
+- Validações de conectividade, acesso inicial a recursos, saídas das bases e rotas alternativas em `MapGrid.test.ts` e `findPath.test.ts`.
+- Regras de economia, IA, combate, fog, formações e assets preservadas; alterados apenas o mapa e fixtures de teste cujas coordenadas antigas deixaram de ser válidas.
+- Removido o lago central que bloqueava a passagem; névoa translúcida teal agora deixa silhuetas discretas de água e montanhas, mantendo florestas, depósitos e unidades ocultos.
+
+## World Scale & Proportion Pass — 2026-10-16
+
+- Centralizadas métricas de escala, âncoras, Y-sort e dimensões visíveis para unidades, construções, recursos, terreno e FX; soldado Warrior define 17,2 px de altura visível como referência.
+- Redimensionamento e origens ajustados pela silhueta opaca dos assets; footprints, mapa lógico, regras e PNGs preservados.
+- Árvores agrupadas com menor densidade e profundidade por posição Y; selection e barras de vida acompanham o tamanho visível.
+- Auditoria, proporções, limitações e tabelas documentadas em `docs/ASSET_INTEGRATION.md` sob “World Scale & Proportion Pass”.
+- Comparação lado a lado disponível em `/?visualdebug=1`: unidades, construções, ambiente, efeitos e indicadores; cena de apresentação sem tocar na simulação.
+
+## Defensive Structures Visual Pass — 2026-10-16
+
+- Barricadas agora usam uma composição leve de troncos Tiny Swords e máscaras visuais cardinais para linhas, pontas, cantos, T e cruzamentos; a conectividade é cacheada e só afeta apresentação.
+- Remoção e conclusão atualizam vizinhos; fallback Rock2 preservado. Escala e profundidade da torre mantidas.
+- Quadro `/?visualdebug=1` ampliado com exemplos de barricadas lado a lado, linha parcialmente removida, torre e arqueiros à frente/atrás. Nenhuma regra de gameplay alterada.
+- Testes automatizados adicionados para máscaras, variantes, equipes e remoção de segmento.
+
+## Gold Deposit Visual Pass — 2026-10-16
+
+- Jazidas usam variantes maiores agrupadas Gold Stone 3–6, com prioridade às pedras 5 e 6; exibição ampliada de 24×24 para 36×36 e âncora alinhada ao alpha inferior.
+- Economia, footprint do recurso, mineração e distribuição do mapa permanecem inalterados; quadro visual agora mostra a jazida ampliada.
+
+## Fullscreen RTS HUD & UX Polish — 2026-10-16
+
+- Mapa em toda a viewport com HUD flutuante horizontal, relógio, recursos/população, minimapa, seleção agrupada e barra de comandos responsiva; painel Sandbox discreto e ajuda em diálogo.
+- Tooltips reutilizáveis com suporte a mouse/foco, custos/tempos baseados em `balance.v1.json`, estatísticas reais de tropas e dicas no mapa limitadas à visibilidade da névoa.
+- Resumo da seleção reduzido a tipo, vida, ordem, trabalho, formação, progresso e fila; removidos IDs e coordenadas da apresentação normal.
+- Construtor recebe chapéu cobre/laranja em 14 folhas derivadas por máscara por frame, nas duas equipes; arte original e lógica do jogo preservadas.
+- Documentado em `docs/ASSET_INTEGRATION.md`, seção “HUD Fullscreen & Builder Visual Differentiation”.
+
+## Unit Visual Readability Pass — 2026-10-17
+
+- Batedor trocado visualmente de Monk para Lancer a pé (Yellow/Red), com folhas reais de Idle/Run/Attack/Defence; nenhuma montaria ou cura foi adicionada.
+- Escudeiro reforçado com Warrior Guard, maior presença de escudo e Attack2; o Construtor mantém os 14 PNGs de chapéu existentes e o Operário preserva coleta/carga.
+- `/?visualdebug=1` agora compara as seis classes nas duas equipes, duplas de Operário/Construtor e Soldado/Escudeiro e exército em três escalas; o quadro amplo anterior segue em `/?visualdebug=1&assets=1`.
+- Nenhuma mecânica, cor de equipe, HUD, mapa, FX ou asset Tiny Swords original foi alterado; detalhes em `docs/ASSET_INTEGRATION.md`.
+
+## FX & Gameplay Feedback Pass — 2026-10-17
+
+- Eventos de combate agora alimentam impacto curto, reflexão identificável e morte com Dust em vez de explosão; a flecha viaja até o alvo e só mostra impacto na chegada.
+- Construção, conclusão, madeira, ouro, pedra e ordens receberam pulsos pequenos; movimento foi limitado por unidade e por segundo.
+- FX de mundo e projéteis têm pooling/limites; apresentação inimiga e trajetória de flecha são encerradas quando entram em névoa.
+- Painel `/?fxdebug=1&noai=1` permite pré-visualizar os efeitos e limpar entre capturas; contrato de limites, combate e teste E2E adicionados.
+- Nenhuma regra, HP, dano, economia, IA, mapa, HUD ou animação de ação foi alterada; documentação detalhada em `docs/ASSET_INTEGRATION.md`.
 

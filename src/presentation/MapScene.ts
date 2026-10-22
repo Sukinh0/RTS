@@ -5,7 +5,7 @@ import { Simulation } from '../core/game/Simulation';
 import { dispatchGroupMove, dispatchGroupAttackMove } from '../core/commands/dispatchGroupMove';
 import { dispatchGroupAttack } from '../core/commands/dispatchGroupAttack';
 import type { CommandResult } from '../core/commands/MoveCommand';
-import type { BuildingEntity, GameEntity, UnitEntity, UnitKind } from '../core/entities/EntityStore';
+import type { BuildingEntity, BuildingKind, UnitEntity, UnitKind } from '../core/entities/EntityStore';
 import type { MovementEvent } from '../core/systems/MovementSystem';
 import { TICKS_PER_SECOND } from '../config/runtime';
 import { SelectionModel } from '../input/SelectionModel';
@@ -13,6 +13,9 @@ import type { Point, Team, Terrain } from '../map/MapGrid';
 import { VisualFog } from './VisualFog';
 import { Minimap } from './Minimap';
 import { SoundSystem } from './SoundSystem';
+import { BarricadeTopology } from './BarricadeTopology';
+import { registerBarricadeTextures } from './BarricadeVisuals';
+import { TooltipManager } from './TooltipManager';
 import {
   assignFormationSlots,
   getMarchDirection,
@@ -21,9 +24,13 @@ import {
   type FormationUnitInfo,
 } from '../core/formations/FormationGeometry';
 import { computeLineCells } from '../core/construction/LineGeometry';
-import { availableUnitKey, buildingKey, frameCount, preloadTinySwords, UNIT_VISUALS, type UnitVisualState } from './VisualRegistry';
+import {
+  availableUnitKey, BUILDING_VISUALS, buildingKey, FX_LIMITS, FX_VISUALS, frameCount,
+  preloadTinySwords, RESOURCE_VISUALS, UNIT_VISUALS, WORLD_LAYER_DEPTHS,
+  WORLD_VISUAL_METRICS, ySortedWorldDepth, barricadeTextureKey, builderUnitSheetKey, type UnitVisualState,
+} from './VisualRegistry';
 
-const CELL_SIZE = 12;
+const CELL_SIZE = WORLD_VISUAL_METRICS.cellSize;
 const PAN_SPEED = 500;
 const MIN_ZOOM = 0.38;
 const MAX_ZOOM = 2.5;
@@ -32,13 +39,22 @@ const UNIT_COLORS: Record<UnitKind, number> = {
   shieldbearer: 0xb69ce3, scout: 0x69d7d5, builder: 0xdd8833,
 };
 const COLORS: Record<Terrain, number> = {
-  plain: 0x17252c,
-  water: 0x286276,
-  mountain: 0x68727a,
-  forest: 0x346b51,
+  plain: 0x659653,
+  water: 0x4aa7a4,
+  mountain: 0x77796f,
+  forest: 0x4a7947,
   mine: 0xd5a64e,
   stone: 0x828b94,
 };
+
+function visualHash(x: number, y: number): number {
+  return ((x * 73856093) ^ (y * 19349663) ^ 0x9e3779b9) >>> 0;
+}
+
+function hasDifferentTerrainNeighbor(getTerrain: (x: number, y: number) => Terrain | null, x: number, y: number, terrain: Terrain): boolean {
+  return getTerrain(x - 1, y) !== terrain || getTerrain(x + 1, y) !== terrain
+    || getTerrain(x, y - 1) !== terrain || getTerrain(x, y + 1) !== terrain;
+}
 const LABELS: Record<string, string> = {
   base: 'Base', worker: 'Operário', builder: 'Construtor', soldier: 'Soldado', shieldbearer: 'Escudeiro',
   scout: 'Batedor', archer: 'Arqueiro', house: 'Casa', barracks: 'Quartel', barricade: 'Barricada',
@@ -69,6 +85,11 @@ function rejection(reason: string | undefined): string {
   return reason ? `${REJECTION_REASONS[reason] ?? reason} (${reason})` : 'motivo desconhecido';
 }
 
+function resourceCost(coins: number, wood: number, stone: number): string {
+  return [coins > 0 ? `✦ ${coins}` : '', wood > 0 ? `▰ ${wood}` : '', stone > 0 ? `◆ ${stone}` : '']
+    .filter(Boolean).join(' · ');
+}
+
 function formatMatchTime(ticks: number): string {
   const seconds = Math.floor(ticks / TICKS_PER_SECOND);
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -85,14 +106,17 @@ interface AttackEffect {
   fromY: number;
   toX: number;
   toY: number;
-  color: number;
   elapsedMs: number;
   totalMs: number;
   projectile?: Phaser.GameObjects.Image;
+  impactKind: 'hit' | 'dust' | 'debris';
+  targetTeam: Team;
+  targetCategory: 'unit' | 'building';
+  targetKind: UnitKind | BuildingKind;
 }
 
 interface WorldEffect {
-  kind: 'ring' | 'spark' | 'dust' | 'explosion';
+  kind: 'ring' | 'spark' | 'dust' | 'hit' | 'debris' | 'chips';
   x: number;
   y: number;
   team: Team;
@@ -100,6 +124,8 @@ interface WorldEffect {
   elapsedMs: number;
   totalMs: number;
   sprite?: Phaser.GameObjects.Image;
+  priority: 0 | 1 | 2 | 3 | 4;
+  sizeScale: number;
 }
 
 /** Map rendering and camera input; logical terrain remains in MapGrid. */
@@ -117,18 +143,23 @@ export class MapScene extends Phaser.Scene {
   private terrainTexture?: Phaser.GameObjects.RenderTexture;
   private terrainTiles?: Phaser.GameObjects.TileSprite;
   private readonly entitySprites = new Map<string, Phaser.GameObjects.Image>();
-  private readonly spriteVisualCache = new Map<string, { key: string; frame: number; x: number; y: number; size: number }>();
+  private readonly spriteVisualCache = new Map<string, { key: string; frame: number; x: number; y: number; size: number; depth?: number }>();
   private readonly terrainDetails: Phaser.GameObjects.Image[] = [];
+  private readonly mountainFoliage: Phaser.GameObjects.Image[] = [];
+  private readonly mountainRidges: Phaser.GameObjects.Image[] = [];
   private readonly attackVisualUntil = new Map<string, number>();
+  private readonly lastMovementDustAt = new Map<string, number>();
+  private movementDustSecond = -1;
+  private movementDustCount = 0;
   private lastDetailBounds = '';
   private detailsDirty = true;
   private readonly lastEntityView = { x: NaN, y: NaN, width: NaN, height: NaN };
   private selectionGraphics!: Phaser.GameObjects.Graphics;
   private selectionBoxGraphics!: Phaser.GameObjects.Graphics;
   private entityGraphics!: Phaser.GameObjects.Graphics;
-  private combatGraphics!: Phaser.GameObjects.Graphics;
   private worldGraphics!: Phaser.GameObjects.Graphics;
   private fogGraphics!: Phaser.GameObjects.Graphics;
+  private fogReliefGraphics!: Phaser.GameObjects.Graphics;
   private placementGhostGraphics!: Phaser.GameObjects.Graphics;
   private formationPreviewGraphics!: Phaser.GameObjects.Graphics;
   private placementMode: { kind: 'house' | 'barracks' | 'barricade' | 'tower'; width: number; height: number } | null = null;
@@ -140,6 +171,9 @@ export class MapScene extends Phaser.Scene {
   private rallyPlacementMode = false;
   private rallyBuildingId: string | null = null;
   private currentActionBarMode = 'none';
+  private tooltipManager?: TooltipManager;
+  private hoveredEntityId: string | null = null;
+  private hoverTooltipTimer: number | null = null;
   private readonly displayPositions = new Map<string, { x: number; y: number }>();
   private readonly motionTracks = new Map<string, MotionTrack>();
   private readonly attackEffects: AttackEffect[] = [];
@@ -153,8 +187,10 @@ export class MapScene extends Phaser.Scene {
   private lastBlueStone = BALANCE.startingState.stone ?? 0;
   private readonly lastVisibleEnemies = new Set<string>();
   private readonly underConstructionBuildingIds = new Set<string>();
+  private readonly barricadeTopology = new BarricadeTopology();
   private keys: Record<string, Phaser.Input.Keyboard.Key> = {};
   private readonly debug = new URLSearchParams(window.location.search).has('debug');
+  private readonly fxDebug = new URLSearchParams(window.location.search).has('fxdebug');
   private resultShown = false;
   private lastVisibleCount = -1;
   private lastExploredCount = -1;
@@ -175,40 +211,61 @@ export class MapScene extends Phaser.Scene {
     if (new URLSearchParams(window.location.search).has('perf')) this.events.once('create', () => this.installDiagnostics());
     const worldWidth = this.map.width * CELL_SIZE;
     const worldHeight = this.map.height * CELL_SIZE;
-    this.cameras.main.setBackgroundColor('#101a20');
+    this.cameras.main.setBackgroundColor('#47aaa7');
+    registerBarricadeTextures(this);
     this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
-    this.cameras.main.setZoom(1.25);
+    this.cameras.main.setZoom(this.getMapCoverZoom());
     this.cameras.main.centerOn((MAP_DEFINITION.teamStarts.blue.base[0] + 10) * CELL_SIZE, (MAP_DEFINITION.teamStarts.blue.base[1] + 2) * CELL_SIZE);
+    this.scale.on(Phaser.Scale.Events.RESIZE, () => {
+      const camera = this.cameras.main;
+      const minZoom = this.getMapCoverZoom();
+      if (camera.zoom < minZoom) camera.setZoom(minZoom);
+      camera.centerOn(camera.midPoint.x, camera.midPoint.y);
+    });
     for (const entity of this.simulation.entities.all()) {
       if (entity.category === 'unit') this.displayPositions.set(entity.id, { x: entity.x, y: entity.y });
     }
     this.visualFog.update(this.displayPositions);
     const tiles = this.textures.get('tiny-terrain');
-    if (tiles?.key !== '__MISSING') {
-      tiles.add('grass', 0, 64, 64, 64, 64);
+    const terrainHigh = this.textures.get('tiny-terrainHigh');
+    for (const atlas of [tiles, terrainHigh]) {
+      if (atlas?.key === '__MISSING') continue;
+      if (!atlas.has('grass')) atlas.add('grass', 0, 64, 64, 64, 64);
+      for (let row = 0; row < 6; row += 1) {
+        for (let col = 0; col < 9; col += 1) {
+          const frame = row * 9 + col;
+          if (!atlas.has(String(frame))) atlas.add(String(frame), 0, col * 64, row * 64, 64, 64);
+        }
+      }
+    }
+    if (terrainHigh?.key !== '__MISSING') {
+      if (!terrainHigh.has('cliff-left')) terrainHigh.add('cliff-left', 0, 320, 256, 64, 128);
+      if (!terrainHigh.has('cliff-center')) terrainHigh.add('cliff-center', 0, 384, 256, 64, 128);
+      if (!terrainHigh.has('cliff-right')) terrainHigh.add('cliff-right', 0, 448, 256, 64, 128);
+      if (!terrainHigh.has('cliff-side')) terrainHigh.add('cliff-side', 0, 512, 256, 64, 128);
     }
     this.drawMap();
     this.fogGraphics = this.add.graphics();
     this.drawFog();
+    this.fogReliefGraphics = this.add.graphics().setDepth(WORLD_LAYER_DEPTHS.fogRelief);
     this.entityGraphics = this.add.graphics();
-    this.entityGraphics.setDepth(3);
-    this.combatGraphics = this.add.graphics();
-    this.combatGraphics.setDepth(4);
+    this.entityGraphics.setDepth(WORLD_LAYER_DEPTHS.entityOverlays);
     this.worldGraphics = this.add.graphics();
-    this.worldGraphics.setDepth(5);
+    this.worldGraphics.setDepth(WORLD_LAYER_DEPTHS.worldEffects);
     this.drawEntities();
     this.selectionGraphics = this.add.graphics();
-    this.selectionGraphics.setDepth(6);
+    this.selectionGraphics.setDepth(WORLD_LAYER_DEPTHS.selection);
     this.selectionBoxGraphics = this.add.graphics();
-    this.selectionBoxGraphics.setDepth(7);
+    this.selectionBoxGraphics.setDepth(WORLD_LAYER_DEPTHS.interaction);
     this.placementGhostGraphics = this.add.graphics();
-    this.placementGhostGraphics.setDepth(7);
+    this.placementGhostGraphics.setDepth(WORLD_LAYER_DEPTHS.interaction);
     this.formationPreviewGraphics = this.add.graphics();
-    this.formationPreviewGraphics.setDepth(7);
+    this.formationPreviewGraphics.setDepth(WORLD_LAYER_DEPTHS.interaction);
     this.refreshSelection();
     this.refreshTeamStatus();
     this.input.mouse?.disableContextMenu();
     (window as Window & { __simulation?: Simulation }).__simulation = this.simulation;
+    if (this.fxDebug) this.installFxDebugPanel();
 
     const minimapCanvas = document.querySelector<HTMLCanvasElement>('#minimap');
     if (minimapCanvas) {
@@ -224,7 +281,9 @@ export class MapScene extends Phaser.Scene {
     const updateSoundBtn = () => {
       if (!soundBtn) return;
       const on = this.soundSystem.isEnabled();
-      soundBtn.textContent = on ? '🔊 Som: ON' : '🔇 Som: OFF';
+      soundBtn.textContent = on ? '🔊' : '🔇';
+      soundBtn.setAttribute('aria-label', on ? 'Desativar áudio' : 'Ativar áudio');
+      soundBtn.dataset.tooltipDescription = on ? 'Os sons estão ativos. Clique para silenciar.' : 'O áudio está silenciado. Clique para ativar os sons.';
       soundBtn.classList.toggle('muted', !on);
     };
     updateSoundBtn();
@@ -274,7 +333,10 @@ export class MapScene extends Phaser.Scene {
       this.dragMode = pointer.button === 0 ? 'select' : 'pan';
     });
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      const pointerWorld = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      document.querySelector('#game')?.setAttribute('data-pointer-world', `${pointerWorld.x.toFixed(2)},${pointerWorld.y.toFixed(2)}`);
       if (this.simulation.result) return;
+      if (!this.placementMode && !this.dragStart) this.updateWorldTooltip(pointer);
       if (this.placementMode) {
         if (this.placementMode.kind === 'barricade') {
           const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
@@ -537,7 +599,7 @@ export class MapScene extends Phaser.Scene {
           const accepted = results.filter((item) => item.result.accepted).length;
           if (accepted > 0) {
             this.soundSystem.play('order');
-            this.addWorldEffect('ring', (destination[0] + 0.5) * CELL_SIZE, (destination[1] + 0.5) * CELL_SIZE, 'blue', 0xff4d4f, 500);
+            this.addWorldEffect('ring', (destination[0] + 0.5) * CELL_SIZE, (destination[1] + 0.5) * CELL_SIZE, 'blue', 0xff4d4f, FX_VISUALS.orderDurationMs, 1);
           }
           const feedback = document.querySelector('#command-feedback');
           if (feedback) {
@@ -670,7 +732,13 @@ export class MapScene extends Phaser.Scene {
         if (isEnemyVisible && clickedEntity) {
           const results = dispatchGroupAttack(this.simulation, 'blue', this.selection.selectedIds, clickedEntity.id);
           const accepted = results.filter((item) => item.result.accepted).length;
-          if (accepted > 0) this.soundSystem.play('order');
+          if (accepted > 0) {
+            this.soundSystem.play('order');
+            const targetX = clickedEntity.category === 'unit' ? clickedEntity.x + 0.5 : clickedEntity.x + clickedEntity.width / 2;
+            const targetY = clickedEntity.category === 'unit' ? clickedEntity.y + 0.5 : clickedEntity.y + clickedEntity.height / 2;
+            this.addWorldEffect('ring', targetX * CELL_SIZE, targetY * CELL_SIZE,
+              'blue', 0xe76d5e, FX_VISUALS.orderDurationMs, 1);
+          }
           const feedback = document.querySelector('#command-feedback');
           if (feedback) feedback.textContent = results.length === 0
             ? 'Selecione uma unidade azul para atacar.'
@@ -755,7 +823,7 @@ export class MapScene extends Phaser.Scene {
         const accepted = results.filter((item) => item.result.accepted).length;
         if (accepted > 0) {
           this.soundSystem.play('order');
-          this.addWorldEffect('ring', (destination[0] + 0.5) * CELL_SIZE, (destination[1] + 0.5) * CELL_SIZE, 'blue', workType ? 0xfacc15 : 0x55ff55, 400);
+          this.addWorldEffect('ring', (destination[0] + 0.5) * CELL_SIZE, (destination[1] + 0.5) * CELL_SIZE, 'blue', workType ? 0xfacc15 : 0x55ff55, FX_VISUALS.orderDurationMs, 1);
         }
         const feedback = document.querySelector('#command-feedback');
         const workLabel = workType === 'mine' ? 'mina' : workType === 'gather' ? (terrain === 'stone' ? 'coleta de pedra' : 'coleta') : 'movimento';
@@ -774,7 +842,7 @@ export class MapScene extends Phaser.Scene {
     this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _objects: unknown, _dx: number, dy: number) => {
       if (this.simulation.result) return;
       const camera = this.cameras.main;
-      camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy < 0 ? 1.15 : 1 / 1.15), MIN_ZOOM, MAX_ZOOM));
+      camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy < 0 ? 1.15 : 1 / 1.15), this.getMapCoverZoom(), MAX_ZOOM));
     });
 
     this.input.keyboard?.on('keydown-A', () => {
@@ -786,7 +854,7 @@ export class MapScene extends Phaser.Scene {
     });
 
     const onEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !document.querySelector<HTMLDialogElement>('#help-dialog')?.open) {
         this.handleEscape();
       }
     };
@@ -827,6 +895,51 @@ export class MapScene extends Phaser.Scene {
     document.querySelector('#inspect')?.toggleAttribute('hidden', !this.debug);
     document.querySelector('#ai-debug')?.toggleAttribute('hidden', !this.debug);
     this.setupSandboxControls();
+    this.tooltipManager = new TooltipManager();
+    const commandFeedback = document.querySelector<HTMLElement>('#command-feedback');
+    commandFeedback?.classList.remove('is-visible', 'is-warning');
+    let feedbackTimer: number | null = null;
+    const feedbackObserver = commandFeedback ? new MutationObserver(() => {
+      const message = commandFeedback.textContent?.trim() ?? '';
+      commandFeedback.classList.toggle('is-visible', message.length > 0);
+      commandFeedback.classList.toggle('is-warning', /indisponível|inválid|bloquead|insuficient|erro/i.test(message));
+      if (feedbackTimer !== null) window.clearTimeout(feedbackTimer);
+      feedbackTimer = message ? window.setTimeout(() => {
+        commandFeedback.classList.remove('is-visible');
+        feedbackTimer = null;
+      }, /indisponível|inválid|bloquead|insuficient|erro/i.test(message) ? 5200 : 3600) : null;
+    }) : null;
+    feedbackObserver?.observe(commandFeedback!, { childList: true, characterData: true, subtree: true });
+    this.events.once('shutdown', () => {
+      feedbackObserver?.disconnect();
+      if (feedbackTimer !== null) window.clearTimeout(feedbackTimer);
+    });
+    const gameCanvas = document.querySelector<HTMLCanvasElement>('#game canvas');
+    const hideWorldTooltip = () => {
+      this.hoveredEntityId = null;
+      if (this.hoverTooltipTimer !== null) window.clearTimeout(this.hoverTooltipTimer);
+      this.hoverTooltipTimer = null;
+      this.tooltipManager?.hideAt();
+    };
+    gameCanvas?.addEventListener('pointerleave', hideWorldTooltip);
+    this.events.once('shutdown', () => {
+      gameCanvas?.removeEventListener('pointerleave', hideWorldTooltip);
+      this.tooltipManager?.destroy();
+      if (this.hoverTooltipTimer !== null) window.clearTimeout(this.hoverTooltipTimer);
+      this.tooltipManager = undefined;
+    });
+    this.setupHelpControls();
+  }
+
+  private setupHelpControls(): void {
+    const button = document.querySelector<HTMLButtonElement>('#btn-help');
+    const closeButton = document.querySelector<HTMLButtonElement>('#btn-close-help');
+    const dialog = document.querySelector<HTMLDialogElement>('#help-dialog');
+    button?.addEventListener('click', () => dialog?.showModal());
+    closeButton?.addEventListener('click', () => dialog?.close());
+    dialog?.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
   }
 
   private setupSandboxControls(): void {
@@ -976,6 +1089,8 @@ export class MapScene extends Phaser.Scene {
     const revealCheck = document.querySelector<HTMLInputElement>('#sb-reveal-map');
     revealCheck?.addEventListener('change', () => {
       this.visualFog.revealAll = !!revealCheck.checked;
+      this.detailsDirty = true;
+      this.lastDetailBounds = '';
       this.drawFog();
       this.drawEntities();
       this.minimap.render(this.cameras.main.worldView, CELL_SIZE, this.displayPositions, true);
@@ -1042,6 +1157,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    let barricadeCompleted = false;
     if (this.simulation.diagnostics.enabled) {
       const now = performance.now();
       if (this.lastPerformanceFrame) this.simulation.diagnostics.record('frameInterval', now - this.lastPerformanceFrame);
@@ -1068,14 +1184,23 @@ export class MapScene extends Phaser.Scene {
         durationMs: unit.movementCooldownSeconds * 1000,
       });
       const start = event.path[0];
-      if (start) this.addWorldEffect('dust', (start[0] + 0.5) * CELL_SIZE,
-        (start[1] + 0.5) * CELL_SIZE, unit.team, 0xa6bdc4, 300);
+      const second = Math.floor(this.simulation.clock.ticks / TICKS_PER_SECOND);
+      if (second !== this.movementDustSecond) {
+        this.movementDustSecond = second;
+        this.movementDustCount = 0;
+      }
+      const lastDustAt = this.lastMovementDustAt.get(unit.id) ?? Number.NEGATIVE_INFINITY;
+      if (start && this.movementDustCount < 12 && this.time.now - lastDustAt >= 700) {
+        this.addWorldEffect('dust', (start[0] + 0.5) * CELL_SIZE,
+          (start[1] + 0.5) * CELL_SIZE, unit.team, 0xa6bdc4, 300, 0);
+        this.lastMovementDustAt.set(unit.id, this.time.now);
+        this.movementDustCount += 1;
+      }
     }
     this.updateMotion(delta);
 
     const combatEvents = this.simulation.combat.drainEvents();
     for (const event of combatEvents) {
-      this.attackVisualUntil.set(event.attackerId, this.time.now + 420);
       const target = this.simulation.entities.get(event.targetId);
       const attacker = this.simulation.entities.get(event.attackerId);
       if (event.targetId === 'blue-base') {
@@ -1088,38 +1213,64 @@ export class MapScene extends Phaser.Scene {
         this.soundSystem.play('meleeAttack');
       }
 
+      const attackerX = (event.attackerX + 0.5) * CELL_SIZE;
+      const attackerY = (event.attackerY + 0.5) * CELL_SIZE;
+      const targetX = (event.targetX + 0.5) * CELL_SIZE;
+      const targetY = (event.targetY + 0.5) * CELL_SIZE;
+      if (!this.isWorldPointVisible(event.attackerTeam, attackerX, attackerY)
+        || !this.isWorldPointVisible(event.targetTeam, targetX, targetY)) continue;
+
+      this.attackVisualUntil.set(event.attackerId, this.time.now + 420);
       const arrowKey = event.attackerTeam === 'blue' ? 'tiny-arrowYellow' : 'tiny-arrowRed';
-      const projectile = attacker?.category === 'unit' && attacker.kind === 'archer' && this.textures.exists(arrowKey)
+      const isArrow = event.attackerKind === 'archer';
+      const projectile = isArrow && this.textures.exists(arrowKey)
         ? this.acquireProjectile(arrowKey) : undefined;
-      this.attackEffects.push({
-        fromX: (event.attackerX + 0.5) * CELL_SIZE,
-        fromY: (event.attackerY + 0.5) * CELL_SIZE,
-        toX: (event.targetX + 0.5) * CELL_SIZE,
-        toY: (event.targetY + 0.5) * CELL_SIZE,
-        color: event.attackerTeam === 'blue' ? 0x9bdbff : 0xffada9,
-        elapsedMs: 0,
-        totalMs: 180,
-        projectile,
-      });
-      if (event.reflectedDamage > 0) {
+      let projectileQueued = false;
+      if (isArrow && projectile && this.attackEffects.length < FX_LIMITS.activeAttackTrails) {
+        const fromX = attackerX + Math.sign(event.targetX - event.attackerX) * 2;
+        const fromY = attackerY - CELL_SIZE * 0.18;
+        const distance = Math.hypot(targetX - fromX, targetY - fromY);
         this.attackEffects.push({
-          fromX: (event.targetX + 0.5) * CELL_SIZE,
-          fromY: (event.targetY + 0.5) * CELL_SIZE,
-          toX: (event.attackerX + 0.5) * CELL_SIZE,
-          toY: (event.attackerY + 0.5) * CELL_SIZE,
-          color: 0xeccf74,
+          fromX, fromY, toX: targetX, toY: targetY,
           elapsedMs: 0,
-          totalMs: 220,
+          totalMs: Phaser.Math.Clamp(distance / FX_VISUALS.arrowTravelPixelsPerMs,
+            FX_VISUALS.arrowMinDurationMs, FX_VISUALS.arrowMaxDurationMs),
+          projectile,
+          impactKind: event.targetDied ? 'dust' : event.targetCategory === 'building' ? 'debris' : 'hit',
+          targetTeam: event.targetTeam,
+          targetCategory: event.targetCategory,
+          targetKind: event.targetKind,
         });
+        projectileQueued = true;
+      } else if (projectile) {
+        projectile.setVisible(false);
+        this.projectilePool.push(projectile);
+      }
+
+      if (!projectileQueued) {
+        if (event.targetDied) {
+          const deathScale = event.targetKind === 'barricade' ? 0.75 : event.targetCategory === 'building' ? 1.45 : 1.15;
+          this.addWorldEffect('dust', targetX, targetY, event.targetTeam, 0xd9c69a,
+            FX_VISUALS.deathDurationMs, 3, deathScale);
+          if (event.targetCategory === 'building') this.addWorldEffect('debris', targetX, targetY,
+            event.targetTeam, 0x9b8569, FX_VISUALS.structureImpactDurationMs, 2, event.targetKind === 'barricade' ? 0.7 : 1.4);
+        } else if (event.targetCategory === 'unit') {
+          this.addWorldEffect('hit', targetX, targetY, event.targetTeam, 0xfff1cc,
+            FX_VISUALS.hitDurationMs, 4, 0.8);
+        } else {
+          this.addWorldEffect('debris', targetX, targetY, event.targetTeam, 0xb9a98a,
+            FX_VISUALS.structureImpactDurationMs, 2, 1);
+        }
+      }
+      if (event.reflectedDamage > 0) {
+        if (event.attackerDied) this.addWorldEffect('dust', attackerX, attackerY, event.attackerTeam,
+          0xd9c69a, FX_VISUALS.deathDurationMs, 3, 1.1);
+        else this.addWorldEffect('hit', attackerX, attackerY, event.attackerTeam, 0xeccf74,
+          FX_VISUALS.hitDurationMs, 4, 0.8);
       }
     }
-    this.updateAttackEffects(delta);
-
     for (const unitId of this.displayPositions.keys()) {
       if (!this.simulation.entities.get(unitId)) {
-        const last = this.displayPositions.get(unitId);
-        if (last) this.addWorldEffect('explosion', (last.x + 0.5) * CELL_SIZE,
-          (last.y + 0.5) * CELL_SIZE, unitId.startsWith('red-') ? 'red' : 'blue', 0xffffff, 260);
         this.displayPositions.delete(unitId);
         this.soundSystem.play('unitDeath');
       }
@@ -1141,6 +1292,10 @@ export class MapScene extends Phaser.Scene {
           this.underConstructionBuildingIds.add(entity.id);
         } else if (this.underConstructionBuildingIds.has(entity.id)) {
           this.underConstructionBuildingIds.delete(entity.id);
+          if (entity.kind === 'barricade') barricadeCompleted = true;
+          this.addWorldEffect('dust', (entity.x + entity.width / 2) * CELL_SIZE,
+            (entity.y + entity.height / 2) * CELL_SIZE, entity.team, 0xcdbb91,
+            FX_VISUALS.completionDurationMs, 3, entity.kind === 'barricade' ? 0.75 : 1.1);
           if (entity.team === 'blue') {
             this.soundSystem.play('buildingComplete');
           }
@@ -1150,6 +1305,7 @@ export class MapScene extends Phaser.Scene {
 
     const dirtyMapCells = this.map.drainDirtyCells();
     const visionChanged = this.visualFog.update(this.displayPositions, dirtyMapCells.length > 0);
+    if (visionChanged || barricadeCompleted) this.barricadeTopology.invalidate();
     const dirtyCells = this.visualFog.drainDirtyTerrain();
     if (dirtyCells.length > 0) {
       this.detailsDirty = true;
@@ -1160,6 +1316,7 @@ export class MapScene extends Phaser.Scene {
       this.flushTerrain();
     }
     if (visionChanged) this.drawFog();
+    this.updateAttackEffects(delta);
     this.addAmbientEffects();
 
     const blueStock = this.simulation.teams.blue;
@@ -1194,6 +1351,11 @@ export class MapScene extends Phaser.Scene {
       this.soundSystem.play('enemySpotted');
     }
     this.updateWorldEffects(delta);
+    if (this.fxDebug) {
+      const root = document.querySelector('#game');
+      root?.setAttribute('data-active-world-fx', String(this.worldEffects.length));
+      root?.setAttribute('data-active-projectiles', String(this.attackEffects.filter((effect) => effect.projectile).length));
+    }
     const motionActive = this.motionTracks.size > 0;
     const view = this.cameras.main.worldView;
     const cameraChanged = view.x !== this.lastEntityView.x || view.y !== this.lastEntityView.y || view.width !== this.lastEntityView.width || view.height !== this.lastEntityView.height;
@@ -1376,8 +1538,10 @@ export class MapScene extends Phaser.Scene {
   }
 
   private renderTerrainCell(x: number, y: number, terrain: Terrain): void {
-    if (!this.terrainTiles || terrain === 'water' || terrain === 'mountain') {
-      this.mapGraphics.fillStyle(COLORS[terrain]).fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    const px = x * CELL_SIZE;
+    const py = y * CELL_SIZE;
+    if (!this.terrainTiles || terrain === 'water') {
+      this.mapGraphics.fillStyle(COLORS[terrain]).fillRect(px, py, CELL_SIZE, CELL_SIZE);
     }
   }
 
@@ -1387,7 +1551,11 @@ export class MapScene extends Phaser.Scene {
     this.drawTerrainDetails();
     for (const sprite of this.entitySprites.values()) sprite.setVisible(false);
     Object.assign(this.lastEntityView, this.cameras.main.worldView);
-    for (const entity of this.visualFog.visibleEntities()) {
+    const visibleEntities = this.visualFog.visibleEntities();
+    this.barricadeTopology.sync(this.simulation.entities.revision, visibleEntities
+      .filter((entity): entity is BuildingEntity => entity.category === 'building'
+        && entity.kind === 'barricade' && !entity.underConstruction));
+    for (const entity of visibleEntities) {
       const position = entity.category === 'unit' ? this.displayPositions.get(entity.id) ?? entity : entity;
       if (!this.intersectsViewport(position.x, position.y, entity.category === 'building' ? entity.width : 1, entity.category === 'building' ? entity.height : 1)) continue;
       const color = entity.team === 'blue' ? 0x9bdbff : 0xffada9;
@@ -1396,7 +1564,8 @@ export class MapScene extends Phaser.Scene {
         const sprite = this.updateUnitSprite(entity, position.x, position.y);
         if (sprite) {
           graphics.lineStyle(1, entity.team === 'blue' ? 0x3a9f67 : 0xa84b4c, 0.9);
-          graphics.strokeEllipse((position.x + 0.5) * CELL_SIZE, (position.y + 0.88) * CELL_SIZE, 10, 4);
+          graphics.strokeEllipse((position.x + 0.5) * CELL_SIZE, (position.y + 0.96) * CELL_SIZE,
+            UNIT_VISUALS[entity.kind].visibleWidth + 2, WORLD_VISUAL_METRICS.unitSelectionEllipseHeight);
         }
         if (!sprite) {
           graphics.fillStyle(color).fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
@@ -1407,10 +1576,13 @@ export class MapScene extends Phaser.Scene {
           graphics.fillStyle(0xffffff, 0.9).fillRect(position.x * CELL_SIZE + 5, position.y * CELL_SIZE + 4, 2, 3);
         }
         const hpPct = Math.max(0, Math.min(1, entity.hp / entity.maxHp));
-        const barW = CELL_SIZE - 2;
-        graphics.fillStyle(0x160f12, 0.9).fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE - 3, barW, 2);
+        const visual = UNIT_VISUALS[entity.kind];
+        const barW = Math.max(9, visual.visibleWidth * 0.75);
+        const barX = (position.x + 0.5) * CELL_SIZE - barW / 2;
+        const barY = (position.y + 1) * CELL_SIZE - visual.visibleHeight - WORLD_VISUAL_METRICS.unitHpBarGap;
+        graphics.fillStyle(0x160f12, 0.9).fillRect(barX, barY, barW, WORLD_VISUAL_METRICS.unitHpBarHeight);
         graphics.fillStyle(entity.team === 'blue' ? 0x55ff55 : 0xff5555, 0.95)
-          .fillRect(position.x * CELL_SIZE + 1, position.y * CELL_SIZE - 3, Math.max(1, barW * hpPct), 2);
+          .fillRect(barX, barY, Math.max(1, barW * hpPct), WORLD_VISUAL_METRICS.unitHpBarHeight);
       } else {
         const sprite = this.updateBuildingSprite(entity);
         if (sprite && !entity.underConstruction) {
@@ -1484,10 +1656,13 @@ export class MapScene extends Phaser.Scene {
           }
           if (entity.hp < entity.maxHp) {
             const hpPct = Math.max(0, entity.hp / entity.maxHp);
-            const barW = entity.width * CELL_SIZE - 4;
-            graphics.fillStyle(0x3a0000, 0.9).fillRect(entity.x * CELL_SIZE + 2, entity.y * CELL_SIZE - 3, barW, 3);
+            const visual = BUILDING_VISUALS[entity.kind];
+            const barW = visual.visibleWidth * 0.78;
+            const barX = (entity.x + entity.width / 2) * CELL_SIZE - barW / 2;
+            const barY = (entity.y + entity.height) * CELL_SIZE - visual.visibleHeight - WORLD_VISUAL_METRICS.buildingHpBarGap;
+            graphics.fillStyle(0x3a0000, 0.9).fillRect(barX, barY, barW, WORLD_VISUAL_METRICS.buildingHpBarHeight);
             graphics.fillStyle(entity.team === 'blue' ? 0x55ff55 : 0xff5555, 0.95)
-              .fillRect(entity.x * CELL_SIZE + 2, entity.y * CELL_SIZE - 3, Math.max(1, barW * hpPct), 3);
+              .fillRect(barX, barY, Math.max(1, barW * hpPct), WORLD_VISUAL_METRICS.buildingHpBarHeight);
           }
           if (this.simulation.construction.isBeingRepaired(entity.id)) {
             graphics.lineStyle(2, 0x52c41a, 0.95).strokeRect(
@@ -1539,110 +1714,252 @@ export class MapScene extends Phaser.Scene {
       if (task?.phase === 'building' || task?.phase === 'repairing') state = 'build';
     }
     if ((this.attackVisualUntil.get(unit.id) ?? 0) > this.time.now) state = 'attack';
-    const key = availableUnitKey(this, unit.team, unit.kind, state);
+    const builderKey = unit.kind === 'builder' ? builderUnitSheetKey(unit.team, state) : null;
+    const key = builderKey && this.textures.exists(builderKey)
+      ? builderKey : availableUnitKey(this, unit.team, unit.kind, state);
     if (!key) return null;
+    const visual = UNIT_VISUALS[unit.kind];
     let sprite = this.entitySprites.get(unit.id);
     if (!sprite) {
-      sprite = this.add.image(0, 0, key).setDepth(2);
+      sprite = this.add.image(0, 0, key).setOrigin(0.5, visual.originY);
       this.entitySprites.set(unit.id, sprite);
     } else if (sprite.texture.key !== key) sprite.setTexture(key);
     const frame = Math.floor(this.time.now / (state === 'attack' ? 85 : 130)) % frameCount(unit.kind, state);
-    const size = UNIT_VISUALS[unit.kind].size;
+    const size = visual.frameDisplaySize;
     const px = (x + 0.5) * CELL_SIZE;
-    const py = (y + 0.5) * CELL_SIZE;
+    const py = (y + 1) * CELL_SIZE;
+    const depth = ySortedWorldDepth(y + 1, 1);
     const cached = this.spriteVisualCache.get(unit.id);
     if (!cached || cached.key !== key || cached.frame !== frame) sprite.setFrame(frame);
     if (!cached || cached.size !== size) sprite.setDisplaySize(size, size);
+    if (!cached || cached.depth !== depth) sprite.setDepth(depth);
     if (!cached || cached.x !== px || cached.y !== py) sprite.setPosition(px, py);
     if (motion && motion.path.length > 1) {
       sprite.setFlipX(motion.path[motion.path.length - 1][0] < motion.path[0][0]);
     }
     sprite.setVisible(true).setAlpha(1);
-    this.spriteVisualCache.set(unit.id, { key, frame, x: px, y: py, size });
+    this.spriteVisualCache.set(unit.id, { key, frame, x: px, y: py, size, depth });
     return sprite;
   }
 
   private updateBuildingSprite(building: BuildingEntity): Phaser.GameObjects.Image | null {
-    const key = buildingKey(building.team, building.kind);
-    if (!this.textures.exists(key)) return null;
+    const key = building.kind === 'barricade'
+      ? barricadeTextureKey(building.underConstruction ? 0 : this.barricadeTopology.maskFor(building.id))
+      : buildingKey(building.team, building.kind);
+    const resolvedKey = this.textures.exists(key) ? key : buildingKey(building.team, building.kind);
+    if (!this.textures.exists(resolvedKey)) return null;
+    const visual = BUILDING_VISUALS[building.kind];
     let sprite = this.entitySprites.get(building.id);
     if (!sprite) {
-      sprite = this.add.image(0, 0, key).setDepth(2).setOrigin(0.5, 1);
+      sprite = this.add.image(0, 0, resolvedKey).setOrigin(visual.originX, visual.originY);
       this.entitySprites.set(building.id, sprite);
-    } else if (sprite.texture.key !== key) sprite.setTexture(key);
-    const width = building.kind === 'barricade' ? CELL_SIZE : building.width * CELL_SIZE + 4;
-    const height = building.kind === 'barricade' ? CELL_SIZE : width * sprite.texture.source[0].height / sprite.texture.source[0].width;
+    } else if (sprite.texture.key !== resolvedKey) sprite.setTexture(resolvedKey);
+    const width = visual.width;
+    const height = visual.height;
     const px = (building.x + building.width / 2) * CELL_SIZE;
     const py = (building.y + building.height) * CELL_SIZE;
+    const depth = ySortedWorldDepth(building.y + building.height, 1);
     const cached = this.spriteVisualCache.get(building.id);
     if (!cached || cached.size !== width) sprite.setDisplaySize(width, height);
+    if (!cached || cached.depth !== depth) sprite.setDepth(depth);
     if (!cached || cached.x !== px || cached.y !== py) sprite.setPosition(px, py);
-    this.spriteVisualCache.set(building.id, { key, frame: 0, x: px, y: py, size: width });
+    this.spriteVisualCache.set(building.id, { key: resolvedKey, frame: 0, x: px, y: py, size: width, depth });
     sprite.setVisible(true).setAlpha(building.underConstruction ? 0.52 : 1);
     return sprite;
   }
 
   private drawTerrainDetails(): void {
     const view = this.cameras.main.worldView;
-    const minX = Math.max(0, Math.floor(view.x / CELL_SIZE) - 2);
-    const minY = Math.max(0, Math.floor(view.y / CELL_SIZE) - 2);
-    const maxX = Math.min(this.map.width - 1, Math.ceil(view.right / CELL_SIZE) + 2);
-    const maxY = Math.min(this.map.height - 1, Math.ceil(view.bottom / CELL_SIZE) + 2);
+    const detailMargin = WORLD_VISUAL_METRICS.terrainViewportMarginCells;
+    const minX = Math.max(0, Math.floor(view.x / CELL_SIZE) - detailMargin);
+    const minY = Math.max(0, Math.floor(view.y / CELL_SIZE) - detailMargin);
+    const maxX = Math.min(this.map.width - 1, Math.ceil(view.right / CELL_SIZE) + detailMargin);
+    const maxY = Math.min(this.map.height - 1, Math.ceil(view.bottom / CELL_SIZE) + detailMargin);
     const bounds = `${minX},${minY},${maxX},${maxY}`;
     if (!this.detailsDirty && bounds === this.lastDetailBounds) return;
     this.detailsDirty = false;
     this.lastDetailBounds = bounds;
+    this.fogReliefGraphics.clear();
+    const terrainAt = (x: number, y: number): Terrain | null => this.map.cellAt(x, y)?.terrain ?? null;
     let used = 0;
+    let foliageUsed = 0;
     for (let y = minY; y <= maxY; y += 1) {
       for (let x = minX; x <= maxX; x += 1) {
-        const terrain = this.visualFog.rawTerrain(x, y);
+        const hidden = this.visualFog.rawState(x, y) === 0;
+        const terrain = this.visualFog.rawTerrain(x, y) ?? (hidden ? terrainAt(x, y) : null);
         if (!terrain) continue;
-        const hash = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+        // Fogged resources and forests stay concealed; only broad elevation and water shapes show faintly.
+        if (hidden && terrain !== 'mountain' && terrain !== 'water') continue;
+        if (hidden && terrain === 'water') {
+          this.fogReliefGraphics.fillStyle(COLORS.water, WORLD_VISUAL_METRICS.hiddenWaterAlpha)
+            .fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+          continue;
+        }
+        const hash = visualHash(x, y);
         let key = '';
-        let frame = 0;
+        let frame: number | string = 0;
         let width = 0;
         let height = 0;
+        let originX = 0.5;
+        let originY = 1;
+        let flipMountainY = false;
         if (terrain === 'forest') {
-          key = hash % 3 === 0 ? (hash % 2 ? 'tiny-tree1' : 'tiny-tree2') : 'tiny-bush';
-          width = key === 'tiny-bush' ? 13 : 21;
-          height = key === 'tiny-bush' ? 13 : 27;
-          frame = key === 'tiny-bush' ? hash % 8 : 0;
-        } else if (terrain === 'mine') { key = 'tiny-gold'; width = 14; height = 14; }
-        else if (terrain === 'stone') { key = 'tiny-stone'; width = 12; height = 12; }
-        else if (terrain === 'mountain' && hash % 4 === 0) { key = 'tiny-stone'; width = 13; height = 13; }
-        else if (terrain === 'water' && hash % 79 === 0) { key = 'tiny-waterRock'; width = 12; height = 12; frame = hash % 16; }
-        else if (terrain === 'plain' && hash % 29 === 0) { key = 'tiny-bush'; width = 10; height = 10; frame = hash % 8; }
+          const variant = hash % 8;
+          if (hash % RESOURCE_VISUALS.forestTreeSpacingModulo !== 0) {
+            if (hash % 13 !== 0) continue;
+            key = `tiny-bush${1 + hash % 4}`;
+            ({ width, height, originX, originY } = RESOURCE_VISUALS.bush);
+            frame = hash % 8;
+          } else if (variant < 2) {
+            key = `tiny-bush${1 + hash % 4}`;
+            ({ width, height, originX, originY } = RESOURCE_VISUALS.bush);
+            frame = hash % 8;
+          } else if (variant < 5) {
+            key = hash % 2 ? 'tiny-tree3' : 'tiny-tree4';
+            ({ width, height, originX, originY } = RESOURCE_VISUALS.forestTreeB);
+            frame = hash % 8;
+          } else {
+            key = hash % 2 ? 'tiny-tree1' : 'tiny-tree2';
+            ({ width, height, originX, originY } = RESOURCE_VISUALS.forestTreeA);
+            frame = hash % 8;
+          }
+        } else if (terrain === 'mine') {
+          key = ['tiny-gold', 'tiny-gold4', 'tiny-gold5', 'tiny-gold6'][hash % 4];
+          ({ width, height, originX, originY } = RESOURCE_VISUALS.gold);
+        } else if (terrain === 'stone') {
+          key = ['tiny-stone', 'tiny-stone1', 'tiny-stone3', 'tiny-stone4'][hash % 4];
+          ({ width, height, originX, originY } = RESOURCE_VISUALS.stoneDeposit);
+        } else if (terrain === 'mountain') {
+          const north = terrainAt(x, y - 1);
+          const south = terrainAt(x, y + 1);
+          const west = terrainAt(x - 1, y);
+          const east = terrainAt(x + 1, y);
+          key = 'tiny-terrainHigh'; width = CELL_SIZE;
+          const southEdge = (south !== null && south !== 'mountain') || y === this.map.height - 1;
+          const westEdge = west !== 'mountain';
+          const eastEdge = east !== 'mountain';
+          const northEdge = (north !== null && north !== 'mountain') || y === 0;
+          if (southEdge) {
+            // Join the broad front wall pieces along the lower rim of the raised plateau.
+            frame = westEdge ? 'cliff-left' : eastEdge ? 'cliff-right' : 'cliff-center';
+            height = CELL_SIZE * WORLD_VISUAL_METRICS.mountainCliffHeightCells;
+          } else if (northEdge) {
+            // Mirror the rock face on the upper rim so the plateau reads as a raised tier.
+            frame = westEdge ? 'cliff-left' : eastEdge ? 'cliff-right' : 'cliff-center';
+            height = CELL_SIZE * WORLD_VISUAL_METRICS.mountainCliffHeightCells;
+            flipMountainY = true;
+          } else if (westEdge || eastEdge) {
+            // The narrow atlas column gives the plateau's exposed sides a matching rock face.
+            frame = 'cliff-side'; height = CELL_SIZE * WORLD_VISUAL_METRICS.mountainCliffHeightCells;
+          } else {
+            height = CELL_SIZE;
+            const northEdge = north !== 'mountain', southEdge = south !== 'mountain';
+            const westEdge = west !== 'mountain', eastEdge = east !== 'mountain';
+            frame = northEdge && westEdge ? 0 : northEdge && eastEdge ? 2
+              : southEdge && westEdge ? 18 : southEdge && eastEdge ? 20
+              : northEdge ? 1 : southEdge ? 19 : westEdge ? 9 : eastEdge ? 11 : 10;
+          }
+        } else if (terrain === 'water') {
+          const waterEdge = hasDifferentTerrainNeighbor(terrainAt, x, y, 'water');
+          if (waterEdge && hash % 2 === 0) {
+            key = 'tiny-waterFoam'; ({ width, height, originX, originY } = RESOURCE_VISUALS.waterFoam); frame = hash % 16;
+          } else if (!waterEdge && hash % 53 === 0) {
+            key = hash % 2 ? 'tiny-waterRock' : 'tiny-waterRock2';
+            ({ width, height, originX, originY } = RESOURCE_VISUALS.waterRock); frame = hash % 16;
+          }
+        } else if (terrain === 'plain' && hash % RESOURCE_VISUALS.plainDecorationModulo === 0) {
+          if (hash % 11 === 0) {
+            key = hash % 2 ? 'tiny-tree1' : 'tiny-tree2'; ({ width, height, originX, originY } = RESOURCE_VISUALS.smallTree); frame = hash % 8;
+          } else if (hash % 5 === 0) {
+            key = ['tiny-stone1', 'tiny-stone4'][hash % 2]; ({ width, height, originX, originY } = RESOURCE_VISUALS.decorationStone);
+          } else {
+            key = `tiny-bush${1 + hash % 4}`; ({ width, height, originX, originY } = RESOURCE_VISUALS.bush); frame = hash % 8;
+          }
+        }
         else continue;
         if (!this.textures.exists(key)) continue;
         let sprite = this.terrainDetails[used];
         if (!sprite) {
-          sprite = this.add.image(0, 0, key).setDepth(1).setOrigin(0.5, 1);
+          sprite = this.add.image(0, 0, key).setOrigin(0.5, 1);
           this.terrainDetails.push(sprite);
         }
         if (sprite.texture.key !== key) sprite.setTexture(key);
         if (sprite.frame.name !== String(frame)) sprite.setFrame(frame);
+        sprite.setOrigin(originX, originY);
         sprite.setDisplaySize(width, height);
-        sprite.setPosition((x + 0.5) * CELL_SIZE, (y + 1) * CELL_SIZE);
+        const mountainCell = terrain === 'mountain';
+        const offsetX = mountainCell ? 0 : ((hash >>> 8) % 7) - 3;
+        const offsetY = 0;
+        const mountainWall = mountainCell && typeof frame === 'string' && frame.startsWith('cliff-');
+        const wallOverhang = mountainWall ? (flipMountainY ? -CELL_SIZE : CELL_SIZE) : 0;
+        sprite.setFlipX(mountainCell && frame === 'cliff-side' && terrainAt(x - 1, y) !== 'mountain');
+        sprite.setFlipY(flipMountainY);
+        sprite.setAlpha(hidden ? WORLD_VISUAL_METRICS.hiddenMountainAlpha : 1);
+        sprite.setPosition((x + 0.5) * CELL_SIZE + offsetX, (y + 1) * CELL_SIZE + offsetY + wallOverhang);
+        sprite.setDepth(ySortedWorldDepth((y + 1) + wallOverhang / CELL_SIZE));
         sprite.setVisible(true);
         used += 1;
+        if (!hidden && terrain === 'mountain' && typeof frame === 'number' && hash % 19 === 0 && this.textures.exists('tiny-bush3')) {
+          let bush = this.mountainFoliage[foliageUsed];
+          if (!bush) {
+            bush = this.add.image(0, 0, 'tiny-bush3');
+            this.mountainFoliage.push(bush);
+          }
+          if (bush.frame.name !== String(hash % 8)) bush.setFrame(hash % 8);
+          bush.setDisplaySize(RESOURCE_VISUALS.mountainBush.width, RESOURCE_VISUALS.mountainBush.height)
+            .setOrigin(RESOURCE_VISUALS.mountainBush.originX, RESOURCE_VISUALS.mountainBush.originY)
+            .setFlipX(hash % 2 === 0);
+          bush.setPosition((x + 0.5) * CELL_SIZE + 1, (y + 1) * CELL_SIZE);
+          bush.setDepth(ySortedWorldDepth(y + 1));
+          bush.setVisible(true);
+          foliageUsed += 1;
+        }
       }
     }
     for (let i = used; i < this.terrainDetails.length; i += 1) this.terrainDetails[i].setVisible(false);
+    for (let i = foliageUsed; i < this.mountainFoliage.length; i += 1) this.mountainFoliage[i].setVisible(false);
+
+    let ridgeUsed = 0;
+    for (let y = minY; y <= maxY; y += 1) {
+      if (y % WORLD_VISUAL_METRICS.mountainRidgeStrideCells !== 0) continue;
+      for (let x = minX; x <= maxX; x += 1) {
+        if (this.visualFog.rawTerrain(x, y) !== 'mountain') continue;
+        const north = this.visualFog.rawTerrain(x, y - 1);
+        const south = this.visualFog.rawTerrain(x, y + 1);
+        if (north !== 'mountain' || south !== 'mountain') continue;
+        const west = this.visualFog.rawTerrain(x - 1, y);
+        const east = this.visualFog.rawTerrain(x + 1, y);
+        const ridgeFrame = west !== 'mountain' ? 'cliff-left' : east !== 'mountain' ? 'cliff-right' : 'cliff-center';
+        let ridge = this.mountainRidges[ridgeUsed];
+        if (!ridge) {
+          ridge = this.add.image(0, 0, 'tiny-terrainHigh').setOrigin(0.5, 1);
+          this.mountainRidges.push(ridge);
+        }
+        if (ridge.frame.name !== ridgeFrame) ridge.setFrame(ridgeFrame);
+        ridge.setDisplaySize(CELL_SIZE, CELL_SIZE * WORLD_VISUAL_METRICS.mountainRidgeHeightCells).setFlipX(false).setFlipY(false);
+        ridge.setPosition((x + 0.5) * CELL_SIZE, (y + 2) * CELL_SIZE);
+        ridge.setDepth(ySortedWorldDepth(y + WORLD_VISUAL_METRICS.mountainRidgeHeightCells));
+        ridge.setVisible(true);
+        ridgeUsed += 1;
+      }
+    }
+    for (let i = ridgeUsed; i < this.mountainRidges.length; i += 1) this.mountainRidges[i].setVisible(false);
   }
 
   private intersectsViewport(x: number, y: number, width: number, height: number): boolean {
     const view = this.cameras.main.worldView;
-    // One-cell margin preserves health bars, outlines and fractional interpolation.
-    return (x + width + 1) * CELL_SIZE >= view.x && (x - 1) * CELL_SIZE <= view.right
-      && (y + height + 1) * CELL_SIZE >= view.y && (y - 1) * CELL_SIZE <= view.bottom;
+    // Tall anchored sprites extend beyond their logical footprint when close to the viewport edge.
+    const margin = WORLD_VISUAL_METRICS.entityViewportMarginCells;
+    return (x + width + margin) * CELL_SIZE >= view.x && (x - margin) * CELL_SIZE <= view.right
+      && (y + height + margin) * CELL_SIZE >= view.y && (y - margin) * CELL_SIZE <= view.bottom;
   }
 
   private updateAttackEffects(delta: number): void {
-    this.combatGraphics.clear();
     for (let i = this.attackEffects.length - 1; i >= 0; i -= 1) {
       const fx = this.attackEffects[i];
-      fx.elapsedMs += delta;
-      if (fx.elapsedMs >= fx.totalMs) {
+      const fromVisible = this.visualFog.stateAt(Math.floor(fx.fromX / CELL_SIZE), Math.floor(fx.fromY / CELL_SIZE)) === 'visible';
+      const toVisible = this.visualFog.stateAt(Math.floor(fx.toX / CELL_SIZE), Math.floor(fx.toY / CELL_SIZE)) === 'visible';
+      if (!fromVisible || !toVisible) {
         if (fx.projectile) {
           fx.projectile.setVisible(false);
           this.projectilePool.push(fx.projectile);
@@ -1650,44 +1967,136 @@ export class MapScene extends Phaser.Scene {
         this.attackEffects.splice(i, 1);
         continue;
       }
-      if (this.visualFog.stateAt(Math.floor(fx.fromX / CELL_SIZE), Math.floor(fx.fromY / CELL_SIZE)) !== 'visible'
-        || this.visualFog.stateAt(Math.floor(fx.toX / CELL_SIZE), Math.floor(fx.toY / CELL_SIZE)) !== 'visible') {
-        fx.projectile?.setVisible(false);
+      fx.elapsedMs += delta;
+      if (fx.elapsedMs >= fx.totalMs) {
+        if (fx.projectile) {
+          fx.projectile.setVisible(false);
+          this.projectilePool.push(fx.projectile);
+        }
+        this.addWorldEffect(fx.impactKind, fx.toX, fx.toY, fx.targetTeam,
+          fx.impactKind === 'hit' ? 0xfff1cc : fx.targetTeam === 'blue' ? 0xb4c1c4 : 0xc89a67,
+          fx.impactKind === 'dust' ? FX_VISUALS.deathDurationMs : FX_VISUALS.impactDurationMs,
+          fx.impactKind === 'hit' ? 4 : fx.impactKind === 'dust' ? 3 : 2,
+          fx.impactKind === 'dust' ? 1.2 : 0.8);
+        if (fx.impactKind === 'dust' && fx.targetCategory === 'building') {
+          this.addWorldEffect('debris', fx.toX, fx.toY, fx.targetTeam, 0x9b8569,
+            FX_VISUALS.structureImpactDurationMs, 2, fx.targetKind === 'barricade' ? 0.7 : 1.4);
+        }
+        this.attackEffects.splice(i, 1);
         continue;
       }
-      const alpha = 1 - (fx.elapsedMs / fx.totalMs);
       if (fx.projectile) {
         const progress = fx.elapsedMs / fx.totalMs;
-        fx.projectile.setPosition(Phaser.Math.Linear(fx.fromX, fx.toX, progress), Phaser.Math.Linear(fx.fromY, fx.toY, progress));
+        const x = Phaser.Math.Linear(fx.fromX, fx.toX, progress);
+        const y = Phaser.Math.Linear(fx.fromY, fx.toY, progress);
+        if (this.visualFog.stateAt(Math.floor(x / CELL_SIZE), Math.floor(y / CELL_SIZE)) !== 'visible') {
+          fx.projectile.setVisible(false);
+          this.projectilePool.push(fx.projectile);
+          this.attackEffects.splice(i, 1);
+          continue;
+        }
+        fx.projectile.setPosition(x, y);
         fx.projectile.setRotation(Math.atan2(fx.toY - fx.fromY, fx.toX - fx.fromX));
         fx.projectile.setVisible(true);
-      } else {
-        this.combatGraphics.lineStyle(2, fx.color, alpha);
-        this.combatGraphics.lineBetween(fx.fromX, fx.fromY, fx.toX, fx.toY);
       }
-      this.combatGraphics.fillStyle(0xffffff, alpha);
-      this.combatGraphics.fillCircle(fx.toX, fx.toY, 2.5);
-      this.combatGraphics.lineStyle(1.5, fx.color, alpha * 0.8);
-      this.combatGraphics.strokeCircle(fx.toX, fx.toY, 2 + (1 - alpha) * 8);
     }
   }
 
   private addWorldEffect(kind: WorldEffect['kind'], x: number, y: number,
-    team: Team, color: number, totalMs: number): void {
-    if (this.worldEffects.length >= 100) {
-      const removed = this.worldEffects.shift();
+    team: Team, color: number, totalMs: number, priority: 0 | 1 | 2 | 3 | 4 = 0, sizeScale = 1): void {
+    if (team === 'red' && this.visualFog.stateAt(Math.floor(x / CELL_SIZE), Math.floor(y / CELL_SIZE)) !== 'visible') return;
+    if (this.worldEffects.length >= FX_LIMITS.activeWorldEffects) {
+      let replaceAt = this.worldEffects.findIndex((effect) => effect.priority < priority);
+      if (replaceAt < 0 && priority > 0) replaceAt = this.worldEffects.findIndex((effect) => effect.priority === priority);
+      if (replaceAt < 0) return;
+      const [removed] = this.worldEffects.splice(replaceAt, 1);
       if (removed?.sprite) this.releaseEffect(removed.sprite);
     }
-    const key = kind === 'dust' ? 'tiny-dust' : kind === 'explosion' ? 'tiny-explosion' : '';
+    const key = kind === 'dust' ? 'tiny-dust' : '';
     const sprite = key && this.textures.exists(key) ? this.acquireEffect(key) : undefined;
-    if (sprite) sprite.setPosition(x, y).setDisplaySize(kind === 'dust' ? 15 : 20, kind === 'dust' ? 15 : 20);
-    this.worldEffects.push({ kind, x, y, team, color, elapsedMs: 0, totalMs, sprite });
+    if (sprite) {
+      sprite.setPosition(x, y).setDisplaySize(FX_VISUALS.dust.width * sizeScale, FX_VISUALS.dust.height * sizeScale);
+    }
+    this.worldEffects.push({ kind, x, y, team, color, elapsedMs: 0, totalMs, sprite, priority, sizeScale });
   }
 
-  private acquireEffect(key: string): Phaser.GameObjects.Image {
-    const sprite = this.effectPool.pop() ?? this.add.image(0, 0, key).setDepth(5);
+  private installFxDebugPanel(): void {
+    const panel = document.createElement('section');
+    panel.setAttribute('aria-label', 'Teste de efeitos visuais');
+    panel.dataset.fxDebug = 'true';
+    Object.assign(panel.style, {
+      position: 'fixed', right: '14px', top: '88px', zIndex: '1000', width: '226px',
+      padding: '10px', border: '2px solid #c59a5b', borderRadius: '8px',
+      background: 'rgba(18, 51, 57, .94)', color: '#fff1ce',
+      font: 'bold 12px Arial, sans-serif', boxShadow: '0 4px 14px rgba(0,0,0,.35)',
+    });
+    const title = document.createElement('div');
+    title.textContent = 'TESTE DE FEEDBACK VISUAL';
+    title.style.marginBottom = '8px';
+    panel.append(title);
+
+    const grid = document.createElement('div');
+    Object.assign(grid.style, { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' });
+    const anchor = this.simulation.entities.all().find((entity): entity is UnitEntity =>
+      entity.category === 'unit' && entity.team === 'blue') ?? this.simulation.entities.get('blue-base');
+    const x = ((anchor?.x ?? 24) + (anchor?.category === 'building' ? anchor.width / 2 : 0.5)) * CELL_SIZE;
+    const y = ((anchor?.y ?? 100) + (anchor?.category === 'building' ? anchor.height / 2 : 0.5)) * CELL_SIZE;
+    this.cameras.main.setZoom(Math.max(this.cameras.main.zoom, 1.35)).centerOn(x, y);
+    const previewX = x + CELL_SIZE * 0.65;
+    const previewY = y - CELL_SIZE * 0.35;
+    const buttons: Array<{ label: string; color: string; run: () => void }> = [
+      { label: 'Impacto', color: '#a94c43', run: () => this.addWorldEffect('hit', previewX, previewY, 'blue', 0xfff1cc, FX_VISUALS.hitDurationMs, 4, 1) },
+      { label: 'Morte', color: '#6d6659', run: () => this.addWorldEffect('dust', previewX, previewY, 'blue', 0xd9c69a, FX_VISUALS.deathDurationMs, 3, 1.15) },
+      { label: 'Flecha', color: '#426f7d', run: () => {
+        const fromX = previewX - CELL_SIZE * 2;
+        const fromY = previewY;
+        const toX = previewX + CELL_SIZE * 2;
+        const projectile = this.textures.exists('tiny-arrowYellow') ? this.acquireProjectile('tiny-arrowYellow') : null;
+        if (!projectile || this.attackEffects.length >= FX_LIMITS.activeAttackTrails) {
+          if (projectile) this.projectilePool.push(projectile.setVisible(false));
+          return;
+        }
+        this.attackEffects.push({ fromX, fromY, toX, toY: y, elapsedMs: 0,
+          totalMs: FX_VISUALS.arrowMaxDurationMs, projectile, targetTeam: 'blue', targetCategory: 'unit', targetKind: 'soldier', impactKind: 'hit' });
+      } },
+      { label: 'Construção', color: '#786140', run: () => this.addWorldEffect('dust', previewX, previewY, 'blue', 0xcdbb91, FX_VISUALS.completionDurationMs, 3, 1) },
+      { label: 'Madeira', color: '#786140', run: () => this.addWorldEffect('chips', previewX, previewY, 'blue', 0xc89a67, FX_VISUALS.gatherIntervalMs, 1, 1) },
+      { label: 'Ouro', color: '#786140', run: () => this.addWorldEffect('chips', previewX, previewY, 'blue', 0xefce87, FX_VISUALS.gatherIntervalMs, 1, 1) },
+      { label: 'Pedra', color: '#786140', run: () => this.addWorldEffect('chips', previewX, previewY, 'blue', 0xb5bcc4, FX_VISUALS.gatherIntervalMs, 1, 1) },
+      { label: 'Ordem', color: '#426f7d', run: () => this.addWorldEffect('ring', previewX, previewY, 'blue', 0x55ff55, FX_VISUALS.orderDurationMs, 1) },
+      { label: 'Limpar', color: '#554653', run: () => {
+        for (const effect of this.worldEffects) if (effect.sprite) this.releaseEffect(effect.sprite);
+        this.worldEffects.length = 0;
+        for (const effect of this.attackEffects) if (effect.projectile) this.projectilePool.push(effect.projectile.setVisible(false));
+        this.attackEffects.length = 0;
+      } },
+    ];
+    for (const item of buttons) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = item.label;
+      Object.assign(button.style, {
+        minHeight: '28px', border: '1px solid #d4b06a', borderRadius: '4px',
+        background: item.color, color: '#fff4d4', font: 'bold 12px Arial, sans-serif', cursor: 'pointer',
+      });
+      button.addEventListener('click', item.run);
+      grid.append(button);
+    }
+    panel.append(grid);
+    document.body.append(panel);
+    this.events.once('shutdown', () => panel.remove());
+  }
+
+  private isWorldPointVisible(team: Team, x: number, y: number): boolean {
+    return team === 'blue' || this.visualFog.stateAt(Math.floor(x / CELL_SIZE), Math.floor(y / CELL_SIZE)) === 'visible';
+  }
+
+  private acquireEffect(key: string): Phaser.GameObjects.Image | undefined {
+    const activeSprites = this.worldEffects.reduce((count, effect) => count + (effect.sprite ? 1 : 0), 0);
+    if (this.effectPool.length === 0 && activeSprites >= FX_LIMITS.activeWorldEffects) return undefined;
+    const sprite = this.effectPool.pop() ?? this.add.image(0, 0, key).setDepth(WORLD_LAYER_DEPTHS.worldEffects);
     if (sprite.texture.key !== key) sprite.setTexture(key);
-    return sprite.setVisible(true);
+    return sprite.setAlpha(1).setRotation(0).setVisible(true);
   }
 
   private releaseEffect(sprite: Phaser.GameObjects.Image): void {
@@ -1695,32 +2104,44 @@ export class MapScene extends Phaser.Scene {
     this.effectPool.push(sprite);
   }
 
-  private acquireProjectile(key: string): Phaser.GameObjects.Image {
-    const sprite = this.projectilePool.pop() ?? this.add.image(0, 0, key).setDepth(5);
+  private acquireProjectile(key: string): Phaser.GameObjects.Image | null {
+    const activeProjectiles = this.attackEffects.reduce((count, effect) => count + (effect.projectile ? 1 : 0), 0);
+    if (activeProjectiles >= FX_LIMITS.activeProjectiles) return null;
+    const sprite = this.projectilePool.pop() ?? this.add.image(0, 0, key).setDepth(WORLD_LAYER_DEPTHS.worldEffects);
     if (sprite.texture.key !== key) sprite.setTexture(key);
-    return sprite.setDisplaySize(10, 10).setVisible(true);
+    return sprite.setAlpha(1).setRotation(0)
+      .setDisplaySize(FX_VISUALS.projectile.width, FX_VISUALS.projectile.height).setVisible(true);
   }
 
   private addAmbientEffects(): void {
     const second = Math.floor(this.simulation.clock.ticks / TICKS_PER_SECOND);
     if (second <= this.lastAmbientSecond) return;
     this.lastAmbientSecond = second;
+    let emitted = 0;
     for (const entity of this.simulation.entities.all()) {
       if (entity.category === 'unit' && entity.kind === 'worker') {
         const task = this.simulation.economy.taskFor(entity.id);
         if (task?.phase === 'working' || task?.phase === 'gathering') {
-          const position = this.displayPositions.get(entity.id) ?? entity;
+          if (emitted >= FX_LIMITS.ambientEffectsPerSecond) break;
+          const position = task.source;
           const offset = ((second + entity.id.length) % 3 - 1) * 3;
-          this.addWorldEffect('spark', (position.x + 0.5) * CELL_SIZE + offset,
-            (position.y + 0.5) * CELL_SIZE - 3, entity.team,
-            task.kind === 'mine' ? 0xefce87 : 0xa4d96c, 450);
+          const color = task.kind === 'mine' ? 0xefce87 : task.resourceKind === 'stone' ? 0xb5bcc4 : 0xc89a67;
+          this.addWorldEffect('chips', (position[0] + 0.5) * CELL_SIZE + offset,
+            (position[1] + 0.5) * CELL_SIZE - 3, entity.team, color,
+            FX_VISUALS.gatherIntervalMs, 1, 0.8);
+          emitted += 1;
         }
       } else if (entity.category === 'building' && entity.underConstruction) {
-        this.addWorldEffect('spark', (entity.x + entity.width - 0.3) * CELL_SIZE,
-          (entity.y + 0.3) * CELL_SIZE, entity.team, 0xefce87, 450);
+        if (emitted >= FX_LIMITS.ambientEffectsPerSecond) break;
+        this.addWorldEffect('dust', (entity.x + entity.width - 0.3) * CELL_SIZE,
+          (entity.y + entity.height - 0.25) * CELL_SIZE, entity.team, 0xcdbb91,
+          FX_VISUALS.constructionIntervalMs, 1, entity.kind === 'barricade' ? 0.6 : 0.85);
+        emitted += 1;
       } else if (entity.category === 'building' && this.simulation.construction.isBeingRepaired(entity.id)) {
+        if (emitted >= FX_LIMITS.ambientEffectsPerSecond) break;
         this.addWorldEffect('spark', (entity.x + entity.width / 2) * CELL_SIZE,
           (entity.y + entity.height / 2) * CELL_SIZE, entity.team, 0x52c41a, 400);
+        emitted += 1;
       }
     }
   }
@@ -1735,9 +2156,9 @@ export class MapScene extends Phaser.Scene {
         this.worldEffects.splice(index, 1);
         continue;
       }
-      if (effect.team === 'red' && this.visualFog.stateAt(Math.floor(effect.x / CELL_SIZE),
-        Math.floor(effect.y / CELL_SIZE)) !== 'visible') {
-        effect.sprite?.setVisible(false);
+      if (effect.team === 'red' && !this.isWorldPointVisible(effect.team, effect.x, effect.y)) {
+        if (effect.sprite) this.releaseEffect(effect.sprite);
+        this.worldEffects.splice(index, 1);
         continue;
       }
       const progress = effect.elapsedMs / effect.totalMs;
@@ -1746,15 +2167,34 @@ export class MapScene extends Phaser.Scene {
         effect.sprite.setFrame(Math.min(7, Math.floor(progress * 8)));
         effect.sprite.setAlpha(alpha).setVisible(true);
       } else if (effect.kind === 'ring') {
-        this.worldGraphics.lineStyle(1.5, effect.color, alpha);
-        this.worldGraphics.strokeCircle(effect.x, effect.y, 2 + progress * 10);
+        this.worldGraphics.lineStyle(FX_VISUALS.worldRingLineWidth, effect.color, alpha);
+        this.worldGraphics.strokeCircle(effect.x, effect.y,
+          FX_VISUALS.worldRingStartRadius + progress * FX_VISUALS.worldRingGrowth);
       } else if (effect.kind === 'spark') {
+        this.worldGraphics.lineStyle(FX_VISUALS.sparkLineWidth, effect.color, alpha);
+        this.worldGraphics.lineBetween(effect.x - FX_VISUALS.sparkHalfLength, effect.y,
+          effect.x + FX_VISUALS.sparkHalfLength, effect.y);
+        this.worldGraphics.lineBetween(effect.x, effect.y - FX_VISUALS.sparkHalfLength,
+          effect.x, effect.y + FX_VISUALS.sparkHalfLength);
+      } else if (effect.kind === 'hit') {
+        const radius = FX_VISUALS.hitMarkerRadius * effect.sizeScale;
+        this.worldGraphics.fillStyle(effect.color, alpha);
+        this.worldGraphics.fillRect(effect.x - radius, effect.y - 1.25, radius * 2, 2.5);
+        this.worldGraphics.fillRect(effect.x - 1.25, effect.y - radius, 2.5, radius * 2);
+        this.worldGraphics.lineStyle(1.25, effect.color, alpha * 0.75);
+        this.worldGraphics.strokeCircle(effect.x, effect.y,
+          radius * 0.8 + progress * FX_VISUALS.hitMarkerRingGrowth);
+        this.worldGraphics.fillStyle(0xfff9e5, alpha * 0.9).fillCircle(effect.x, effect.y, 1.25 * effect.sizeScale);
+      } else if (effect.kind === 'debris' || effect.kind === 'chips') {
+        const half = (effect.kind === 'debris' ? 4 : 2.5) * effect.sizeScale;
         this.worldGraphics.lineStyle(1.5, effect.color, alpha);
-        this.worldGraphics.lineBetween(effect.x - 2, effect.y, effect.x + 2, effect.y);
-        this.worldGraphics.lineBetween(effect.x, effect.y - 2, effect.x, effect.y + 2);
+        this.worldGraphics.lineBetween(effect.x - half, effect.y + half * 0.35, effect.x - half * 0.25, effect.y - half * 0.5);
+        this.worldGraphics.lineBetween(effect.x + half * 0.2, effect.y + half * 0.4, effect.x + half, effect.y - half * 0.2);
+        if (effect.kind === 'debris') this.worldGraphics.lineBetween(effect.x - half * 0.1, effect.y - half, effect.x + half * 0.25, effect.y - half * 0.35);
       } else {
         this.worldGraphics.fillStyle(effect.color, alpha * 0.45);
-        this.worldGraphics.fillCircle(effect.x, effect.y, 1 + progress * 3);
+        this.worldGraphics.fillCircle(effect.x, effect.y,
+          FX_VISUALS.sparkRadius + progress * FX_VISUALS.sparkGrowth);
       }
     }
   }
@@ -1790,7 +2230,8 @@ export class MapScene extends Phaser.Scene {
         if (state === 1) exploredCount += 1;
         if (state === runState) continue;
         if (runState === 0) {
-          graphics.fillStyle(0x09141a, 1)
+          // Desaturada e translúcida: a névoa cobre o terreno sem virar um bloco preto.
+          graphics.fillStyle(0x88b8b2, 0.58)
             .fillRect(runStart * CELL_SIZE, y * CELL_SIZE, (x - runStart) * CELL_SIZE, CELL_SIZE);
         }
         runStart = x;
@@ -1822,12 +2263,20 @@ export class MapScene extends Phaser.Scene {
     this.selectionGraphics.clear();
     const selected = this.selection.selectedEntities;
     for (const entity of selected) {
-      const width = entity.category === 'unit' ? 1 : entity.width;
-      const height = entity.category === 'unit' ? 1 : entity.height;
       const position = entity.category === 'unit' ? this.displayPositions.get(entity.id) ?? entity : entity;
+      const width = entity.category === 'unit' ? UNIT_VISUALS[entity.kind].visibleWidth : BUILDING_VISUALS[entity.kind].visibleWidth;
+      const height = entity.category === 'unit' ? UNIT_VISUALS[entity.kind].visibleHeight : BUILDING_VISUALS[entity.kind].visibleHeight;
+      const footX = entity.category === 'unit'
+        ? (position.x + 0.5) * CELL_SIZE
+        : (entity.x + entity.width / 2) * CELL_SIZE;
+      const footY = entity.category === 'unit'
+        ? (position.y + 1) * CELL_SIZE
+        : (entity.y + entity.height) * CELL_SIZE;
       this.selectionGraphics.lineStyle(2, 0xffdf70, 1).strokeRect(
-        position.x * CELL_SIZE - 2, position.y * CELL_SIZE - 2,
-        width * CELL_SIZE + 4, height * CELL_SIZE + 4,
+        footX - width / 2 - WORLD_VISUAL_METRICS.unitSelectionPadding,
+        footY - height - WORLD_VISUAL_METRICS.unitSelectionPadding,
+        width + WORLD_VISUAL_METRICS.unitSelectionPadding * 2,
+        height + WORLD_VISUAL_METRICS.unitSelectionPadding * 2,
       );
       if (entity.category === 'building') {
         const centerX = (entity.x + entity.width / 2) * CELL_SIZE;
@@ -1897,102 +2346,83 @@ export class MapScene extends Phaser.Scene {
     const root = document.querySelector('#game');
     root?.setAttribute('data-selected-ids', this.selection.selectedIds.join(','));
     const first = selected[0];
-    const count = document.querySelector('#selection-count');
+    const hud = document.querySelector<HTMLElement>('#bottom-command-hud');
+    const selectionPanel = document.querySelector<HTMLElement>('#selection-panel');
+    const count = document.querySelector<HTMLElement>('#selection-count');
     const details = document.querySelector('#selection-details');
-    if (count) count.textContent = selected.length === 0 ? 'Nenhuma seleção' : `${selected.length} selecionado${selected.length === 1 ? '' : 's'}`;
-    if (details) details.textContent = selected.length === 0
-      ? 'Clique em uma unidade ou base azul.'
-      : selected.map((entity: GameEntity) => {
-        const cooldown = entity.category === 'unit'
-          ? this.simulation.movement.cooldownRemainingTicks(entity, this.simulation.clock.ticks) : 0;
-        const task = entity.category === 'unit' ? this.simulation.economy.taskFor(entity.id) : null;
-        const buildTask = entity.category === 'unit' ? this.simulation.construction.taskFor(entity.id) : null;
-        const combatTarget = entity.category === 'unit' ? this.simulation.combat.manualTargetFor(entity.id) : null;
-        const queue = entity.category === 'building' ? this.simulation.production.queueFor(entity.id) : [];
-        return `${LABELS[entity.kind]} · HP ${Math.round(entity.hp)}/${entity.maxHp} · (${entity.x}, ${entity.y})`
-          + (entity.category === 'unit' && entity.damage > 0 ? ` · Dano ${entity.damage} · Alc ${entity.range}` : '')
-          + (combatTarget ? ` · Alvo (${combatTarget})` : '')
-          + (entity.category === 'building' && entity.underConstruction ? ' · em construção' : '')
-          + (entity.kind === 'tower' && !entity.underConstruction ? ' · visão 20×20 células (detecta batedores)' : '')
-          + (entity.category === 'building' && entity.rallyPoint ? ` · Rally (${entity.rallyPoint.join(', ')})` : '')
-          + (cooldown > 0 ? ` · cooldown ${Math.ceil(cooldown / TICKS_PER_SECOND)}s` : '')
-          + (entity.category === 'unit' && entity.moveTarget ? ` · destino (${entity.moveTarget.join(', ')})` : '')
-          + (entity.category === 'unit' && (entity.carriedWood > 0 || entity.carriedStone > 0)
-            ? ` · carga ${Math.floor(entity.carriedStone > 0 ? entity.carriedStone : entity.carriedWood)}/${entity.carriedStone > 0 ? BALANCE.economy.stone.workerCapacity : BALANCE.economy.wood.workerCapacity} ${entity.carriedStone > 0 ? 'pedra' : 'madeira'}`
-            : '')
-          + (task ? ` · ${task.kind === 'mine' ? 'mina' : 'coleta'}: ${task.phase}` : '')
-          + (buildTask ? ` · construindo: ${buildTask.phase}` : '')
-          + (queue.length > 0 ? ` · fila (${queue.length})` : '');
-      }).join('  |  ');
+    const actionPanel = document.querySelector<HTMLElement>('#action-panel');
+    const actionPlaceholder = document.querySelector<HTMLElement>('#action-placeholder');
+    const grouped = new Map<string, number>();
+    for (const entity of selected) grouped.set(entity.kind, (grouped.get(entity.kind) ?? 0) + 1);
+    hud?.setAttribute('data-state', selected.length > 0 ? 'selected' : 'empty');
+    selectionPanel?.removeAttribute('hidden');
+    const groupSummary = [...grouped].map(([kind, amount]) => `${LABELS[kind]} ×${amount}`).join(' · ');
+    if (count) {
+      count.textContent = selected.length === 0 ? 'Nenhuma seleção'
+        : selected.length === 1 ? LABELS[first.kind]
+          : grouped.size === 1 ? groupSummary : `${selected.length} unidades`;
+      count.removeAttribute('data-tooltip-title');
+      count.removeAttribute('data-tooltip-description');
+      if (selected.length === 1) {
+        count.dataset.tooltipTitle = LABELS[first.kind];
+        count.dataset.tooltipDescription = first.category === 'unit'
+          ? (() => {
+            const stats = BALANCE.units[first.kind];
+            return `Vida ${Math.round(first.hp)}/${first.maxHp}; dano ${stats.damage}; alcance ${stats.range}; movimento ${stats.movement}; visão ${stats.vision}.`;
+          })()
+          : (() => {
+            const stats = BALANCE.buildings[first.kind];
+            const rally = first.rallyPoint ? ` Ponto de reunião: ${first.rallyPoint[0]}, ${first.rallyPoint[1]}.` : '';
+            const queue = this.simulation.production.queueFor(first.id);
+            const queueStatus = queue.length > 0 ? ` Fila: ${queue.map((item) => LABELS[item.unitKind]).join(', ')}.` : '';
+            const vision = first.kind === 'tower' ? `${BALANCE.buildings.tower.vision} casas e detecção de batedores` : `${stats.vision} casas`;
+            return `Vida ${Math.round(first.hp)}/${first.maxHp}; visão ${vision}.${rally}${queueStatus}`;
+          })();
+      }
+    }
+    if (details) {
+      if (selected.length > 1) details.textContent = grouped.size > 1 ? groupSummary : '';
+      else if (first) {
+        const health = `HP ${Math.round(first.hp)}/${first.maxHp}`;
+        if (first.category === 'unit') {
+          const task = this.simulation.economy.taskFor(first.id);
+          const buildTask = this.simulation.construction.taskFor(first.id);
+          const target = this.simulation.combat.manualTargetFor(first.id);
+          const engagement = this.simulation.engagements.statusFor(first.id);
+          const state = engagement || target ? 'Em combate'
+            : buildTask ? 'Construindo'
+              : task ? task.kind === 'mine' ? 'Minerando ouro' : `Coletando ${task.resourceKind === 'stone' ? 'pedra' : 'madeira'}`
+                : first.moveTarget ? 'Movendo' : 'Parado';
+          details.textContent = `${health} · ${state}`;
+        } else {
+          const build = first.underConstruction
+            ? ` · ${Math.round(first.buildProgressTicks / Math.max(1, first.buildTotalTicks) * 100)}% concluída`
+            : '';
+          details.textContent = `${health}${build}`;
+        }
+      } else details.textContent = 'Selecione uma unidade ou estrutura para ver seus detalhes.';
+    }
 
     const status = document.querySelector('#selection-status');
     if (status) {
       status.replaceChildren();
-      if (first) {
-        const add = (label: string, value: string) => {
-          const dt = document.createElement('dt');
-          const dd = document.createElement('dd');
-          dt.textContent = label;
-          dd.textContent = value;
-          status.append(dt, dd);
-        };
-        add('Unidade', `${LABELS[first.kind]} · ${first.id}`);
-        add('Vida', `${Math.round(first.hp)}/${first.maxHp}`);
-        if (first.category === 'unit') {
-          const engagement = this.simulation.engagements.statusFor(first.id);
-          const task = this.simulation.economy.taskFor(first.id);
-          const buildTask = this.simulation.construction.taskFor(first.id);
-          const target = this.simulation.combat.manualTargetFor(first.id);
-          const movementCooldown = this.simulation.movement.cooldownRemainingTicks(first, this.simulation.clock.ticks);
-          add('Ordem', engagement ? 'Engajar e retomar marcha' : target ? 'Atacar' : buildTask ? 'Construir' : task ? task.kind === 'mine' ? 'Minerar' : 'Coletar' : first.moveTarget ? 'Mover' : 'Aguardar');
-          if (target) add('Alvo', target);
-          if (first.moveTarget || engagement) add('Destino', (engagement?.destination ?? first.moveTarget)!.join(', '));
-          if (movementCooldown > 0) add('Espera', `${Math.ceil(movementCooldown / TICKS_PER_SECOND)}s até próxima ação`);
-          const group = this.simulation.formations.getFormationForUnit(first.id);
-          if (group) {
-            const slot = group.slots.get(first.id);
-            const roleLabels: Record<string, string> = {
-              vanguard: 'Vanguarda (Linha de frente)',
-              frontline: 'Frente secundária',
-              flank: 'Flanco',
-              rear: 'Retaguarda',
-            };
-            const fmtLabels: Record<string, string> = {
-              line: 'Linha',
-              wedge: 'Cunha',
-              block: 'Bloco',
-              'double-rank': 'Duas Fileiras',
-            };
-            add('Formação', `${fmtLabels[group.type]} (${group.state}) · ${roleLabels[slot?.role ?? ''] ?? 'Combatente'}`);
-            add('Velocidade', `${group.collectiveSpeed} casas/s (coletiva)`);
-          }
-          if (task) {
-            if (task.kind === 'gather') {
-              const isStone = task.resourceKind === 'stone';
-              const carried = isStone ? Math.floor(first.carriedStone) : Math.floor(first.carriedWood);
-              const capacity = isStone ? BALANCE.economy.stone.workerCapacity : BALANCE.economy.wood.workerCapacity;
-              const resourceName = isStone ? 'pedra' : 'madeira';
-              add('Trabalho', `${task.phase} · carga ${carried}/${capacity} ${resourceName}`);
-            } else {
-              add('Trabalho', task.phase);
-            }
-          }
-          if (buildTask) add('Construção', buildTask.phase);
-        } else {
-          if (first.kind === 'tower') {
-            add('Visão', '20×20 células (detecta batedores)');
-          } else {
-            add('Visão', `${BALANCE.buildings[first.kind].vision} casas`);
-          }
-          if (first.kind === 'base') {
-            add('Área de construção', `${BALANCE.construction.maxDistanceFromBase} casas`);
-          }
-          if (first.underConstruction) add('Construção', `${Math.round(first.buildProgressTicks / Math.max(1, first.buildTotalTicks) * 100)}%`);
-          const queue = this.simulation.production.queueFor(first.id);
-          if (queue.length > 0) add('Fila', queue.map((item, index) => `${LABELS[item.unitKind]}${index === 0 ? ` ${Math.ceil((item.totalTicks - item.progressTicks) / TICKS_PER_SECOND)}s` : ''}`).join(', '));
-          if (first.kind === 'house' || first.kind === 'barracks') {
-            add('Rally Point', first.rallyPoint ? `(${first.rallyPoint.join(', ')})` : 'Nenhum');
-          }
+      const add = (label: string, value: string) => {
+        const dt = document.createElement('dt');
+        const dd = document.createElement('dd');
+        dt.textContent = label;
+        dd.textContent = value;
+        status.append(dt, dd);
+      };
+      if (first && selected.length > 0) {
+        const military = selected.filter((entity): entity is UnitEntity => entity.category === 'unit' && entity.team === 'blue' && isMilitaryKind(entity.kind));
+        const formation = military.length >= 2
+          ? this.selection.formation
+          : selected.length === 1 && first.category === 'unit' && isMilitaryKind(first.kind)
+            ? this.simulation.formations.getFormationForUnit(first.id)?.type
+            : undefined;
+        if (formation) {
+          const names: Record<FormationType, string> = { line: 'Linha', wedge: 'Cunha', block: 'Bloco', 'double-rank': 'Duas fileiras' };
+          add('Formação', names[formation]);
         }
       }
     }
@@ -2022,6 +2452,14 @@ export class MapScene extends Phaser.Scene {
         targetMode = `units:${blueUnits.length}:${militaryCount}:${this.attackMoveMode ? 'on' : 'off'}:${this.selection.formation ?? 'none'}`;
       }
 
+      if (actionPanel) actionPanel.hidden = false;
+      if (actionPlaceholder) {
+        actionPlaceholder.hidden = targetMode !== 'none';
+        actionPlaceholder.textContent = selected.length === 0
+          ? 'Selecione uma unidade ou estrutura para ver os comandos disponíveis.'
+          : 'Esta seleção não possui comandos disponíveis.';
+      }
+
       if (this.currentActionBarMode !== targetMode) {
         this.currentActionBarMode = targetMode;
         if (targetMode === 'none') {
@@ -2029,14 +2467,15 @@ export class MapScene extends Phaser.Scene {
           actionBar.innerHTML = '';
         } else if (targetMode.startsWith('builder:') || targetMode.startsWith('worker:')) {
           const isBuilder = targetMode.startsWith('builder:');
+          if (actionPanel) actionPanel.hidden = false;
           actionBar.removeAttribute('hidden');
           actionBar.innerHTML = `
-            <div class="action-bar-header">${isBuilder ? 'Construtor' : 'Operário'} · Construções</div>
-            <button id="btn-build-house" type="button">Construir Casa (150m, 100w)</button>
-            <button id="btn-build-barracks" type="button">Construir Quartel (200m, 120w)</button>
-            ${isBuilder ? '<button id="btn-build-barricade" type="button">Construir Barricada (10w, 5p)</button>' : ''}
-            ${isBuilder ? '<button id="btn-build-tower" type="button">Construir Torre (200m, 150w, 100p)</button>' : ''}
-            <button id="btn-attack-move" type="button" class="btn-attack-move ${this.attackMoveMode ? 'active' : ''}">Attack Move (A)</button>
+            <div class="action-bar-header">Construir</div>
+            <button id="btn-build-house" type="button">⌂ Casa</button>
+            <button id="btn-build-barracks" type="button">⚔ Quartel</button>
+            ${isBuilder ? '<button id="btn-build-barricade" type="button">▰ Barricada</button>' : ''}
+            ${isBuilder ? '<button id="btn-build-tower" type="button">♜ Torre</button>' : ''}
+            <button id="btn-attack-move" type="button" class="btn-attack-move ${this.attackMoveMode ? 'active' : ''}">⚔ Atacar e mover</button>
           `;
           document.querySelector('#btn-attack-move')?.addEventListener('click', () => {
             this.soundSystem.play('click');
@@ -2071,18 +2510,18 @@ export class MapScene extends Phaser.Scene {
         } else if (targetMode.startsWith('units:')) {
           const militaryCount = blueUnits.filter((u) => isMilitaryKind(u.kind)).length;
           const currentFmt = this.selection.formation;
+          if (actionPanel) actionPanel.hidden = false;
           actionBar.removeAttribute('hidden');
           actionBar.innerHTML = `
-            <div class="action-bar-header">${blueUnits.length > 1 ? `${blueUnits.length} Tropas Selecionadas` : LABELS[blueUnits[0].kind]} · Comandos</div>
-            <button id="btn-attack-move" type="button" class="btn-attack-move ${this.attackMoveMode ? 'active' : ''}">Attack Move (A)</button>
+            <button id="btn-attack-move" type="button" class="btn-attack-move ${this.attackMoveMode ? 'active' : ''}">⚔ Atacar e mover</button>
             ${militaryCount >= 2 ? `
-              <div class="action-bar-header" style="margin-top: 6px;">Formação Tática</div>
+              <div class="action-bar-header">Formação</div>
               <div class="formation-buttons">
-                <button id="btn-formation-none" type="button" class="btn-formation btn-formation-none ${currentFmt === null ? 'active' : ''}">Livre (ESC)</button>
+                <button id="btn-formation-none" type="button" class="btn-formation btn-formation-none ${currentFmt === null ? 'active' : ''}">Livre</button>
                 <button id="btn-formation-line" type="button" class="btn-formation ${currentFmt === 'line' ? 'active' : ''}">Linha</button>
                 <button id="btn-formation-wedge" type="button" class="btn-formation ${currentFmt === 'wedge' ? 'active' : ''}">Cunha</button>
                 <button id="btn-formation-block" type="button" class="btn-formation ${currentFmt === 'block' ? 'active' : ''}">Bloco</button>
-                <button id="btn-formation-double-rank" type="button" class="btn-formation ${currentFmt === 'double-rank' ? 'active' : ''}">2 Fileiras</button>
+                <button id="btn-formation-double-rank" type="button" class="btn-formation ${currentFmt === 'double-rank' ? 'active' : ''}">2 fileiras</button>
               </div>
             ` : ''}
           `;
@@ -2117,24 +2556,22 @@ export class MapScene extends Phaser.Scene {
             bindFormation('#btn-formation-double-rank', 'double-rank', 'Duas Fileiras');
           }
         } else if (targetMode.startsWith('base:')) {
-          actionBar.removeAttribute('hidden');
-          actionBar.innerHTML = `
-            <div class="action-bar-header">Base Principal · QG</div>
-            <div class="base-info">Centro de comando da colônia. Construa <strong>Casas</strong> com seus operários para treinar novos operários, e <strong>Quartéis</strong> para tropas militares.</div>
-          `;
+          actionBar.setAttribute('hidden', '');
+          actionBar.innerHTML = '';
         } else if (targetMode.startsWith('house:')) {
           const house = (selected.find((e): e is BuildingEntity => e.category === 'building' && e.kind === 'house' && e.team === 'blue') ?? selected[0]) as BuildingEntity;
           actionBar.removeAttribute('hidden');
           if (house.underConstruction) {
-            actionBar.innerHTML = '<span id="build-progress-label" class="queue-info"></span>';
+            actionBar.setAttribute('hidden', '');
+            actionBar.innerHTML = '';
           } else {
             actionBar.innerHTML = `
-              <div class="action-bar-header">Casa · Treinamento</div>
-              <button id="btn-produce-worker" type="button">Treinar Operário (150m, 6s)</button>
-              <button id="btn-produce-builder" type="button">Treinar Construtor (150m, 6s)</button>
-              <div style="display: flex; gap: 6px; width: 100%; margin-top: 4px;">
-                <button id="btn-set-rally" type="button" class="btn-set-rally ${this.rallyPlacementMode && this.rallyBuildingId === house.id ? 'active' : ''}">Definir Rally Point</button>
-                ${house.rallyPoint ? '<button id="btn-clear-rally" type="button" class="btn-clear-rally">Remover Rally</button>' : ''}
+              <div class="action-bar-header">Treinar</div>
+              <button id="btn-produce-worker" type="button">⛏ Operário</button>
+              <button id="btn-produce-builder" type="button">⚒ Construtor</button>
+              <div class="secondary-actions">
+                <button id="btn-set-rally" type="button" aria-label="Definir ponto de reunião" class="btn-set-rally ${this.rallyPlacementMode && this.rallyBuildingId === house.id ? 'active' : ''}">⚑</button>
+                ${house.rallyPoint ? '<button id="btn-clear-rally" type="button" aria-label="Remover ponto de reunião" class="btn-clear-rally">×</button>' : ''}
               </div>
               <div id="queue-info-label" class="queue-info"></div>
             `;
@@ -2170,17 +2607,18 @@ export class MapScene extends Phaser.Scene {
           const barracks = (selected.find((e): e is BuildingEntity => e.category === 'building' && e.team === 'blue') ?? selected[0]) as BuildingEntity;
           actionBar.removeAttribute('hidden');
           if (barracks.underConstruction) {
-            actionBar.innerHTML = '<span id="build-progress-label" class="queue-info"></span>';
+            actionBar.setAttribute('hidden', '');
+            actionBar.innerHTML = '';
           } else {
             actionBar.innerHTML = `
-              <div class="action-bar-header">Quartel · Treinamento Militar</div>
-              <button id="btn-produce-soldier" type="button">Soldado (100m, 5s)</button>
-              <button id="btn-produce-archer" type="button">Arqueiro (180m, 7s)</button>
-              <button id="btn-produce-shieldbearer" type="button">Escudeiro (150m, 7s)</button>
-              <button id="btn-produce-scout" type="button">Batedor (200m, 6s)</button>
-              <div style="display: flex; gap: 6px; width: 100%; margin-top: 4px;">
-                <button id="btn-set-rally" type="button" class="btn-set-rally ${this.rallyPlacementMode && this.rallyBuildingId === barracks.id ? 'active' : ''}">Definir Rally Point</button>
-                ${barracks.rallyPoint ? '<button id="btn-clear-rally" type="button" class="btn-clear-rally">Remover Rally</button>' : ''}
+              <div class="action-bar-header">Treinar</div>
+              <button id="btn-produce-soldier" type="button">⚔ Soldado</button>
+              <button id="btn-produce-archer" type="button">➶ Arqueiro</button>
+              <button id="btn-produce-shieldbearer" type="button">🛡 Escudeiro</button>
+              <button id="btn-produce-scout" type="button">◉ Batedor</button>
+              <div class="secondary-actions">
+                <button id="btn-set-rally" type="button" aria-label="Definir ponto de reunião" class="btn-set-rally ${this.rallyPlacementMode && this.rallyBuildingId === barracks.id ? 'active' : ''}">⚑</button>
+                ${barracks.rallyPoint ? '<button id="btn-clear-rally" type="button" aria-label="Remover ponto de reunião" class="btn-clear-rally">×</button>' : ''}
               </div>
               <div id="queue-info-label" class="queue-info"></div>
             `;
@@ -2212,15 +2650,27 @@ export class MapScene extends Phaser.Scene {
           }
         } else if (targetMode.startsWith('tower:')) {
           const tower = (selected.find((e): e is BuildingEntity => e.category === 'building' && e.kind === 'tower' && e.team === 'blue') ?? selected[0]) as BuildingEntity;
-          actionBar.removeAttribute('hidden');
           if (tower.underConstruction) {
-            actionBar.innerHTML = '<span id="build-progress-label" class="queue-info"></span>';
+            actionBar.setAttribute('hidden', '');
+            actionBar.innerHTML = '';
           } else {
-            actionBar.innerHTML = `
-              <div class="action-bar-header">Torre de Vigilância</div>
-              <div class="base-info">Estrutura de observação avançada. Revela continuamente uma área de <strong>20×20 células</strong> em tempo real e <strong>detecta batedores inimigos</strong> que entrarem no seu campo de visão. Não ataca.</div>
-            `;
+            actionBar.setAttribute('hidden', '');
+            actionBar.innerHTML = '';
           }
+        }
+        this.decorateActionBar(actionBar);
+      }
+
+      if (actionPanel) actionPanel.hidden = false;
+      if (actionPlaceholder) {
+        const hasActions = !actionBar.hasAttribute('hidden');
+        actionPlaceholder.hidden = hasActions;
+        if (!hasActions) {
+          actionPlaceholder.textContent = selected.length === 0
+            ? 'Selecione uma unidade ou estrutura para ver os comandos disponíveis.'
+            : first?.category === 'building' && first.underConstruction
+              ? 'Os comandos ficam disponíveis quando a construção terminar.'
+              : 'Esta seleção não possui comandos disponíveis.';
         }
       }
 
@@ -2250,15 +2700,114 @@ export class MapScene extends Phaser.Scene {
     this.refreshSelectionDOM();
   }
 
+  private decorateActionBar(actionBar: Element): void {
+    const unitDetails: Record<string, { kind: UnitKind; description: string }> = {
+      'btn-produce-worker': { kind: 'worker', description: `Coleta madeira e pedra, minera ouro (${BALANCE.economy.mine.coinsPerCycle} moedas a cada ${BALANCE.economy.mine.cycleSeconds}s) e gera ${BALANCE.economy.passiveCoinsPerFreeWorkerPerSecond} moeda/s enquanto livre.` },
+      'btn-produce-builder': { kind: 'builder', description: 'Constrói casas e quartéis; também ergue barricadas e torres.' },
+      'btn-produce-soldier': { kind: 'soldier', description: 'Infantaria de combate corpo a corpo.' },
+      'btn-produce-archer': { kind: 'archer', description: 'Ataca à distância com alcance superior.' },
+      'btn-produce-shieldbearer': { kind: 'shieldbearer', description: `Unidade resistente; reflete ${BALANCE.units.shieldbearer.reflectionPercent}% do dano de atacantes adjacentes.` },
+      'btn-produce-scout': { kind: 'scout', description: `Unidade rápida com visão ${BALANCE.units.scout.vision}; detecta batedores furtivos a ${BALANCE.units.scout.stealthDetectionDistance} casas.` },
+    };
+    const buildingDetails: Record<string, { kind: keyof typeof BALANCE.buildings; description: string }> = {
+      'btn-build-house': { kind: 'house', description: `Treina operários e construtores; adiciona ${BALANCE.buildings.house.civilianCapacity} vagas civis.` },
+      'btn-build-barracks': { kind: 'barracks', description: `Treina tropas; adiciona ${BALANCE.buildings.barracks.militaryCapacity} vagas militares.` },
+      'btn-build-barricade': { kind: 'barricade', description: 'Defesa fixa que bloqueia passagem.' },
+      'btn-build-tower': { kind: 'tower', description: `Revela ${BALANCE.buildings.tower.vision} casas de visão e detecta batedores; não ataca.` },
+    };
+    for (const [id, item] of Object.entries(unitDetails)) {
+      const button = actionBar.querySelector<HTMLButtonElement>(`#${id}`);
+      if (!button) continue;
+      const stats = BALANCE.units[item.kind];
+      button.dataset.tooltipTitle = LABELS[item.kind];
+      button.dataset.tooltipDescription = `${item.description} Vida ${stats.hp}; dano ${stats.damage}; alcance ${stats.range}; movimento ${stats.movement}; visão ${stats.vision}. Custa ${stats.coins} ouro; treino ${stats.productionSeconds}s.`;
+      const cost = document.createElement('small');
+      cost.className = 'button-cost';
+      cost.textContent = `${resourceCost(stats.coins, stats.wood, 0)} · ${stats.productionSeconds}s`;
+      button.append(cost);
+    }
+    for (const [id, item] of Object.entries(buildingDetails)) {
+      const button = actionBar.querySelector<HTMLButtonElement>(`#${id}`);
+      if (!button) continue;
+      const stats = BALANCE.buildings[item.kind];
+      button.dataset.tooltipTitle = LABELS[item.kind];
+      button.dataset.tooltipDescription = `${item.description} Custa ${resourceCost(stats.coins, stats.wood, stats.stone)}; construção ${stats.buildSeconds}s.`;
+      const cost = document.createElement('small');
+      cost.className = 'button-cost';
+      cost.textContent = `${resourceCost(stats.coins, stats.wood, stats.stone)} · ${stats.buildSeconds}s`;
+      button.append(cost);
+    }
+    const tips: Record<string, [string, string]> = {
+      'btn-attack-move': ['Avançar e atacar', 'Move até o destino e engaja inimigos encontrados pelo caminho.'],
+      'btn-formation-none': ['Modo livre', 'Remove a formação e deixa cada unidade mover e atacar livremente.'],
+      'btn-formation-line': ['Linha', 'Organiza as unidades em uma linha ao receber uma ordem de movimento.'],
+      'btn-formation-wedge': ['Cunha', 'Organiza as unidades em formação de cunha.'],
+      'btn-formation-block': ['Bloco', 'Organiza as unidades em formação compacta.'],
+      'btn-formation-double-rank': ['Duas fileiras', 'Organiza as unidades em duas fileiras.'],
+      'btn-set-rally': ['Ponto de reunião', 'Escolha uma célula no mapa para enviar as unidades recém-produzidas.'],
+      'btn-clear-rally': ['Remover ponto', 'Remove o ponto de reunião desta estrutura.'],
+    };
+    for (const [id, [title, description]] of Object.entries(tips)) {
+      const button = actionBar.querySelector<HTMLButtonElement>(`#${id}`);
+      if (!button) continue;
+      button.dataset.tooltipTitle = title;
+      button.dataset.tooltipDescription = description;
+    }
+  }
+
+  private updateWorldTooltip(pointer: Phaser.Input.Pointer): void {
+    const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const entity = this.simulation.entities.atCell(Math.floor(world.x / CELL_SIZE), Math.floor(world.y / CELL_SIZE));
+    const visible = entity && this.visualFog.isEntityVisible(entity);
+    if (!visible || !entity) {
+      this.hoveredEntityId = null;
+      if (this.hoverTooltipTimer !== null) window.clearTimeout(this.hoverTooltipTimer);
+      this.hoverTooltipTimer = null;
+      this.tooltipManager?.hideAt();
+      return;
+    }
+    if (entity.id === this.hoveredEntityId) return;
+    this.hoveredEntityId = entity.id;
+    if (this.hoverTooltipTimer !== null) window.clearTimeout(this.hoverTooltipTimer);
+    this.tooltipManager?.hideAt();
+    const title = LABELS[entity.kind];
+    const description = entity.category === 'unit'
+      ? `${entity.hp}/${entity.maxHp} vida · ${entity.damage ? `${entity.damage} dano · alcance ${entity.range}` : 'sem ataque'} · movimento ${entity.movement} · visão ${entity.vision}${entity.kind === 'worker' ? ' · coleta madeira/pedra e minera ouro' : entity.kind === 'builder' ? ' · constrói estruturas defensivas' : ''}`
+      : `${entity.hp}/${entity.maxHp} vida${entity.underConstruction ? ' · em construção' : entity.kind === 'tower' ? ' · visão 20×20 · detecta batedores' : ''}`;
+    this.hoverTooltipTimer = window.setTimeout(() => {
+      if (this.hoveredEntityId === entity.id) this.tooltipManager?.showAt(title, description, pointer.x, pointer.y);
+      this.hoverTooltipTimer = null;
+    }, 260);
+  }
+
   private refreshTeamStatus(): void {
     const team = this.simulation.teams.blue;
-    const units = this.simulation.entities.all().filter((entity) => entity.team === 'blue' && entity.category === 'unit').length;
-    const teamStatus = document.querySelector('#team-status');
-    if (teamStatus) teamStatus.textContent = `Azul · ${Math.floor(team.coins)} moedas · ${Math.floor(team.wood)} madeira · ${Math.floor(team.stone)} pedra · ${units}/${BALANCE.map.unitCapPerTeam} unidades`;
     const cap = this.simulation.production.getCapacity('blue');
+    const units = this.simulation.entities.all().filter((entity) => entity.team === 'blue' && entity.category === 'unit').length;
+    const setValue = (selector: string, value: string) => {
+      const element = document.querySelector(selector);
+      if (element && element.textContent !== value) element.textContent = value;
+    };
+    setValue('#gold-value', Math.floor(team.coins).toLocaleString('pt-BR'));
+    setValue('#wood-value', Math.floor(team.wood).toLocaleString('pt-BR'));
+    setValue('#stone-value', Math.floor(team.stone).toLocaleString('pt-BR'));
+    setValue('#population-value', `${cap.totalUnits} / ${cap.maxTotalUnits}`);
+    for (const [selector, label, value] of [
+      ['#gold-value', 'Ouro', Math.floor(team.coins).toLocaleString('pt-BR')],
+      ['#wood-value', 'Madeira', Math.floor(team.wood).toLocaleString('pt-BR')],
+      ['#stone-value', 'Pedra', Math.floor(team.stone).toLocaleString('pt-BR')],
+      ['#population-value', 'População', `${cap.totalUnits} de ${cap.maxTotalUnits}`],
+    ] as const) {
+      document.querySelector(selector)?.parentElement?.setAttribute('aria-label', `${label}: ${value}`);
+    }
+    document.querySelector<HTMLElement>('.population-pill')?.setAttribute('data-tooltip-description',
+      `População: ${cap.totalUnits}/${cap.maxTotalUnits}. Civil: ${cap.civilianUnits}/${cap.civilianCapacity}. Militar: ${cap.militaryUnits}/${cap.militaryCapacity}. Casas ampliam vagas civis; quartéis ampliam vagas militares.`);
+    setValue('#team-status', `Azul · ${Math.floor(team.coins)} moedas · ${Math.floor(team.wood)} madeira · ${Math.floor(team.stone)} pedra · ${units}/${BALANCE.map.unitCapPerTeam} unidades`);
     const capStatus = document.querySelector('#capacity-status');
     if (capStatus) {
-      capStatus.textContent = `Civil: ${cap.civilianUnits}/${cap.civilianCapacity} · Militar: ${cap.militaryUnits}/${cap.militaryCapacity} · Total: ${cap.totalUnits}/${cap.maxTotalUnits}`;
+      const fullCapacity = `Civil: ${cap.civilianUnits}/${cap.civilianCapacity} · Militar: ${cap.militaryUnits}/${cap.militaryCapacity} · Total: ${cap.totalUnits}/${cap.maxTotalUnits}`;
+      capStatus.textContent = `Civil ${cap.civilianUnits}/${cap.civilianCapacity} · Mil ${cap.militaryUnits}/${cap.militaryCapacity}`;
+      capStatus.setAttribute('title', fullCapacity);
       const isCivilianCapped = cap.civilianCapacity > 0 && cap.civilianUnits >= cap.civilianCapacity;
       const isMilitaryCapped = cap.militaryCapacity > 0 && cap.militaryUnits >= cap.militaryCapacity;
       const isTotalCapped = cap.totalUnits >= cap.maxTotalUnits;
@@ -2346,5 +2895,12 @@ export class MapScene extends Phaser.Scene {
     const clampedX = Math.max(0, Math.min(this.map.width - 1, cellX));
     const clampedY = Math.max(0, Math.min(this.map.height - 1, cellY));
     this.cameras.main.centerOn((clampedX + 0.5) * CELL_SIZE, (clampedY + 0.5) * CELL_SIZE);
+  }
+
+  private getMapCoverZoom(): number {
+    const worldWidth = this.map.width * CELL_SIZE;
+    const worldHeight = this.map.height * CELL_SIZE;
+    const coverZoom = Math.max(this.scale.width / worldWidth, this.scale.height / worldHeight);
+    return Math.max(MIN_ZOOM, coverZoom * 1.015);
   }
 }

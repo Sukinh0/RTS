@@ -10,16 +10,24 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas is not visible');
   const zoom = Number(await root.getAttribute('data-zoom'));
-  const scrollX = Number(await root.getAttribute('data-camera-x'));
-  const scrollY = Number(await root.getAttribute('data-camera-y'));
-  return {
-    x: box.x + ((((x + 0.5) * 12 - scrollX - 480) * zoom) + 480) * box.width / 960,
-    y: box.y + ((((y + 0.5) * 12 - scrollY - 300) * zoom) + 300) * box.height / 600,
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(root).toHaveAttribute('data-pointer-world', /,/);
+  const pointerWorld = (await root.getAttribute('data-pointer-world'))!.split(',').map(Number);
+  const backingSize = await canvas.evaluate((element) => ({ width: (element as HTMLCanvasElement).width, height: (element as HTMLCanvasElement).height }));
+  const point = {
+    x: box.x + box.width / 2 + ((x + 0.5) * 12 - pointerWorld[0]) * zoom * box.width / backingSize.width,
+    y: box.y + box.height / 2 + ((y + 0.5) * 12 - pointerWorld[1]) * zoom * box.height / backingSize.height,
   };
+  await page.mouse.move(point.x, point.y);
+  await expect(root).toHaveAttribute('data-pointer-world', /,/);
+  const actual = (await root.getAttribute('data-pointer-world'))!.split(',').map(Number);
+  expect(Math.floor(actual[0] / 12)).toBe(x);
+  expect(Math.floor(actual[1] / 12)).toBe(y);
+  return point;
 }
 
 test('combat: soldier can attack enemy unit, deal damage, and trigger cooldown in browser', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   // Spawn blue soldier at (26, 99) and red soldier at (29, 99) (dist 3 > range 2, so no auto-attack yet)
@@ -31,15 +39,15 @@ test('combat: soldier can attack enemy unit, deal damage, and trigger cooldown i
       sim.fog.update();
     }
   });
+  await expect(page.locator('#game')).toHaveAttribute('data-visible-enemy-ids', /red-soldier/);
 
   // Select blue soldier at (26, 99)
   const soldierPos = await screenCell(page, 26, 99);
   await page.mouse.click(soldierPos.x, soldierPos.y);
 
   // Check selection details
-  await expect(page.locator('#selection-details')).toContainText('Soldado');
-  await expect(page.locator('#selection-details')).toContainText('Dano 5');
-  await expect(page.locator('#selection-details')).toContainText('Alc 2');
+  await expect(page.locator('#selection-count')).toHaveText('Soldado');
+  await expect(page.locator('#selection-count')).toHaveAttribute('data-tooltip-description', /dano 5; alcance 2/i);
 
   // Right-click the red soldier at (29, 99) to order attack
   const enemyPos = await screenCell(page, 29, 99);
@@ -47,6 +55,7 @@ test('combat: soldier can attack enemy unit, deal damage, and trigger cooldown i
 
   // Command feedback should confirm attack order
   await expect(page.locator('#command-feedback')).toContainText('ordem(ns) de ataque contra Soldado enviada(s)');
+  await page.evaluate(() => (window as Window & { __simulation?: Simulation }).__simulation!.advance(1_000));
 
   // Verify enemy HP has been reduced to 13 once soldier moves in and attacks
   await expect.poll(async () => {
@@ -71,7 +80,7 @@ test('combat: worker can attack an adjacent enemy for four damage', async ({ pag
 
   const workerPos = await screenCell(page, 25, 99);
   await page.mouse.click(workerPos.x, workerPos.y);
-  await expect(page.locator('#selection-details')).toContainText('Dano 4 · Alc 1');
+  await expect(page.locator('#selection-count')).toHaveAttribute('data-tooltip-description', /dano 4; alcance 1/i);
   const enemyPos = await screenCell(page, 28, 99);
   await page.mouse.click(enemyPos.x, enemyPos.y, { button: 'right' });
   await expect(page.locator('#command-feedback')).toContainText('ordem(ns) de ataque contra Soldado enviada(s)');

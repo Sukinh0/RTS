@@ -10,11 +10,13 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas is not visible');
   const zoom = Number(await root.getAttribute('data-zoom'));
-  const scrollX = Number(await root.getAttribute('data-camera-x'));
-  const scrollY = Number(await root.getAttribute('data-camera-y'));
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(root).toHaveAttribute('data-pointer-world', /,/);
+  const pointerWorld = (await root.getAttribute('data-pointer-world'))!.split(',').map(Number);
+  const backingSize = await canvas.evaluate((element) => ({ width: (element as HTMLCanvasElement).width, height: (element as HTMLCanvasElement).height }));
   return {
-    x: box.x + ((((x + 0.5) * 12 - scrollX - 480) * zoom) + 480) * box.width / 960,
-    y: box.y + ((((y + 0.5) * 12 - scrollY - 300) * zoom) + 300) * box.height / 600,
+    x: box.x + box.width / 2 + ((x + 0.5) * 12 - pointerWorld[0]) * zoom * box.width / backingSize.width,
+    y: box.y + box.height / 2 + ((y + 0.5) * 12 - pointerWorld[1]) * zoom * box.height / backingSize.height,
   };
 }
 
@@ -36,7 +38,7 @@ test.describe('V1.1.2 — E2E Construção de Barricadas em Linha', () => {
     // Select builder at (24, 95)
     const builderPos = await screenCell(page, 24, 95);
     await page.mouse.click(builderPos.x, builderPos.y);
-    await expect(page.locator('#action-bar')).toContainText('Construtor · Construções');
+    await expect(page.locator('#action-bar')).toContainText('Construir');
 
     const buildBarricadeBtn = page.locator('#btn-build-barricade');
     await expect(buildBarricadeBtn).toBeVisible();

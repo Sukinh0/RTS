@@ -9,11 +9,13 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas is not visible');
   const zoom = Number(await root.getAttribute('data-zoom'));
-  const scrollX = Number(await root.getAttribute('data-camera-x'));
-  const scrollY = Number(await root.getAttribute('data-camera-y'));
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(root).toHaveAttribute('data-pointer-world', /,/);
+  const pointerWorld = (await root.getAttribute('data-pointer-world'))!.split(',').map(Number);
+  const backingSize = await canvas.evaluate((element) => ({ width: (element as HTMLCanvasElement).width, height: (element as HTMLCanvasElement).height }));
   return {
-    x: box.x + ((((x + 0.5) * 12 - scrollX - 480) * zoom) + 480) * box.width / 960,
-    y: box.y + ((((y + 0.5) * 12 - scrollY - 300) * zoom) + 300) * box.height / 600,
+    x: box.x + box.width / 2 + ((x + 0.5) * 12 - pointerWorld[0]) * zoom * box.width / backingSize.width,
+    y: box.y + box.height / 2 + ((y + 0.5) * 12 - pointerWorld[1]) * zoom * box.height / backingSize.height,
   };
 }
 
@@ -113,7 +115,11 @@ test('complete match: explore, gather, build, train, attack and win', async ({ p
   });
   await clickCell(page, soldier.x, soldier.y);
   for (let i = 0; i < 10; i += 1) await page.mouse.wheel(0, 500);
-  await expect(page.locator('#game')).toHaveAttribute('data-zoom', '0.38');
+  const coverZoom = await page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>('#game canvas')!;
+    return Math.max(canvas.clientWidth / (200 * 12), canvas.clientHeight / (200 * 12)) * 1.015;
+  });
+  await expect.poll(async () => Number(await page.locator('#game').getAttribute('data-zoom'))).toBeCloseTo(coverZoom, 2);
   await page.locator('#btn-attack-move').click();
   await clickCell(page, 172, 100);
   await expect(page.locator('#command-feedback')).toContainText('Attack Move');

@@ -121,18 +121,18 @@ describe('Fase 9 — Minimapa', () => {
     const sim = new Simulation(5);
     const fog = new VisualFog(sim.map, sim.entities, 'blue');
 
-    // Constrói uma torre de vigilância em (80, 80)
-    const tower = sim.entities.createBuilding('blue', 'tower', 80, 80);
+    // Constrói uma torre de vigilância em (55, 45)
+    const tower = sim.entities.createBuilding('blue', 'tower', 55, 45);
     tower.underConstruction = false;
 
     // Spawna um soldado inimigo dentro da visão 20x20 da torre (ex: em 86, 86)
-    const enemy = sim.entities.spawnUnit('red', 'soldier', 86, 86);
+    const enemy = sim.entities.spawnUnit('red', 'soldier', 61, 51);
 
     fog.update(new Map());
     const minimap = new Minimap({ map: sim.map, entities: sim.entities, fog, playerTeam: 'blue' });
 
     // A célula na torre e no raio 20x20 deve estar com state 'visible'
-    expect(minimap.getCell(86, 86).state).toBe('visible');
+    expect(minimap.getCell(61, 51).state).toBe('visible');
 
     // O soldado inimigo dentro da visão da torre APARECE no minimapa
     const visible = minimap.getVisibleEntities();

@@ -83,6 +83,7 @@ describe('Fase 8 IA', () => {
     simulation.entities.spawnUnit('red', 'worker', 174, 103);
     simulation.fog.update();
 
+    simulation.teams.red.wood = 120;
     simulation.redAI!.desiredStone = 40;
 
     advanceSeconds(simulation, 2);

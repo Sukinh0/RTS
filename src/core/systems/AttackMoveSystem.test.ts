@@ -157,11 +157,9 @@ describe('Fase 7 — Attack Move System', () => {
     // Wall off corridor at x=22 completely from mountain/water (e.g. y from 0 to 199 or a tight choke)
     // To create an impassable choke from (20, 95) to (24, 95):
     // Fill impassable terrain or barricades across x=22
-    for (let y = 0; y < 200; y += 1) {
-      if (simulation.map.isPassable(22, y)) {
-        simulation.entities.createBuilding('red', 'barricade', 22, y, false);
-      }
-    }
+    for (let y = 0; y < 200; y += 1) simulation.map.setTerrain(22, y, 'mountain');
+    simulation.map.setTerrain(22, 95, 'plain');
+    simulation.entities.createBuilding('red', 'barricade', 22, 95, false);
     simulation.fog.update();
 
     const targetBarricade = simulation.entities.atCell(22, 95)!;

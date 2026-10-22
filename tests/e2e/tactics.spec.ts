@@ -10,11 +10,13 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas is not visible');
   const zoom = Number(await root.getAttribute('data-zoom'));
-  const scrollX = Number(await root.getAttribute('data-camera-x'));
-  const scrollY = Number(await root.getAttribute('data-camera-y'));
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(root).toHaveAttribute('data-pointer-world', /,/);
+  const pointerWorld = (await root.getAttribute('data-pointer-world'))!.split(',').map(Number);
+  const backingSize = await canvas.evaluate((element) => ({ width: (element as HTMLCanvasElement).width, height: (element as HTMLCanvasElement).height }));
   return {
-    x: box.x + ((((x + 0.5) * 12 - scrollX - 480) * zoom) + 480) * box.width / 960,
-    y: box.y + ((((y + 0.5) * 12 - scrollY - 300) * zoom) + 300) * box.height / 600,
+    x: box.x + box.width / 2 + ((x + 0.5) * 12 - pointerWorld[0]) * zoom * box.width / backingSize.width,
+    y: box.y + box.height / 2 + ((y + 0.5) * 12 - pointerWorld[1]) * zoom * box.height / backingSize.height,
   };
 }
 
@@ -43,7 +45,7 @@ test.describe('V1.1.1 — Sistema de Formações Militares Persistentes', () => 
     await page.mouse.up({ button: 'left' });
 
     // Verifica que as unidades foram selecionadas
-    await expect(page.locator('#selection-count')).toContainText('selecionados');
+    await expect(page.locator('#selection-count')).toHaveText(/unidades|×\d+/);
 
     // Verifica se os 4 botões de formação estão visíveis no HUD
     const btnLine = page.locator('#btn-formation-line');
@@ -120,7 +122,7 @@ test.describe('V1.1.1 — Sistema de Formações Militares Persistentes', () => 
     await page.mouse.move(end.x, end.y, { steps: 5 });
     await page.mouse.up({ button: 'left' });
 
-    await expect(page.locator('#selection-count')).toContainText('selecionados');
+    await expect(page.locator('#selection-count')).toHaveText(/unidades|×\d+/);
 
     // Registra grupo 1 com Ctrl+1
     await page.keyboard.press('Control+Digit1');
@@ -129,11 +131,11 @@ test.describe('V1.1.1 — Sistema de Formações Militares Persistentes', () => 
     // Desseleciona clicando em célula vazia (15, 90)
     const emptyPos = await screenCell(page, 15, 90);
     await page.mouse.click(emptyPos.x, emptyPos.y);
-    await expect(page.locator('#selection-count')).toHaveText('Nenhuma seleção');
+    await expect(page.locator('#selection-count')).toHaveText('');
 
     // Pressiona 1 para selecionar o grupo 1
     await page.keyboard.press('Digit1');
-    await expect(page.locator('#selection-count')).not.toHaveText('Nenhuma seleção');
+    await expect(page.locator('#selection-count')).not.toHaveText('');
     await expect(page.locator('#command-feedback')).toContainText('Grupo 1 selecionado');
   });
 
@@ -206,7 +208,7 @@ test.describe('V1.1.1 — Sistema de Formações Militares Persistentes', () => 
     await page.mouse.move(end.x, end.y, { steps: 5 });
     await page.mouse.up({ button: 'left' });
 
-    await expect(page.locator('#selection-count')).toContainText('selecionados');
+    await expect(page.locator('#selection-count')).toHaveText(/unidades|×\d+/);
     await expect(page.locator('#btn-formation-line')).toHaveClass(/active/);
 
     // Pressiona ESC para cancelar a formação

@@ -1,42 +1,577 @@
 {
-  "id": "MAP_TEST_01",
+  "id": "MAP_ORGANIC_01",
   "width": 200,
   "height": 200,
-  "notes": "Mapa manual e simétrico para validação. Coordenadas finais podem ser ajustadas durante implementação, preservando simetria e múltiplas rotas.",
+  "notes": "Território manual e assimétrico. Patches blob são determinísticos: mesmas coordenadas, seed e parâmetros produzem o mesmo mapa.",
   "teamStarts": {
-    "blue": { "base": [20, 100], "workers": [[25, 99], [25, 101]] },
-    "red": { "base": [176, 100], "workers": [[174, 99], [174, 101]] }
+    "blue": {
+      "base": [
+        20,
+        100
+      ],
+      "workers": [
+        [
+          25,
+          99
+        ],
+        [
+          25,
+          101
+        ]
+      ]
+    },
+    "red": {
+      "base": [
+        176,
+        100
+      ],
+      "workers": [
+        [
+          174,
+          99
+        ],
+        [
+          174,
+          101
+        ]
+      ]
+    }
   },
   "designRequirements": {
-    "symmetrical": true,
+    "symmetrical": false,
     "mustInclude": [
-      "2 bases",
-      "at least 4 mines",
-      "multiple forest clusters",
-      "water blockers",
-      "mountain blockers",
-      "at least 3 viable attack corridors",
-      "open combat zones",
-      "scouting routes"
+      "2 bases com áreas livres",
+      "8 minas de ouro",
+      "florestas acessíveis e distribuídas",
+      "depósitos de pedra em várias regiões",
+      "água e montanhas irregulares",
+      "campos abertos e rotas alternativas"
     ]
   },
   "terrainPatches": [
-    { "terrain": "water", "x": 76, "y": 0, "width": 6, "height": 58, "mirrorX": true },
-    { "terrain": "water", "x": 76, "y": 68, "width": 6, "height": 22, "mirrorX": true },
-    { "terrain": "water", "x": 76, "y": 110, "width": 6, "height": 23, "mirrorX": true },
-    { "terrain": "water", "x": 76, "y": 143, "width": 6, "height": 57, "mirrorX": true },
-    { "terrain": "mountain", "x": 89, "y": 26, "width": 6, "height": 21, "mirrorX": true },
-    { "terrain": "mountain", "x": 89, "y": 153, "width": 6, "height": 21, "mirrorX": true },
-    { "terrain": "mountain", "x": 96, "y": 76, "width": 4, "height": 9, "mirrorX": true },
-    { "terrain": "mountain", "x": 96, "y": 115, "width": 4, "height": 9, "mirrorX": true },
-    { "terrain": "forest", "x": 37, "y": 34, "width": 8, "height": 7, "mirrorX": true },
-    { "terrain": "forest", "x": 49, "y": 151, "width": 10, "height": 8, "mirrorX": true },
-    { "terrain": "forest", "x": 54, "y": 84, "width": 7, "height": 8, "mirrorX": true },
-    { "terrain": "forest", "x": 91, "y": 54, "width": 5, "height": 5, "mirrorX": true },
-    { "terrain": "forest", "x": 91, "y": 139, "width": 5, "height": 5, "mirrorX": true },
-    { "terrain": "mine", "x": 58, "y": 62, "width": 1, "height": 1, "mirrorX": true },
-    { "terrain": "mine", "x": 58, "y": 137, "width": 1, "height": 1, "mirrorX": true },
-    { "terrain": "stone", "x": 42, "y": 70, "width": 5, "height": 5, "mirrorX": true },
-    { "terrain": "stone", "x": 45, "y": 125, "width": 5, "height": 5, "mirrorX": true }
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 17,
+      "x": 29,
+      "y": 27,
+      "width": 20,
+      "height": 17,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 31,
+      "x": 33,
+      "y": 53,
+      "width": 17,
+      "height": 14,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 43,
+      "x": 29,
+      "y": 114,
+      "width": 19,
+      "height": 22,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 57,
+      "x": 47,
+      "y": 132,
+      "width": 22,
+      "height": 14,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 69,
+      "x": 70,
+      "y": 50,
+      "width": 16,
+      "height": 18,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 73,
+      "x": 90,
+      "y": 42,
+      "width": 18,
+      "height": 16,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 87,
+      "x": 111,
+      "y": 26,
+      "width": 21,
+      "height": 19,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 103,
+      "x": 132,
+      "y": 54,
+      "width": 19,
+      "height": 16,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 117,
+      "x": 154,
+      "y": 71,
+      "width": 22,
+      "height": 18,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 131,
+      "x": 125,
+      "y": 91,
+      "width": 18,
+      "height": 16,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 149,
+      "x": 171,
+      "y": 137,
+      "width": 20,
+      "height": 18,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 163,
+      "x": 136,
+      "y": 153,
+      "width": 22,
+      "height": 18,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 179,
+      "x": 103,
+      "y": 145,
+      "width": 19,
+      "height": 19,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 191,
+      "x": 80,
+      "y": 108,
+      "width": 21,
+      "height": 18,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 211,
+      "x": 34,
+      "y": 74,
+      "width": 16,
+      "height": 14,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 223,
+      "x": 6,
+      "y": 80,
+      "width": 15,
+      "height": 19,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 227,
+      "x": 178,
+      "y": 31,
+      "width": 16,
+      "height": 20,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 239,
+      "x": 5,
+      "y": 149,
+      "width": 18,
+      "height": 19,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 251,
+      "x": 33,
+      "y": 83,
+      "width": 14,
+      "height": 15,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 263,
+      "x": 162,
+      "y": 61,
+      "width": 16,
+      "height": 12,
+      "mirrorX": false
+    },
+    {
+      "terrain": "stone",
+      "shape": "blob",
+      "seed": 19,
+      "x": 38,
+      "y": 67,
+      "width": 9,
+      "height": 7,
+      "mirrorX": false
+    },
+    {
+      "terrain": "stone",
+      "shape": "blob",
+      "seed": 33,
+      "x": 24,
+      "y": 123,
+      "width": 9,
+      "height": 9,
+      "mirrorX": false
+    },
+    {
+      "terrain": "stone",
+      "shape": "blob",
+      "seed": 49,
+      "x": 91,
+      "y": 58,
+      "width": 9,
+      "height": 7,
+      "mirrorX": false
+    },
+    {
+      "terrain": "stone",
+      "shape": "blob",
+      "seed": 61,
+      "x": 132,
+      "y": 125,
+      "width": 11,
+      "height": 9,
+      "mirrorX": false
+    },
+    {
+      "terrain": "stone",
+      "shape": "blob",
+      "seed": 77,
+      "x": 132,
+      "y": 101,
+      "width": 11,
+      "height": 9,
+      "mirrorX": false
+    },
+    {
+      "terrain": "stone",
+      "shape": "blob",
+      "seed": 97,
+      "x": 76,
+      "y": 111,
+      "width": 9,
+      "height": 9,
+      "mirrorX": false
+    },
+    {
+      "terrain": "stone",
+      "shape": "blob",
+      "seed": 107,
+      "x": 153,
+      "y": 42,
+      "width": 9,
+      "height": 7,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mountain",
+      "shape": "blob",
+      "seed": 13,
+      "x": 62,
+      "y": 79,
+      "width": 25,
+      "height": 17,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mountain",
+      "shape": "blob",
+      "seed": 29,
+      "x": 81,
+      "y": 14,
+      "width": 29,
+      "height": 18,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mountain",
+      "shape": "blob",
+      "seed": 41,
+      "x": 108,
+      "y": 70,
+      "width": 27,
+      "height": 19,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mountain",
+      "shape": "blob",
+      "seed": 53,
+      "x": 141,
+      "y": 114,
+      "width": 29,
+      "height": 17,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mountain",
+      "shape": "blob",
+      "seed": 67,
+      "x": 61,
+      "y": 149,
+      "width": 29,
+      "height": 19,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mountain",
+      "shape": "blob",
+      "seed": 79,
+      "x": 118,
+      "y": 140,
+      "width": 24,
+      "height": 16,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mountain",
+      "shape": "blob",
+      "seed": 89,
+      "x": 162,
+      "y": 37,
+      "width": 18,
+      "height": 19,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mountain",
+      "shape": "blob",
+      "seed": 101,
+      "x": 101,
+      "y": 110,
+      "width": 15,
+      "height": 12,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mountain",
+      "shape": "blob",
+      "seed": 113,
+      "x": 43,
+      "y": 14,
+      "width": 12,
+      "height": 11,
+      "mirrorX": false
+    },
+    {
+      "terrain": "water",
+      "shape": "blob",
+      "seed": 11,
+      "x": 60,
+      "y": 19,
+      "width": 22,
+      "height": 13,
+      "mirrorX": false
+    },
+    {
+      "terrain": "water",
+      "shape": "blob",
+      "seed": 37,
+      "x": 125,
+      "y": 5,
+      "width": 29,
+      "height": 16,
+      "mirrorX": false
+    },
+    {
+      "terrain": "water",
+      "shape": "blob",
+      "seed": 47,
+      "x": 73,
+      "y": 47,
+      "width": 17,
+      "height": 26,
+      "mirrorX": false
+    },
+    {
+      "terrain": "water",
+      "shape": "blob",
+      "seed": 59,
+      "x": 106,
+      "y": 117,
+      "width": 27,
+      "height": 16,
+      "mirrorX": false
+    },
+    {
+      "terrain": "water",
+      "shape": "blob",
+      "seed": 71,
+      "x": 29,
+      "y": 128,
+      "width": 24,
+      "height": 14,
+      "mirrorX": false
+    },
+    {
+      "terrain": "water",
+      "shape": "blob",
+      "seed": 83,
+      "x": 145,
+      "y": 72,
+      "width": 18,
+      "height": 27,
+      "mirrorX": false
+    },
+    {
+      "terrain": "water",
+      "shape": "blob",
+      "seed": 97,
+      "x": 97,
+      "y": 168,
+      "width": 25,
+      "height": 14,
+      "mirrorX": false
+    },
+    {
+      "terrain": "water",
+      "shape": "blob",
+      "seed": 109,
+      "x": 166,
+      "y": 119,
+      "width": 20,
+      "height": 25,
+      "mirrorX": false
+    },
+    {
+      "terrain": "water",
+      "shape": "blob",
+      "seed": 127,
+      "x": 87,
+      "y": 7,
+      "width": 22,
+      "height": 11,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mine",
+      "x": 48,
+      "y": 92,
+      "width": 1,
+      "height": 1,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mine",
+      "x": 146,
+      "y": 100,
+      "width": 1,
+      "height": 1,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mine",
+      "x": 31,
+      "y": 145,
+      "width": 1,
+      "height": 1,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mine",
+      "x": 168,
+      "y": 153,
+      "width": 1,
+      "height": 1,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mine",
+      "x": 83,
+      "y": 36,
+      "width": 1,
+      "height": 1,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mine",
+      "x": 105,
+      "y": 94,
+      "width": 1,
+      "height": 1,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mine",
+      "x": 83,
+      "y": 169,
+      "width": 1,
+      "height": 1,
+      "mirrorX": false
+    },
+    {
+      "terrain": "mine",
+      "x": 119,
+      "y": 62,
+      "width": 1,
+      "height": 1,
+      "mirrorX": false
+    },
+    {
+      "terrain": "forest",
+      "shape": "blob",
+      "seed": 277,
+      "x": 48,
+      "y": 78,
+      "width": 13,
+      "height": 13,
+      "mirrorX": false
+    }
   ]
 }

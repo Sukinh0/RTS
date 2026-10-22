@@ -5,19 +5,13 @@ import { findPath } from './findPath';
 
 const map = new MapGrid(MAP_DEFINITION);
 
-describe('Fase 3 A*', () => {
-  it('chooses mirrored routes for mirrored horizontal goals', () => {
-    const east = findPath(map, [30, 90], [80, 90]);
-    const west = findPath(map, [169, 90], [119, 90]);
-    expect(east).not.toBeNull();
-    expect(west).toEqual(east!.map(([x, y]) => [199 - x, y]));
-  });
-  it('routes around water instead of crossing a blocked cell', () => {
-    const path = findPath(map, [70, 50], [86, 50]);
+describe('A* on MAP_ORGANIC_01', () => {
+  it('routes around irregular water rather than crossing blocked cells', () => {
+    const path = findPath(map, [55, 25], [84, 38]);
     expect(path).not.toBeNull();
-    expect(path![0]).toEqual([70, 50]);
-    expect(path!.at(-1)).toEqual([86, 50]);
-    expect(path!.some(([, y]) => y >= 58)).toBe(true);
+    expect(path![0]).toEqual([55, 25]);
+    expect(path!.at(-1)).toEqual([84, 38]);
+    expect(path!.some(([, y]) => y > 33)).toBe(true);
     for (let i = 1; i < path!.length; i += 1) {
       const [x, y] = path![i];
       const [prevX, prevY] = path![i - 1];
@@ -39,15 +33,16 @@ describe('Fase 3 A*', () => {
     expect(path?.[1]).not.toEqual([11, 11]);
   });
 
-  it('rejects a blocked destination', () => {
-    expect(findPath(map, [70, 50], [76, 50])).toBeNull();
-    expect(findPath(map, [70, 50], [90, 30])).toBeNull();
-    expect(findPath(map, [70, 50], [20, 100])).toBeNull();
+  it('rejects water, mountain and base destinations', () => {
+    expect(findPath(map, [55, 25], [70, 25])).toBeNull();
+    expect(findPath(map, [55, 25], [73, 86])).toBeNull();
+    expect(findPath(map, [55, 25], [20, 100])).toBeNull();
   });
 
-  it('routes around a building footprint', () => {
+  it('routes around a starting base footprint', () => {
     const path = findPath(map, [19, 101], [25, 101]);
     expect(path).not.toBeNull();
     expect(path!.some(([x, y]) => x >= 20 && x <= 23 && y >= 100 && y <= 103)).toBe(false);
   });
 });
+

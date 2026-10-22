@@ -7,12 +7,12 @@ test.describe('Fase 11 & 12 — Sons e Polimento Visual', () => {
 
     const soundBtn = page.locator('#btn-sound-toggle');
     await expect(soundBtn).toBeVisible();
-    await expect(soundBtn).toHaveText('🔊 Som: ON');
+    await expect(soundBtn).toHaveAttribute('aria-label', 'Desativar áudio');
     await expect(soundBtn).not.toHaveClass(/muted/);
 
     // Desativar áudio
     await soundBtn.click();
-    await expect(soundBtn).toHaveText('🔇 Som: OFF');
+    await expect(soundBtn).toHaveAttribute('aria-label', 'Ativar áudio');
     await expect(soundBtn).toHaveClass(/muted/);
 
     // Validar persistência no localStorage
@@ -22,12 +22,12 @@ test.describe('Fase 11 & 12 — Sons e Polimento Visual', () => {
     // Recarregar página e verificar persistência
     await page.reload();
     await page.waitForSelector('#game[data-ready="true"]');
-    await expect(soundBtn).toHaveText('🔇 Som: OFF');
+    await expect(soundBtn).toHaveAttribute('aria-label', 'Ativar áudio');
     await expect(soundBtn).toHaveClass(/muted/);
 
     // Reativar áudio
     await soundBtn.click();
-    await expect(soundBtn).toHaveText('🔊 Som: ON');
+    await expect(soundBtn).toHaveAttribute('aria-label', 'Desativar áudio');
     await expect(soundBtn).not.toHaveClass(/muted/);
 
     const savedOn = await page.evaluate(() => localStorage.getItem('rts_sound_enabled'));
@@ -42,7 +42,7 @@ test.describe('Fase 11 & 12 — Sons e Polimento Visual', () => {
     await expect(capStatus).toBeVisible();
 
     // No início com 2 operários e 2 de capacidade da Base (2/2), deve ter warning de capacidade atingida
-    await expect(capStatus).toContainText('Civil: 2/2');
+    await expect(capStatus).toContainText('Civil 2/2');
     await expect(capStatus).toHaveClass(/capacity-warning/);
 
     // Expandir capacidade adicionando uma Casa concluída
@@ -90,7 +90,7 @@ test.describe('Fase 11 & 12 — Sons e Polimento Visual', () => {
     });
 
     // Agora com a Casa concluída, capacidade civil expande para 2/4, warning deve sumir
-    await expect(capStatus).toContainText('Civil: 2/4');
+    await expect(capStatus).toContainText('Civil 2/4');
     await expect(capStatus).not.toHaveClass(/capacity-warning/);
 
     // Gerar 2 operários via sandbox para encher 4/4
@@ -99,7 +99,7 @@ test.describe('Fase 11 & 12 — Sons e Polimento Visual', () => {
     }
 
     // Agora atingiu 4/4 civil, warning deve voltar
-    await expect(capStatus).toContainText('Civil: 4/4');
+    await expect(capStatus).toContainText('Civil 4/4');
     await expect(capStatus).toHaveClass(/capacity-warning/);
   });
 });

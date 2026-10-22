@@ -156,7 +156,9 @@ export class AIController {
     // Calculate desired resources for debug observability and decision weighting
     const barracksConfig = BALANCE.buildings.barracks;
     const houseConfig = BALANCE.buildings.house;
-    const wantsMoreMilitary = ownMilitary.length < 25;
+    // Keep pressure on the player in longer matches: the old ceiling of 25
+    // let the AI economy stall once the first attack wave had been traded.
+    const wantsMoreMilitary = ownMilitary.length < 35;
     const hasUnderConstructionBarracks = ownBarracks.some((b) => b.underConstruction);
     const needsBarracks = ownBarracks.length === 0 || (
       hasOpeningTroop &&
@@ -166,7 +168,9 @@ export class AIController {
       wantsMoreMilitary
     );
 
-    const workerTarget = ownAttackers.length >= 6 ? 6 : ownAttackers.length >= 3 ? 5 : 3;
+    // A slightly stronger economy gives the AI enough workers to replace
+    // losses while still building its army instead of choosing one or the other.
+    const workerTarget = ownAttackers.length >= 6 ? 7 : ownAttackers.length >= 3 ? 6 : 4;
     const queuedWorkers = ownHouses.reduce((total, house) => total
       + this.simulation.production.queueFor(house.id).filter((item) => item.unitKind === 'worker').length, 0);
     const needsWorkers = ownWorkers.length + queuedWorkers < workerTarget;
@@ -408,7 +412,7 @@ export class AIController {
     if (capacity.militaryUnits + capacity.militaryQueued < capacity.militaryCapacity) {
       for (const barracks of readyBarracks) {
         const queue = this.simulation.production.queueFor(barracks.id);
-        if (queue.length < 2) {
+        if (queue.length < 3) {
           const unitToTrain = this.selectMilitaryUnitToTrain(ownMilitary, stock.coins - reserve);
           if (unitToTrain) {
             const res = this.simulation.issueCommand({

@@ -11,11 +11,13 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas is not visible');
   const zoom = Number(await root.getAttribute('data-zoom'));
-  const scrollX = Number(await root.getAttribute('data-camera-x'));
-  const scrollY = Number(await root.getAttribute('data-camera-y'));
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(root).toHaveAttribute('data-pointer-world', /,/);
+  const pointerWorld = (await root.getAttribute('data-pointer-world'))!.split(',').map(Number);
+  const backingSize = await canvas.evaluate((element) => ({ width: (element as HTMLCanvasElement).width, height: (element as HTMLCanvasElement).height }));
   return {
-    x: box.x + ((((x + 0.5) * 12 - scrollX - 480) * zoom) + 480) * box.width / 960,
-    y: box.y + ((((y + 0.5) * 12 - scrollY - 300) * zoom) + 300) * box.height / 600,
+    x: box.x + box.width / 2 + ((x + 0.5) * 12 - pointerWorld[0]) * zoom * box.width / backingSize.width,
+    y: box.y + box.height / 2 + ((y + 0.5) * 12 - pointerWorld[1]) * zoom * box.height / backingSize.height,
   };
 }
 
@@ -52,7 +54,7 @@ test('worker can build a house and the house can produce an operative', async ({
   // Select the house
   const houseSpot = await screenCell(page, 24, 96);
   await page.mouse.click(houseSpot.x, houseSpot.y);
-  await expect(page.locator('#selection-details')).toContainText('Casa');
+  await expect(page.locator('#selection-count')).toHaveText('Casa');
 
   // Wait for construction to finish (8 seconds build time)
   await expect.poll(async () => {
@@ -63,6 +65,7 @@ test('worker can build a house and the house can produce an operative', async ({
   const trainBtn = page.locator('#btn-produce-worker');
   await trainBtn.click();
   await expect(page.locator('#command-feedback')).toContainText('Operário adicionado à fila');
+  await page.evaluate(() => (window as Window & { __simulation?: Simulation }).__simulation!.advance(7_000));
 
   // Unit count should increase from 2 to 3 after production finishes (6 seconds)
   await expect.poll(async () => {
@@ -102,7 +105,7 @@ test('house can produce a builder and builder has construction action bar', asyn
   // Select the house at (24, 96)
   const houseSpot = await screenCell(page, 24, 96);
   await page.mouse.click(houseSpot.x, houseSpot.y);
-  await expect(page.locator('#selection-details')).toContainText('Casa');
+  await expect(page.locator('#selection-count')).toHaveText('Casa');
 
   const produceBuilderBtn = page.locator('#btn-produce-builder');
   await expect(produceBuilderBtn).toBeVisible();
@@ -129,7 +132,7 @@ test('house can produce a builder and builder has construction action bar', asyn
   await page.mouse.click(builderPos.x, builderPos.y);
 
   // Verify builder header in action bar and construction buttons
-  await expect(page.locator('#action-bar')).toContainText('Construtor · Construções');
+  await expect(page.locator('#action-bar')).toContainText('Construir');
   await expect(page.locator('#btn-build-house')).toBeVisible();
   await expect(page.locator('#btn-build-barracks')).toBeVisible();
   await expect(page.locator('#btn-build-barricade')).toBeVisible();
@@ -152,7 +155,7 @@ test('builder can construct a barricade requiring wood and stone', async ({ page
   // Select builder at (24, 95)
   const builderPos = await screenCell(page, 24, 95);
   await page.mouse.click(builderPos.x, builderPos.y);
-  await expect(page.locator('#action-bar')).toContainText('Construtor · Construções');
+  await expect(page.locator('#action-bar')).toContainText('Construir');
 
   const buildBarricadeBtn = page.locator('#btn-build-barricade');
   await expect(buildBarricadeBtn).toBeVisible();
@@ -185,7 +188,7 @@ test('HUD displays civilian and military capacity and reports capacity limits', 
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   // Verify starting capacity in HUD
-  await expect(page.locator('#capacity-status')).toHaveText('Civil: 2/2 · Militar: 0/0 · Total: 2/60');
+  await expect(page.locator('#capacity-status')).toHaveText('Civil 2/2 · Mil 0/0');
 
   // Add resources and completed house
   await page.evaluate(() => {
@@ -201,7 +204,7 @@ test('HUD displays civilian and military capacity and reports capacity limits', 
   // Select house at (24, 96)
   const houseSpot = await screenCell(page, 24, 96);
   await page.mouse.click(houseSpot.x, houseSpot.y);
-  await expect(page.locator('#capacity-status')).toHaveText('Civil: 2/4 · Militar: 0/0 · Total: 2/60');
+  await expect(page.locator('#capacity-status')).toHaveText('Civil 2/4 · Mil 0/0');
 
   // Queue 2 workers to reach 4/4
   await page.locator('#btn-produce-worker').click();
@@ -233,7 +236,7 @@ test('builder can repair damaged building via right-click in browser', async ({ 
   // Select builder at (24, 95)
   const builderPos = await screenCell(page, 24, 95);
   await page.mouse.click(builderPos.x, builderPos.y);
-  await expect(page.locator('#action-bar')).toContainText('Construtor · Construções');
+  await expect(page.locator('#action-bar')).toContainText('Construir');
 
   // Right-click on damaged barricade at (24, 96)
   const barricadePos = await screenCell(page, 24, 96);
@@ -273,7 +276,7 @@ test('builder can build watch tower and HUD displays tower 20x20 vision and coun
   // Select builder at (24, 95)
   const builderPos = await screenCell(page, 24, 95);
   await page.mouse.click(builderPos.x, builderPos.y);
-  await expect(page.locator('#action-bar')).toContainText('Construtor · Construções');
+  await expect(page.locator('#action-bar')).toContainText('Construir');
   const buildTowerBtn = page.locator('#btn-build-tower');
   await expect(buildTowerBtn).toBeVisible();
 
@@ -289,7 +292,7 @@ test('builder can build watch tower and HUD displays tower 20x20 vision and coun
   // Select the placed tower
   const towerSpot = await screenCell(page, 24, 96);
   await page.mouse.click(towerSpot.x, towerSpot.y);
-  await expect(page.locator('#selection-details')).toContainText('Torre de Vigilância');
+  await expect(page.locator('#selection-count')).toHaveText('Torre de Vigilância');
 
   // Complete construction
   await page.evaluate(() => {
@@ -301,10 +304,7 @@ test('builder can build watch tower and HUD displays tower 20x20 vision and coun
   });
 
   // Wait for tick update to recognize completed building
-  await expect.poll(async () => {
-    return page.locator('#action-bar').textContent();
-  }, { timeout: 10_000 }).toContain('20×20 células');
-  await expect(page.locator('#selection-details')).toContainText('20×20 células (detecta batedores)');
+  await expect.poll(async () => page.locator('#selection-count').getAttribute('data-tooltip-description'), { timeout: 10_000 }).toContain('20 casas e detecção');
 });
 
 test('house and barracks support defining, displaying, and removing rally points with auto-dispatch on unit spawn', async ({ page }) => {
@@ -324,7 +324,7 @@ test('house and barracks support defining, displaying, and removing rally points
   // Select the house at (24, 96)
   const housePos = await screenCell(page, 24, 96);
   await page.mouse.click(housePos.x, housePos.y);
-  await expect(page.locator('#selection-details')).toContainText('Casa');
+  await expect(page.locator('#selection-count')).toHaveText('Casa');
 
   // Verify #btn-set-rally is visible
   const setRallyBtn = page.locator('#btn-set-rally');
@@ -336,7 +336,7 @@ test('house and barracks support defining, displaying, and removing rally points
 
   // Verify feedback and HUD update
   await expect(page.locator('#command-feedback')).toContainText('Ponto de reunião da Casa definido para (28, 96)');
-  await expect(page.locator('#selection-details')).toContainText('Rally (28, 96)');
+  await expect(page.locator('#selection-count')).toHaveAttribute('data-tooltip-description', /Ponto de reunião: 28, 96/);
   await expect(page.locator('#btn-clear-rally')).toBeVisible();
 
   // Train a worker and verify it receives order to march to rally point and arrives at (28, 96)
@@ -352,7 +352,7 @@ test('house and barracks support defining, displaying, and removing rally points
   // Remove rally point
   await page.locator('#btn-clear-rally').click();
   await expect(page.locator('#command-feedback')).toContainText('Ponto de reunião removido');
-  await expect(page.locator('#selection-details')).not.toContainText('Rally (28, 96)');
+  await expect(page.locator('#selection-count')).not.toHaveAttribute('data-tooltip-description', /Ponto de reunião:/);
   await expect(page.locator('#btn-clear-rally')).not.toBeVisible();
 });
 

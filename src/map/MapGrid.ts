@@ -17,6 +17,9 @@ export interface MapDefinition {
     width: number;
     height: number;
     mirrorX: boolean;
+    shape?: 'blob';
+    seed?: number;
+    roughness?: number;
   }>;
 }
 
@@ -86,8 +89,8 @@ export class MapGrid {
       if (code < 1 || !Number.isInteger(patch.width) || !Number.isInteger(patch.height) || patch.width < 1 || patch.height < 1) {
         throw new Error('Invalid terrain patch');
       }
-      this.paint(patch.x, patch.y, patch.width, patch.height, code);
-      if (patch.mirrorX) this.paint(this.width - patch.x - patch.width, patch.y, patch.width, patch.height, code);
+      this.paintPatch(patch, code);
+      if (patch.mirrorX) this.paintPatch({ ...patch, x: this.width - patch.x - patch.width }, code);
     }
 
     for (const team of ['blue', 'red'] as const) {
@@ -171,12 +174,33 @@ export class MapGrid {
     return y * this.width + x;
   }
 
-  private paint(x: number, y: number, width: number, height: number, code: number): void {
+  private paintPatch(patch: MapDefinition['terrainPatches'][number], code: number): void {
+    const { x, y, width, height } = patch;
+    const isBlob = patch.shape === 'blob';
+    const roughness = patch.roughness ?? 0.2;
     if (!this.contains(x, y) || !this.contains(x + width - 1, y + height - 1)) {
       throw new Error('Terrain patch outside map bounds');
     }
+    if ((patch.shape !== undefined && !isBlob) || (isBlob && (!Number.isInteger(patch.seed)
+      || !Number.isFinite(roughness) || roughness < 0 || roughness > 0.45))) {
+      throw new Error('Invalid terrain patch');
+    }
+    const centerX = x + (width - 1) / 2;
+    const centerY = y + (height - 1) / 2;
+    const radiusX = Math.max(1, width / 2);
+    const radiusY = Math.max(1, height / 2);
     for (let row = y; row < y + height; row += 1) {
-      for (let col = x; col < x + width; col += 1) this.terrain[this.index(col, row)] = code;
+      for (let col = x; col < x + width; col += 1) {
+        if (isBlob) {
+          const nx = (col - centerX) / radiusX;
+          const ny = (row - centerY) / radiusY;
+          const wave = (Math.sin((col + patch.seed!) * 0.73) * 0.58
+            + Math.cos((row - patch.seed!) * 0.61) * 0.42);
+          const edge = 1 + roughness * wave;
+          if (nx * nx + ny * ny > edge * edge) continue;
+        }
+        this.terrain[this.index(col, row)] = code;
+      }
     }
   }
 

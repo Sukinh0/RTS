@@ -33,24 +33,41 @@ export interface MinimapOptions {
 }
 
 /** Precomputed 32-bit little-endian RGBA color table (0xAABBGGRR). */
-const COLOR_UNKNOWN = 0xff080b0c; // Black/dark void
+const FOG_BASE = { r: 112, g: 148, b: 144 };
+
+/** A deterministic low-frequency tint gives unexplored cells a soft fog look without exposing terrain. */
+function unknownFogColor(x: number, y: number, terrain: Terrain | null): number {
+  const base = terrain === 'mountain'
+    ? { r: 104, g: 138, b: 130 }
+    : terrain === 'water'
+      ? { r: 108, g: 154, b: 159 }
+      : FOG_BASE;
+  const haze = Math.sin(x * 0.075 + Math.cos(y * 0.047) * 1.4) * 0.52
+    + Math.cos(y * 0.068 - x * 0.039) * 0.34
+    + Math.sin((x + y) * 0.031) * 0.14;
+  const shade = Math.round(haze * 10);
+  const r = base.r + shade;
+  const g = base.g + shade;
+  const b = base.b + shade;
+  return (0xff000000 | (b << 16) | (g << 8) | r) >>> 0;
+}
 
 const COLORS_VISIBLE: Record<Terrain, number> = {
-  plain: 0xff2c2517, // #17252c
-  water: 0xff766228, // #286276
-  mountain: 0xff7a7268, // #68727a
-  forest: 0xff516b34, // #346b51
+  plain: 0xff539665, // #659653, same palette as the map
+  water: 0xffa4a74a, // #4aa7a4
+  mountain: 0xff6f7977, // #77796f
+  forest: 0xff47794a, // #4a7947
   mine: 0xff4ea6d5, // #d5a64e
   stone: 0xff948b82, // #828b94
 };
 
 const COLORS_EXPLORED: Record<Terrain, number> = {
-  plain: 0xff17130c, // darkened
-  water: 0xff3b3114,
-  mountain: 0xff3d3934,
-  forest: 0xff29361a,
-  mine: 0xff27536b,
-  stone: 0xff4a4641,
+  plain: 0xff3f663f,
+  water: 0xff737f3c,
+  mountain: 0xff565e5c,
+  forest: 0xff315330,
+  mine: 0xff3b7291,
+  stone: 0xff69645e,
 };
 
 /**
@@ -301,7 +318,7 @@ export class Minimap {
         for (let x = 0; x < width; x += 1) {
           const st = this.fog.rawState(x, y);
           if (st === 0) {
-            pixels[ptr] = COLOR_UNKNOWN;
+            pixels[ptr] = unknownFogColor(x, y, this.map.cellAt(x, y)?.terrain ?? null);
           } else if (st === 2) {
             const terr = this.fog.rawTerrain(x, y);
             pixels[ptr] = terr ? COLORS_VISIBLE[terr] : COLORS_VISIBLE.plain;

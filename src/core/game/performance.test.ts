@@ -37,14 +37,14 @@ describe('performance invariants', () => {
 
   it('invalidates connectivity after terrain and structure changes', () => {
     const { map, entities } = new Simulation(1);
-    for (let y = 0; y < map.height; y++) map.setTerrain(60, y, 'mountain');
-    expect(map.hasStaticConnection([30, 100], [70, 100])).toBe(false);
-    map.setTerrain(60, 100, 'plain');
-    expect(map.hasStaticConnection([30, 100], [70, 100])).toBe(true);
-    const wall = entities.createBuilding('red', 'barricade', 60, 100);
-    expect(map.hasStaticConnection([30, 100], [70, 100])).toBe(false);
+    for (let y = 0; y < map.height; y++) map.setTerrain(50, y, 'mountain');
+    expect(map.hasStaticConnection([45, 50], [55, 50])).toBe(false);
+    map.setTerrain(50, 50, 'plain');
+    expect(map.hasStaticConnection([45, 50], [55, 50])).toBe(true);
+    const wall = entities.createBuilding('red', 'barricade', 50, 50);
+    expect(map.hasStaticConnection([45, 50], [55, 50])).toBe(false);
     entities.remove(wall.id);
-    expect(map.hasStaticConnection([30, 100], [70, 100])).toBe(true);
+    expect(map.hasStaticConnection([45, 50], [55, 50])).toBe(true);
   });
 
   it('reuses A* scratch safely across failures, obstacle changes and nested calls', () => {
