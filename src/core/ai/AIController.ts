@@ -537,6 +537,22 @@ export class AIController {
     if (this.memory.enemyBaseLocation) {
       const enemyBase = this.simulation.entities.get(this.team === 'red' ? 'blue-base' : 'red-base');
       if (enemyBase && this.simulation.fog.isEntityVisible(this.team, enemyBase)) {
+        // A visible builder beside the base can sustain repairs indefinitely.
+        // Remove that tactical support before resuming base damage; only inspect
+        // enemies already visible through normal fog-of-war perception.
+        const visibleRepairer = visibleEnemies.find((enemy) => enemy.category === 'unit'
+          && enemy.kind === 'builder'
+          && Math.hypot(enemy.x - enemyBase.x, enemy.y - enemyBase.y) <= 12);
+        if (visibleRepairer) {
+          dispatchGroupAttack(this.simulation, this.team, raidIds, visibleRepairer.id);
+          this.setDecision(
+            threat ? 'Defend' : 'AttackArmy',
+            threat ? 95 : 90,
+            'Disable Visible Repair Support',
+            `Raid force (${raidIds.length} units) targeting visible builder ${visibleRepairer.id} beside enemy base`,
+          );
+          return threat ? 'Defend' : 'AttackArmy';
+        }
         dispatchGroupAttack(this.simulation, this.team, raidIds, enemyBase.id);
         this.setDecision(
           threat ? 'Defend' : 'AttackBase',
