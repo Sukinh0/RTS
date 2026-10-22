@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "simulate": "node scripts/simulate.mjs",
+    "diagnose:ai": "node scripts/diagnose-ai.mjs",
     "benchmark": "node scripts/performance.mjs",
     "benchmark:browser": "node scripts/performance-browser.mjs",
     "assets:install": "powershell -ExecutionPolicy Bypass -File scripts/install-tiny-swords.ps1"
