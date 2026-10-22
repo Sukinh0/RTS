@@ -131,7 +131,7 @@ test.describe('V1.1.1 — Sistema de Formações Militares Persistentes', () => 
     // Desseleciona clicando em célula vazia (15, 90)
     const emptyPos = await screenCell(page, 15, 90);
     await page.mouse.click(emptyPos.x, emptyPos.y);
-    await expect(page.locator('#selection-count')).toHaveText('');
+    await expect(page.locator('#selection-count')).toHaveText('Nenhuma seleção');
 
     // Pressiona 1 para selecionar o grupo 1
     await page.keyboard.press('Digit1');

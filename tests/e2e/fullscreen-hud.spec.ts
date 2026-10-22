@@ -195,7 +195,7 @@ test('captures selection, troop tooltip, building, and Builder comparison states
   await page.keyboard.press('Escape');
   await page.waitForTimeout(180);
   await page.keyboard.press('Escape');
-  await expect(page.locator('#selection-count')).toHaveText('');
+  await expect(page.locator('#selection-count')).toHaveText('Nenhuma seleção');
   await expect(page.locator('#game-tooltip strong')).toHaveText('Construtor');
   await page.locator('#game-tooltip').evaluate((element) => { (element as HTMLElement).hidden = true; });
   await page.screenshot({ path: 'artifacts/fullscreen-hud-worker-builder-comparison.png' });

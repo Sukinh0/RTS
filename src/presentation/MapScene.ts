@@ -1254,8 +1254,8 @@ export class MapScene extends Phaser.Scene {
       this.attackVisualUntil.set(event.attackerId, this.time.now + 420);
       const arrowKey = event.attackerTeam === 'blue' ? 'tiny-arrowYellow' : 'tiny-arrowRed';
       const isArrow = event.attackerKind === 'archer';
-      const projectile = isArrow && this.textures.exists(arrowKey)
-        ? this.acquireProjectile(arrowKey) : undefined;
+      const projectile = isArrow
+        ? this.acquireProjectile(this.textures.exists(arrowKey) ? arrowKey : this.fallbackArrowKey()) : undefined;
       let projectileQueued = false;
       if (isArrow && projectile && this.attackEffects.length < FX_LIMITS.activeAttackTrails) {
         const fromX = attackerX + Math.sign(event.targetX - event.attackerX) * 2;
@@ -2091,7 +2091,8 @@ export class MapScene extends Phaser.Scene {
         const fromX = previewX - CELL_SIZE * 2;
         const fromY = previewY;
         const toX = previewX + CELL_SIZE * 2;
-        const projectile = this.textures.exists('tiny-arrowYellow') ? this.acquireProjectile('tiny-arrowYellow') : null;
+        const projectile = this.acquireProjectile(
+          this.textures.exists('tiny-arrowYellow') ? 'tiny-arrowYellow' : this.fallbackArrowKey());
         if (!projectile || this.attackEffects.length >= FX_LIMITS.activeAttackTrails) {
           if (projectile) this.projectilePool.push(projectile.setVisible(false));
           return;
@@ -2142,6 +2143,19 @@ export class MapScene extends Phaser.Scene {
   private releaseEffect(sprite: Phaser.GameObjects.Image): void {
     sprite.setVisible(false);
     this.effectPool.push(sprite);
+  }
+
+  /** Procedural arrow keeps archer FX readable without redistributing Tiny Swords. */
+  private fallbackArrowKey(): string {
+    const key = 'rts-fallback-arrow';
+    if (!this.textures.exists(key)) {
+      const graphic = this.add.graphics();
+      graphic.fillStyle(0xe9d6a1, 1).fillRect(1, 3, 10, 2);
+      graphic.fillTriangle(9, 0, 15, 4, 9, 7);
+      graphic.generateTexture(key, 16, 8);
+      graphic.destroy();
+    }
+    return key;
   }
 
   private acquireProjectile(key: string): Phaser.GameObjects.Image | null {

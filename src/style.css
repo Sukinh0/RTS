@@ -1289,3 +1289,6 @@ body:not(.visual-calibration-mode) #hud { color: #f4efdd; font-size: 13px; }
 @media (max-width: 620px) {
   #tiny-assets-status { top: 93px; font-size: 9px; }
 }
+
+/* Keep the command dock inside the actual viewport, including its padding. */
+#bottom-command-hud { box-sizing: border-box; }
