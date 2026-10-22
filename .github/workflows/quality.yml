@@ -50,10 +50,10 @@ jobs:
         run: npx vitest run src/core/ai/AIController.test.ts src/simulation/tournament.test.ts
       - name: Replay natural-resource AI vs AI match
         run: npm run diagnose:ai -- --seed=123 --seconds=900 --interval=120 | tee ai-diagnostics.log
-      - name: Run four seeded tournament games (20 minute cap)
+      - name: Run twenty mirrored tournament games (20 minute cap)
         run: |
-          npm run simulate -- --games=4 --seed=123 --max-seconds=1200 --out=reports-ci
-          node -e "const r=require('./reports-ci/simulation-4games-seed123.json'); console.log(JSON.stringify({wins:r.wins,draws:r.draws,combats:r.matches.map(x=>({seed:x.seed,order:x.aiOrder,first:x.firstCombatSeconds,firstBase:x.firstBaseAttackSeconds,attacks:x.attacks,baseAttacks:x.baseAttacks,baseDamage:x.baseDamageDealt,baseHp:x.baseHp}))},null,2))"
+          npm run simulate -- --games=20 --seed=123 --max-seconds=1200 --out=reports-ci
+          node -e "const r=require('./reports-ci/simulation-20games-seed123.json'); console.log(JSON.stringify({wins:r.wins,draws:r.draws,firstCombats:r.matches.filter(x=>x.firstCombatSeconds!==null).length,basePressure:r.matches.filter(x=>x.firstBaseAttackSeconds!==null).length,northTeamWins:r.matches.filter(x=>x.winner!==null&&x.winner===(x.seed%2===0?'blue':'red')).length,examples:r.matches.map(x=>({seed:x.seed,order:x.aiOrder,winner:x.winner,first:x.firstCombatSeconds,firstBase:x.firstBaseAttackSeconds,baseDamage:x.baseDamageDealt}))},null,2))"
       - name: Save headless diagnostic
         if: always()
         uses: actions/upload-artifact@v4
