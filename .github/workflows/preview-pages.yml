@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/v1-1-4-immersive-hud
+      - feat/v1-1-5-organic-terrain-local-assets
   workflow_dispatch:
 
 permissions:
