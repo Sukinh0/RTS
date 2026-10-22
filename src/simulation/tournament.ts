@@ -17,6 +17,9 @@ export interface MatchReport {
   firstTowerSeconds: Record<Team, number | null>;
   firstBarricadeSeconds: Record<Team, number | null>;
   firstCombatSeconds: number | null;
+  firstBaseAttackSeconds: number | null;
+  baseAttacks: Record<Team, number>;
+  baseDamageDealt: Record<Team, number>;
   attacks: Record<Team, number>;
   damage: Record<Team, number>;
   finalUnits: Record<Team, number>;
@@ -63,7 +66,10 @@ export function runMatch(seed: number, maxSeconds = 900, aiOrder: MatchReport['a
   const firstBarricadeSeconds: Record<Team, number | null> = { blue: null, red: null };
   const attacks: Record<Team, number> = { blue: 0, red: 0 };
   const damage: Record<Team, number> = { blue: 0, red: 0 };
+  const baseAttacks: Record<Team, number> = { blue: 0, red: 0 };
+  const baseDamageDealt: Record<Team, number> = { blue: 0, red: 0 };
   let firstCombatSeconds: number | null = null;
+  let firstBaseAttackSeconds: number | null = null;
 
   for (let second = 1; second <= maxSeconds && !simulation.result; second += 1) {
     simulation.advance(1000);
@@ -76,6 +82,11 @@ export function runMatch(seed: number, maxSeconds = 900, aiOrder: MatchReport['a
       attacks[team] += 1;
       damage[team] += event.damage;
       if (firstCombatSeconds === null) firstCombatSeconds = elapsed;
+      if (event.targetId === `${event.targetTeam}-base`) {
+        baseAttacks[team] += 1;
+        baseDamageDealt[team] += event.damage;
+        if (firstBaseAttackSeconds === null) firstBaseAttackSeconds = elapsed;
+      }
     }
     for (const team of ['blue', 'red'] as const) {
       const entities = simulation.entities.all().filter((entity) => entity.team === team);
@@ -114,6 +125,9 @@ export function runMatch(seed: number, maxSeconds = 900, aiOrder: MatchReport['a
     firstTowerSeconds,
     firstBarricadeSeconds,
     firstCombatSeconds,
+    firstBaseAttackSeconds,
+    baseAttacks,
+    baseDamageDealt,
     attacks,
     damage,
     finalUnits: {
@@ -180,6 +194,8 @@ function markdown(report: TournamentReport): string {
     `| Primeira torre | ${rounded(average(report.matches.flatMap((m) => m.firstTowerSeconds.blue === null ? [] : [m.firstTowerSeconds.blue])))}s | ${rounded(average(report.matches.flatMap((m) => m.firstTowerSeconds.red === null ? [] : [m.firstTowerSeconds.red])))}s |`,
     `| Primeira barricada | ${rounded(average(report.matches.flatMap((m) => m.firstBarricadeSeconds.blue === null ? [] : [m.firstBarricadeSeconds.blue])))}s | ${rounded(average(report.matches.flatMap((m) => m.firstBarricadeSeconds.red === null ? [] : [m.firstBarricadeSeconds.red])))}s |`,
     `| Ataques por partida | ${rounded(average(report.matches.map((m) => m.attacks.blue)))} | ${rounded(average(report.matches.map((m) => m.attacks.red)))} |`,
+    `| Ataques à base por partida | ${rounded(average(report.matches.map((m) => m.baseAttacks.blue)))} | ${rounded(average(report.matches.map((m) => m.baseAttacks.red)))} |`,
+    `| Dano às bases por partida | ${rounded(average(report.matches.map((m) => m.baseDamageDealt.blue)))} | ${rounded(average(report.matches.map((m) => m.baseDamageDealt.red)))} |`,
     `| Dano por partida | ${rounded(average(report.matches.map((m) => m.damage.blue)))} | ${rounded(average(report.matches.map((m) => m.damage.red)))} |`,
     `| Pedra final média | ${rounded(average(report.matches.map((m) => m.finalStone.blue)))} | ${rounded(average(report.matches.map((m) => m.finalStone.red)))} |`,
     '', '## Partidas', '',
