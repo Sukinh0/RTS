@@ -50,8 +50,8 @@ jobs:
         run: npx vitest run src/core/ai/AIController.test.ts src/simulation/tournament.test.ts
       - name: Seeded organic-map tournament
         run: |
-          npm run simulate -- --games=4 --seed=123 --max-seconds=1200 --out=reports-ci
-          node -e "const r=require('./reports-ci/simulation-4games-seed123.json'); const n=r.matches.filter(m=>m.firstCombatSeconds!==null).length; const b=r.matches.filter(m=>m.firstBaseAttackSeconds!==null).length; console.log(JSON.stringify({wins:r.wins,draws:r.draws,combats:n,basePressure:b,matches:r.matches.map(m=>({seed:m.seed,order:m.aiOrder,winner:m.winner,first:m.firstCombatSeconds,firstBase:m.firstBaseAttackSeconds,damage:m.baseDamageDealt}))},null,2)); if(n===0)process.exit(1)"
+          npm run simulate -- --games=20 --seed=123 --max-seconds=1200 --out=reports-ci
+          node -e "const r=require('./reports-ci/simulation-20games-seed123.json'); const n=r.matches.filter(m=>m.firstCombatSeconds!==null).length; const b=r.matches.filter(m=>m.firstBaseAttackSeconds!==null).length; console.log(JSON.stringify({wins:r.wins,draws:r.draws,combats:n,basePressure:b,matches:r.matches.map(m=>({seed:m.seed,order:m.aiOrder,winner:m.winner,first:m.firstCombatSeconds,firstBase:m.firstBaseAttackSeconds,damage:m.baseDamageDealt}))},null,2)); if(n===0)process.exit(1)"
       - name: Preserve tournament artifacts
         if: always()
         uses: actions/upload-artifact@v4
