@@ -216,6 +216,18 @@ describe('Fase 8 IA', () => {
     }
   });
 
+  it('uses a deterministic direct-center assault in one out of four seeds', () => {
+    const simulation = new Simulation(44, true);
+    simulation.entities.spawnUnit('red', 'soldier', 174, 98);
+    const raiders = [173, 172].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
+    simulation.fog.update();
+    advanceSeconds(simulation, 2);
+    expect(simulation.redAI!.currentIntent).toBe('AttackBase');
+    expect(raiders.some((unit) => unit.moveTarget
+      && unit.moveTarget[0] < 45
+      && Math.abs(unit.moveTarget[1] - 100) <= 5)).toBe(true);
+  });
+
   it('keeps one reserve and a home guard', () => {
     const simulation = new Simulation(42, true);
     const soldiers = [174, 173].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
