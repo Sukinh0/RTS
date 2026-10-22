@@ -495,8 +495,10 @@ export class AIController {
         this.raidUnitIds.add(unit.id);
       }
     }
-    // A new wave needs three fighters. Fresh reinforcements wait for another full wave.
-    if (!threat && reserves.length >= 3) {
+    // Launch the first offensive wave with two field fighters plus one home guard.
+    // With starting resources, waiting for a third reserve kept both AIs idle for 900s.
+    // Additional reinforcements form their own wave instead of travelling alone.
+    if (!threat && reserves.length >= 2) {
       for (const unit of reserves) this.raidUnitIds.add(unit.id);
     }
     const raidIds = attackers.filter((unit) => this.raidUnitIds.has(unit.id)).map((unit) => unit.id);
