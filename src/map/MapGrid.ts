@@ -220,10 +220,14 @@ export class MapGrid {
         paintFringe(patch.x + patch.width - 1 + d, patch.y + y, patch.width - 1 + d, y, d);
       }
     }
-    for (let x = -1; x <= patch.width; x++) {
-      for (let d = 1; d <= spread; d++) {
-        paintFringe(patch.x + x, patch.y - d, x, -d, d);
-        paintFringe(patch.x + x, patch.y + patch.height - 1 + d, x, patch.height - 1 + d, d);
+    // Blocking terrain may curve at its sides, not grow into the navigable
+    // endpoints of authored channels: A* target cells at the mouths remain free.
+    if (patch.terrain === 'forest' || patch.terrain === 'stone') {
+      for (let x = -1; x <= patch.width; x++) {
+        for (let d = 1; d <= spread; d++) {
+          paintFringe(patch.x + x, patch.y - d, x, -d, d);
+          paintFringe(patch.x + x, patch.y + patch.height - 1 + d, x, patch.height - 1 + d, d);
+        }
       }
     }
   }
