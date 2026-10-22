@@ -192,7 +192,28 @@ describe('Fase 8 IA', () => {
     simulation.entities.remove(invader.id);
     simulation.fog.update();
     advanceSeconds(simulation, 2);
-    expect(reserves.some((unit) => unit.moveTarget?.[0] === 24)).toBe(true);
+    expect(reserves.some((unit) => unit.moveTarget !== null && unit.moveTarget[0] < 150)).toBe(true);
+  });
+
+  it('uses walkable opposite staging corridors on the organic map, selected by seed', () => {
+    for (const seed of [42, 43]) {
+      const simulation = new Simulation(seed, true);
+      simulation.enableAI('blue');
+      const blueGuard = simulation.entities.spawnUnit('blue', 'soldier', 26, 98);
+      const redGuard = simulation.entities.spawnUnit('red', 'soldier', 174, 98);
+      const blues = [27, 28].map((x) => simulation.entities.spawnUnit('blue', 'soldier', x, 98));
+      const reds = [173, 172].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
+      simulation.fog.update();
+      advanceSeconds(simulation, 2);
+      const blueY = seed % 2 === 0 ? 62 : 137;
+      const redY = seed % 2 === 0 ? 137 : 62;
+      expect(simulation.map.isPassable(89, blueY)).toBe(true);
+      expect(simulation.map.isPassable(110, redY)).toBe(true);
+      expect(blues.some((e) => e.moveTarget && Math.abs(e.moveTarget[1] - blueY) <= 5)).toBe(true);
+      expect(reds.some((e) => e.moveTarget && Math.abs(e.moveTarget[1] - redY) <= 5)).toBe(true);
+      expect(blueGuard.moveTarget).toBeNull();
+      expect(redGuard.moveTarget).toBeNull();
+    }
   });
 
   it('keeps one reserve and a home guard', () => {

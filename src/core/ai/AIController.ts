@@ -43,6 +43,8 @@ export class AIController {
   private lastDecisionTick = -999;
   private readonly openingForward: number;
   private readonly openingVertical: number;
+  private readonly assaultWaypoint: Point;
+  private waypointReached = false;
   private guardUnitId: string | null = null;
   private readonly raidUnitIds = new Set<string>();
   private readonly retreatingUnitIds = new Set<string>();
@@ -70,6 +72,11 @@ export class AIController {
     this.memory = new AIMemory(team);
     this.openingForward = 24 + Math.floor(simulation.rng.next() * 5) - 2;
     this.openingVertical = -12 + Math.floor(simulation.rng.next() * 5) - 2;
+    // On the new organic map, an always-straight march dominated one side.
+    // Seeds alternate strategic approaches without privileged enemy intelligence.
+    const blueNorth = (simulation.seed & 1) === 0;
+    const north = team === 'blue' ? blueNorth : !blueNorth;
+    this.assaultWaypoint = [team === 'blue' ? 89 : 110, north ? 62 : 137];
   }
 
   getDebugState(): AIDebugState {
@@ -521,6 +528,7 @@ export class AIController {
     }
     const raidIds = attackers.filter((unit) => this.raidUnitIds.has(unit.id)).map((unit) => unit.id);
     if (raidIds.length === 0) {
+      this.waypointReached = false;
       if (threat) {
         this.setDecision('Defend', 95, 'Defend Base against Hostile Invaders', `Defenders engaging threat ${threat.id}`);
         return 'Defend';
@@ -639,11 +647,23 @@ export class AIController {
   }
 
   private marchRaid(raidIds: string[], destination: Point): void {
+    if (!this.waypointReached) {
+      this.waypointReached = raidIds.some((id) => {
+        const unit = this.simulation.entities.get(id);
+        return unit?.category === 'unit'
+          && Math.max(Math.abs(unit.x - this.assaultWaypoint[0]), Math.abs(unit.y - this.assaultWaypoint[1])) <= 7;
+      });
+    }
+    // Once the enemy base is remembered, use the objective directly rather
+    // than forcing the army through a known detour. Pathfinding still respects
+    // the actual grid and blockers.
+    const route: Point = !this.memory.enemyBaseLocation && !this.waypointReached
+      ? this.assaultWaypoint : destination;
     const ready = raidIds.filter((id) => {
       const unit = this.simulation.entities.get(id);
       return unit?.category === 'unit' && !unit.moveTarget && !this.simulation.engagements.statusFor(id);
     });
-    if (ready.length > 0) dispatchGroupAttackMove(this.simulation, this.team, ready, destination);
+    if (ready.length > 0) dispatchGroupAttackMove(this.simulation, this.team, ready, route);
   }
 
   private findHomeRallyPoint(base: BuildingEntity): Point | null {
