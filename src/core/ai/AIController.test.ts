@@ -209,8 +209,13 @@ describe('Fase 8 IA', () => {
 
       const north = seed % 2 === 0 ? 63 : 137;
       const south = seed % 2 === 0 ? 137 : 63;
-      expect(blueRaiders.every((unit) => unit.moveTarget?.[1] === north)).toBe(true);
-      expect(redRaiders.every((unit) => unit.moveTarget?.[1] === south)).toBe(true);
+      // Group attack-move disperses units to nearby free cells around the waypoint.
+      expect(blueRaiders.every((unit) => unit.moveTarget !== null
+        && Math.abs(unit.moveTarget[1] - north) <= 4
+        && Math.abs(unit.moveTarget[0] - 137) <= 4)).toBe(true);
+      expect(redRaiders.every((unit) => unit.moveTarget !== null
+        && Math.abs(unit.moveTarget[1] - south) <= 4
+        && Math.abs(unit.moveTarget[0] - 62) <= 4)).toBe(true);
       expect(blueGuard.moveTarget).toBeNull();
       expect(redGuard.moveTarget).toBeNull();
       expect(simulation.redAI!.memory.enemyBaseLocation).toBeNull();
