@@ -45,7 +45,7 @@ export const UNIT_VISUALS: Record<UnitKind, UnitVisualDefinition> = {
   } },
 };
 
-const root = '/assets/tiny-swords/';
+const root = `${import.meta.env.BASE_URL}assets/tiny-swords/`;
 const teamColor: Record<Team, string> = { blue: 'Yellow', red: 'Red' };
 const staticAssets = {
   terrain: 'Terrain/Tileset/Tilemap_color3.png',

@@ -1,0 +1,55 @@
+name: RTS playable preview (GitHub Pages)
+
+on:
+  push:
+    branches:
+      - feat/v1-1-4-immersive-hud
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rts-playable-preview
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build preview
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Compile static Vite site under /RTS/
+        run: npm run build
+        env:
+          RTS_PAGES_BASE: /RTS/
+      - name: Upload build for manual inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: rts-preview-dist
+          path: dist/
+          if-no-files-found: error
+      - name: Upload site to Pages deployment
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+
+  deploy:
+    name: Deploy preview to public GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

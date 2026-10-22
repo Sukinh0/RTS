@@ -59,7 +59,7 @@ test('a marching soldier engages a newly seen enemy and resumes the route in the
   }, ids), { timeout: 15_000 }).toBe(120);
 });
 
-test('HUD stays outside the map and the troop palette identifies each team', async ({ page }) => {
+test('HUD overlays the fullscreen map and the troop palette identifies each team', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
@@ -76,7 +76,7 @@ test('HUD stays outside the map and the troop palette identifies each team', asy
   await expect(page.locator('#game')).toHaveAttribute('data-visible-enemy-ids', /red-soldier.*red-scout/);
   const map = await page.locator('#game').boundingBox();
   const hud = await page.locator('#hud').boundingBox();
-  expect(map && hud && map.x === 0 && map.y === 0 && map.width === 1280 && map.height === 720).toBe(true);
+  expect(map && hud && map.x === 0 && map.y === 0 && map.width === 1280 && map.height === 800).toBe(true);
   expect(hud && hud.x === map!.x && hud.y === map!.y).toBe(true);
   await page.screenshot({ path: 'artifacts/playtest-palette-desktop.png', fullPage: true });
 
