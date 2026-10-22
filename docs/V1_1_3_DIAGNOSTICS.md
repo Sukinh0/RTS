@@ -78,3 +78,35 @@ suficiente contra defesa e reparos.
 - Analisar tempo de construção, recrutamento e renda antes de rebalancear.
 - Alcançar partidas que progridam para vitória sem regras artificiais ou
   vantagens de informação e sem comprometer economia ou mapa.
+
+## Experimento tático — acesso às bases (seed 123–124)
+
+Após confirmar **zero ataques a bases** em quatro partidas de 20 minutos,
+a primeira onda agora navega pelo corredor norte ou sul antes de se dirigir
+ao território adversário. O lado é escolhido pela paridade da seed, com rotas
+opostas para as equipes; nenhuma entidade oculta é consultada. Ao completar
+o waypoint, a leva segue rumo ao objetivo sem regressar ao próprio flanco.
+
+Amostra de validação (GitHub Actions):
+- 4 partidas, seeds 123 e 124, ambas as ordens de ativação.
+- 2 vitórias azuis, 0 vermelhas, 2 empates; **antes eram 4 empates**.
+- Nas duas vitórias a base vermelha perdeu 150 HP e foi destruída.
+- Na partida seed 123 com ordem vermelha inicial, a base azul recebeu 45
+  pontos de dano (primeiro ataque no segundo 1191), sem ser destruída.
+- O primeiro ataque à base na seed 124 ocorreu no segundo 936.
+- A contagem de dano vem de eventos reais de combate, não apenas do HP final.
+
+**Ressalva de equilíbrio:** o corredor norte parece mais eficaz na amostra
+pequena. Isso é uma hipótese de teste, não conclusão estatística: precisamos
+repetir com mais seeds e validar rotas com jogadores humanos. Não alterar
+danos, HP, renda ou visibilidade para compensar sem comparação controlada.
+
+### Testes de regressão
+- IA mantém guarda em casa e envia dois atacantes como primeira leva.
+- IAs não compartilham informações ocultas nem confundem waypoints.
+- Sobrevivente perto da base inimiga pode manter a ofensiva.
+- Partida completa com seed fixa atinge combate antes de 900s.
+- Partida de vinte minutos com seed fixa consegue destruir uma base.
+
+A conclusão da V1.1.3 segue condicionada à verificação de browser/performance
+e distribuição de vitórias em amostra mais ampla. A PR é mantida como draft.
