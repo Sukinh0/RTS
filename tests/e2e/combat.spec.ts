@@ -19,7 +19,7 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
 }
 
 test('combat: soldier can attack enemy unit, deal damage, and trigger cooldown in browser', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   // Spawn blue soldier at (26, 99) and red soldier at (29, 99) (dist 3 > range 2, so no auto-attack yet)
@@ -84,7 +84,7 @@ test('combat: worker can attack an adjacent enemy for four damage', async ({ pag
 });
 
 test('combat: soldier attacking adjacent shieldbearer receives reflected damage', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   // Spawn blue soldier at (26, 99) and red shieldbearer at (27, 99)
