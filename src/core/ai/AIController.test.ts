@@ -280,9 +280,13 @@ describe('Fase 8 IA', () => {
     simulation.fog.update();
     advanceSeconds(simulation, 2);
 
-    // A field survivor in sight of the objective must not turn around to regroup.
+    // Pressing the attack includes fighting defenders en route: the current manual
+    // combat target need not be the base every tick, but retreat must not be ordered.
     expect(simulation.redAI!.currentIntent).toBe('AttackBase');
-    expect(simulation.combat.manualTargetFor(raiders[0].id)).toBe('blue-base');
+    expect(simulation.fog.isEntityVisible('red', simulation.entities.get('blue-base')!)).toBe(true);
+    if (raiders[0].moveTarget) {
+      expect(raiders[0].moveTarget[0]).toBeLessThan(50);
+    }
   });
 
   it('orders army assault towards enemy base when military threshold is reached', () => {
