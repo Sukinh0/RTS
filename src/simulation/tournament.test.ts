@@ -23,6 +23,17 @@ describe('headless tournament', () => {
     expect(match.damage.blue + match.damage.red).toBeGreaterThan(0);
   }, 60_000);
 
+  it('can finish a balanced-rules AI vs AI game within twenty minutes', () => {
+    // Seed 124 is a reproducible end-to-end scenario with both AI teams and
+    // the real map, fog, economy, formations, combat, and base win condition.
+    const tournament = runTournament(2, 124, 1200);
+    expect(tournament.matches.some((match) => match.winner !== null)).toBe(true);
+    expect(tournament.matches.some((match) =>
+      match.baseAttacks.blue + match.baseAttacks.red > 0)).toBe(true);
+    expect(tournament.matches.some((match) =>
+      match.baseDamageDealt.blue + match.baseDamageDealt.red >= 150)).toBe(true);
+  }, 60_000);
+
   it('rejects invalid batch parameters', () => {
     expect(() => runTournament(0)).toThrow(RangeError);
     expect(() => runTournament(1, 123, 0)).toThrow(RangeError);
