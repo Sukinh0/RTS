@@ -69,6 +69,23 @@ ponto de aproximação; unidades inimigas ocultas continuam inacessíveis à IA.
 - O pack não é versionado nem distribuído pelo CI. Para uso de construtor com
   chapéu diferenciado, gerar derivados localmente (script documentado acima).
 
+## Estratégias de abertura mistas — resultado do torneio
+
+Um terceiro experimento alterna **de maneira idêntica para as duas equipes**
+entre ataque central (se `abs(seed) % 4 === 0`) e aproximação em flancos
+opostos nas demais seeds. Isso evita que a IA escolha sempre o mesmo caminho,
+mantendo roteamento normal até o destino conhecido. Não há buff de atributos.
+
+| Estratégia (20 partidas, seeds 123–132) | Azul | Vermelho | Empates | Combate | Ataques à base |
+|---|---:|---:|---:|---:|---:|
+| Rota direta | 20 | 0 | 0 | 20/20 | 20/20 |
+| Apenas flancos opostos | 3 | 9 | 8 | 20/20 | 20/20 |
+| **Central 25% das seeds + flancos 75%** | **8** | **9** | **3** | **20/20** | **20/20** |
+
+O modelo misto é o melhor desempenho equilibrado da **amostra pequena**:
+17 partidas com vencedor e ambos os times ganhando, sem modificar mapa, névoa,
+recursos, HP ou dano. Ainda falta ensaio com seeds independentes e humanos.
+
 ## Ainda necessário antes de chamar de release estável
 1. Playwright completo na última SHA e teste visual com ZIP oficial verdadeiro.
 2. Torneio mais longo, múltiplos conjuntos de seeds e cenários jogador vs IA.
