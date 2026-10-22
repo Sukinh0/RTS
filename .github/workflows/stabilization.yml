@@ -5,6 +5,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Only the newest review commit needs the expensive browser and 40-game suite.
+concurrency:
+  group: rts-v12-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   quality:
     runs-on: ubuntu-latest
