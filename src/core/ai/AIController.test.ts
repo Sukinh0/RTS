@@ -194,15 +194,28 @@ describe('Fase 8 IA', () => {
     expect(reserves.some((unit) => unit.moveTarget?.[0] === 24)).toBe(true);
   });
 
-  it('holds two attackers in reserve and keeps a guard at the base', () => {
+  it('keeps one fighter in reserve and one guard at home', () => {
     const simulation = new Simulation(42, true);
-    const soldiers = [174, 173, 172].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
+    const soldiers = [174, 173].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
     simulation.fog.update();
 
     advanceSeconds(simulation, 2);
 
     expect(simulation.redAI!.currentIntent).toBe('Rally');
     expect(soldiers.every((unit) => unit.moveTarget === null)).toBe(true);
+  });
+
+  it('launches two fighters as soon as the third combatant arrives', () => {
+    const simulation = new Simulation(42, true);
+    const guard = simulation.entities.spawnUnit('red', 'soldier', 174, 98);
+    const raiders = [173, 172].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
+    simulation.fog.update();
+
+    advanceSeconds(simulation, 2);
+
+    expect(simulation.redAI!.currentIntent).toBe('AttackBase');
+    expect(guard.moveTarget).toBeNull();
+    expect(raiders.every((unit) => unit.moveTarget !== null)).toBe(true);
   });
 
   it('launches three attackers together and keeps a guard and lone reinforcement home', () => {
