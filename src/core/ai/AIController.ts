@@ -354,7 +354,12 @@ export class AIController {
     }
 
     // 9. Civilian Unit Production (Workers and Builders)
-    if (needsWorkers && stock.coins >= BALANCE.units.worker.coins
+    // Reserve the final open civilian slot for a builder once offensive troops
+    // exist. Otherwise workerTarget fills the first house and the AI cannot
+    // produce anyone capable of repairing / constructing fortifications.
+    const builderNeedsSlot = ownBuilders.length === 0 && ownAttackers.length >= 2
+      && capacity.civilianCapacity - (capacity.civilianUnits + capacity.civilianQueued) <= 1;
+    if (needsWorkers && !builderNeedsSlot && stock.coins >= BALANCE.units.worker.coins
       && capacity.civilianUnits + capacity.civilianQueued < capacity.civilianCapacity) {
       const readyHouses = ownHouses.filter((h) => !h.underConstruction);
       for (const building of readyHouses) {
