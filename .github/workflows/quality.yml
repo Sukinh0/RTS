@@ -53,7 +53,7 @@ jobs:
       - name: Run four seeded tournament games (20 minute cap)
         run: |
           npm run simulate -- --games=4 --seed=123 --max-seconds=1200 --out=reports-ci
-          node -e "const r=require('./reports-ci/simulation-4games-seed123.json'); console.log(JSON.stringify({wins:r.wins,draws:r.draws,combats:r.matches.map(x=>({seed:x.seed,order:x.aiOrder,first:x.firstCombatSeconds,attacks:x.attacks,baseHp:x.baseHp}))},null,2))"
+          node -e "const r=require('./reports-ci/simulation-4games-seed123.json'); console.log(JSON.stringify({wins:r.wins,draws:r.draws,combats:r.matches.map(x=>({seed:x.seed,order:x.aiOrder,first:x.firstCombatSeconds,firstBase:x.firstBaseAttackSeconds,attacks:x.attacks,baseAttacks:x.baseAttacks,baseDamage:x.baseDamageDealt,baseHp:x.baseHp}))},null,2))"
       - name: Save headless diagnostic
         if: always()
         uses: actions/upload-artifact@v4
