@@ -267,6 +267,24 @@ describe('Fase 8 IA', () => {
     expect(raiders[0].moveTarget?.[0]).toBeGreaterThan(130);
   });
 
+  it('presses the attack with a lone survivor already at a visible enemy base', () => {
+    const simulation = new Simulation(42, true);
+    simulation.entities.spawnUnit('red', 'soldier', 174, 98); // Home guard
+    const raiders = [30, 31].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 100));
+    simulation.fog.update();
+
+    advanceSeconds(simulation, 2);
+    expect(simulation.redAI!.currentIntent).toBe('AttackBase');
+
+    simulation.entities.remove(raiders[1].id);
+    simulation.fog.update();
+    advanceSeconds(simulation, 2);
+
+    // A field survivor in sight of the objective must not turn around to regroup.
+    expect(simulation.redAI!.currentIntent).toBe('AttackBase');
+    expect(simulation.combat.manualTargetFor(raiders[0].id)).toBe('blue-base');
+  });
+
   it('orders army assault towards enemy base when military threshold is reached', () => {
     const simulation = new Simulation(42, true);
 
