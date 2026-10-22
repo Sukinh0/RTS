@@ -12,6 +12,17 @@ describe('headless tournament', () => {
     expect(first.matches.every((match) => match.durationSeconds > 0 && match.durationSeconds <= 90)).toBe(true);
   });
 
+  it('reaches actual combat from starting resources without pre-spawned soldiers', () => {
+    // Regression: both AIs previously waited for 3 reserves + a guard and never attacked.
+    const match = runTournament(1, 123, 900).matches[0];
+    expect(match.firstMilitarySeconds.blue).not.toBeNull();
+    expect(match.firstMilitarySeconds.red).not.toBeNull();
+    expect(match.firstCombatSeconds).not.toBeNull();
+    expect(match.firstCombatSeconds!).toBeLessThan(900);
+    expect(match.attacks.blue + match.attacks.red).toBeGreaterThan(0);
+    expect(match.damage.blue + match.damage.red).toBeGreaterThan(0);
+  }, 60_000);
+
   it('rejects invalid batch parameters', () => {
     expect(() => runTournament(0)).toThrow(RangeError);
     expect(() => runTournament(1, 123, 0)).toThrow(RangeError);
