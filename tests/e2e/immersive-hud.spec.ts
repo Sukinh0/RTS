@@ -13,8 +13,8 @@ test('battlefield fills desktop and compact viewports without hiding essential c
     expect(bounds!.height).toBe(viewport.height);
 
     const native = await page.locator('#game canvas').evaluate((canvas) => ({
-      width: canvas.width,
-      height: canvas.height,
+      width: (canvas as HTMLCanvasElement).width,
+      height: (canvas as HTMLCanvasElement).height,
     }));
     expect(native).toEqual(viewport);
     await expect(page.locator('#minimap')).toBeVisible();

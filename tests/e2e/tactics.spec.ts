@@ -12,7 +12,7 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
   const zoom = Number(await root.getAttribute('data-zoom'));
   const scrollX = Number(await root.getAttribute('data-camera-x'));
   const scrollY = Number(await root.getAttribute('data-camera-y'));
-  const viewport = await canvas.evaluate((element) => ({ width: element.width, height: element.height }));
+  const viewport = await canvas.evaluate((element) => ({ width: (element as HTMLCanvasElement).width, height: (element as HTMLCanvasElement).height }));
   return {
     x: box.x + ((((x + 0.5) * 12 - scrollX - viewport.width / 2) * zoom) + viewport.width / 2) * box.width / viewport.width,
     y: box.y + ((((y + 0.5) * 12 - scrollY - viewport.height / 2) * zoom) + viewport.height / 2) * box.height / viewport.height,
