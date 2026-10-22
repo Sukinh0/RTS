@@ -65,7 +65,7 @@ export class Simulation {
   readonly stats = new MatchStats();
   result: GameResult | null = null;
 
-  constructor(seed: number, enableRedAI = false) {
+  constructor(readonly seed: number, enableRedAI = false) {
     this.map.diagnostics = this.diagnostics;
     this.rng = new SeededRng(seed);
     this.formations = new FormationController(this);
