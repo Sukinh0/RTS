@@ -22,6 +22,7 @@ import {
 } from '../core/formations/FormationGeometry';
 import { computeLineCells } from '../core/construction/LineGeometry';
 import { availableUnitKey, buildingKey, frameCount, preloadTinySwords, UNIT_VISUALS, type UnitVisualState } from './VisualRegistry';
+import { loadTinySwordsZip } from './TinySwordsZip';
 
 const CELL_SIZE = 12;
 const PAN_SPEED = 500;
@@ -207,6 +208,32 @@ export class MapScene extends Phaser.Scene {
     this.formationPreviewGraphics.setDepth(7);
     this.refreshSelection();
     this.refreshTeamStatus();
+    // The official asset ZIP stays in the visitor's browser; the public build
+    // never includes or redistributes the author's source PNGs.
+    const tinyButton = document.querySelector<HTMLButtonElement>('#btn-load-tiny');
+    const tinyInput = document.querySelector<HTMLInputElement>('#tiny-zip-file');
+    const tinyStatus = document.querySelector<HTMLElement>('#tiny-assets-status');
+    const displayTinyStatus = (message: string) => { if (tinyStatus) tinyStatus.textContent = message; };
+    displayTinyStatus(this.textures.exists('tiny-unit-blue-Warrior-WarriorIdle')
+      ? 'Tiny Swords ativo' : 'Arte provisória — selecione o ZIP oficial');
+    tinyButton?.addEventListener('click', () => tinyInput?.click());
+    tinyInput?.addEventListener('change', async () => {
+      const zip = tinyInput.files?.[0];
+      if (!zip) return;
+      tinyButton?.setAttribute('disabled', 'true');
+      displayTinyStatus('Lendo e instalando os sprites localmente...');
+      try {
+        const result = await loadTinySwordsZip(this, zip);
+        displayTinyStatus(`Tiny Swords: ${result.loaded} texturas instaladas; reiniciando a partida...`);
+        // Assets remain cached in Phaser's texture manager after a scene restart.
+        this.scene.restart();
+      } catch (error) {
+        displayTinyStatus(error instanceof Error ? error.message : 'Não foi possível ler o ZIP.');
+      } finally {
+        tinyButton?.removeAttribute('disabled');
+        tinyInput.value = '';
+      }
+    });
     this.input.mouse?.disableContextMenu();
     (window as Window & { __simulation?: Simulation }).__simulation = this.simulation;
 

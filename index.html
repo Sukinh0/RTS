@@ -4,7 +4,7 @@
   <body>
     <main id="game" aria-label="Mapa RTS V1"></main>
     <aside id="hud" aria-label="Painel do jogo">
-      <header><div class="header-title"><strong>RTS V1</strong><span>MAPA DE TESTE 01</span></div><div class="header-controls"><button id="btn-sound-toggle" type="button" class="btn-sound-toggle" title="Ativar/Desativar áudio">🔊 Som: ON</button><button id="btn-toggle-sandbox" type="button" class="btn-sandbox-toggle" title="Abrir/Fechar Ambiente de Testes">🧪 Sandbox</button></div></header>
+      <header><div class="header-title"><strong>RTS V1</strong><span>MAPA DE TESTE 01</span></div><div class="header-controls"><button id="btn-sound-toggle" type="button" class="btn-sound-toggle" title="Ativar/Desativar áudio">🔊 Som: ON</button><button id="btn-toggle-sandbox" type="button" class="btn-sandbox-toggle" title="Abrir/Fechar Ambiente de Testes">🧪 Sandbox</button><button id="btn-load-tiny" type="button" title="Carregar ZIP oficial Tiny Swords, sem enviar arquivos ao servidor">🎨 Tiny Swords</button><input id="tiny-zip-file" type="file" accept=".zip,application/zip" hidden /></div></header>
       <section class="hud-section sandbox-panel" id="sandbox-section" aria-label="Ambiente de Testes / Sandbox" hidden>
         <div class="sandbox-header">
           <h2>🧪 Ambiente de Testes</h2>
@@ -57,7 +57,7 @@
           <label><input type="checkbox" id="sb-reveal-map" /> Revelar Mapa Inteiro (Sem Fog)</label>
         </div>
       </section>
-      <div class="match-clock" aria-label="Tempo de partida"><span>Tempo de partida</span><strong id="match-timer">00:00</strong></div>
+      <p id="tiny-assets-status" role="status" aria-live="polite">Arte provisória — selecione o ZIP oficial</p><div class="match-clock" aria-label="Tempo de partida"><span>Tempo de partida</span><strong id="match-timer">00:00</strong></div>
       <section class="hud-section" id="minimap-section" aria-label="Minimapa"><h2>Minimapa</h2><div id="minimap-container"><canvas id="minimap" width="200" height="200" aria-label="Minimapa de navegação e estratégia"></canvas></div></section>
       <section class="hud-section" aria-label="Recursos"><h2>Colônia azul</h2><p id="team-status"></p><p id="capacity-status"></p><p id="fog-status"></p></section>
       <section class="hud-section" aria-label="Seleção"><h2 id="selection-count">Nenhuma seleção</h2><p id="selection-details">Clique em uma unidade ou base azul.</p><dl id="selection-status"></dl><div id="action-bar" hidden></div></section>
