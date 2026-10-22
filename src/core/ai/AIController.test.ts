@@ -270,7 +270,7 @@ describe('Fase 8 IA', () => {
   it('presses the attack with a lone survivor already at a visible enemy base', () => {
     const simulation = new Simulation(42, true);
     simulation.entities.spawnUnit('red', 'soldier', 174, 98); // Home guard
-    const raiders = [30, 31].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 100));
+    const raiders = [26, 27].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 100));
     simulation.fog.update();
 
     advanceSeconds(simulation, 2);
