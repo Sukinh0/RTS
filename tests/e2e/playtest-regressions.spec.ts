@@ -76,13 +76,14 @@ test('HUD stays outside the map and the troop palette identifies each team', asy
   await expect(page.locator('#game')).toHaveAttribute('data-visible-enemy-ids', /red-soldier.*red-scout/);
   const map = await page.locator('#game').boundingBox();
   const hud = await page.locator('#hud').boundingBox();
-  expect(map && hud && map.x + map.width <= hud.x).toBe(true);
+  expect(map && hud && map.x === 0 && map.y === 0 && map.width === 1280 && map.height === 720).toBe(true);
+  expect(hud && hud.x === map!.x && hud.y === map!.y).toBe(true);
   await page.screenshot({ path: 'artifacts/playtest-palette-desktop.png', fullPage: true });
 
   await page.setViewportSize({ width: 760, height: 800 });
   const compactMap = await page.locator('#game').boundingBox();
   const compactHud = await page.locator('#hud').boundingBox();
-  expect(compactMap && compactHud && compactMap.y + compactMap.height <= compactHud.y).toBe(true);
+  expect(compactMap && compactHud && compactMap.x === 0 && compactMap.y === 0 && compactMap.width === 760 && compactMap.height === 800).toBe(true);
   expect(compactMap && compactMap.x + compactMap.width <= 760).toBe(true);
   expect(compactHud && compactHud.x + compactHud.width <= 760).toBe(true);
   await page.screenshot({ path: 'artifacts/playtest-palette-compact.png', fullPage: true });
@@ -98,9 +99,10 @@ test('a player order coexists with an active AI developing from starting resourc
   const zoom = Number(await root.getAttribute('data-zoom'));
   const scrollX = Number(await root.getAttribute('data-camera-x'));
   const scrollY = Number(await root.getAttribute('data-camera-y'));
+  const viewport = await canvas.evaluate((element) => ({ width: element.width, height: element.height }));
   const click = async (x: number, y: number, button: 'left' | 'right') => page.mouse.click(
-    box.x + ((((x + 0.5) * 12 - scrollX - 480) * zoom) + 480) * box.width / 960,
-    box.y + ((((y + 0.5) * 12 - scrollY - 300) * zoom) + 300) * box.height / 600,
+    box.x + ((((x + 0.5) * 12 - scrollX - viewport.width / 2) * zoom) + viewport.width / 2) * box.width / viewport.width,
+    box.y + ((((y + 0.5) * 12 - scrollY - viewport.height / 2) * zoom) + viewport.height / 2) * box.height / viewport.height,
     { button },
   );
   await click(25, 99, 'left');
