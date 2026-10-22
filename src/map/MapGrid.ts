@@ -17,6 +17,7 @@ export interface MapDefinition {
     width: number;
     height: number;
     mirrorX: boolean;
+    shape?: 'rectangle' | 'organic';
   }>;
 }
 
@@ -88,6 +89,10 @@ export class MapGrid {
       }
       this.paint(patch.x, patch.y, patch.width, patch.height, code);
       if (patch.mirrorX) this.paint(this.width - patch.x - patch.width, patch.y, patch.width, patch.height, code);
+      if (patch.shape === 'organic') {
+        this.paintOrganicEdge(patch, code, false);
+        if (patch.mirrorX) this.paintOrganicEdge(patch, code, true);
+      }
     }
 
     for (const team of ['blue', 'red'] as const) {
@@ -177,6 +182,49 @@ export class MapGrid {
     }
     for (let row = y; row < y + height; row += 1) {
       for (let col = x; col < x + width; col += 1) this.terrain[this.index(col, row)] = code;
+    }
+  }
+
+
+  /**
+   * Grows irregular 1–3 cell fringes around hand-authored terrain patches.
+   * The original footprint remains intact, keeping mined resources, economy
+   * starts, map landmarks, and attack corridors stable. Growth is deterministic,
+   * mirrors exactly, and never overwrites another terrain type.
+   */
+  private paintOrganicEdge(
+    patch: MapDefinition['terrainPatches'][number], code: number, mirrored: boolean,
+  ): void {
+    if (patch.terrain === 'mine') return;
+    const paintFringe = (rawX: number, rawY: number, localX: number, localY: number, depth: number): void => {
+      const x = mirrored ? this.width - 1 - rawX : rawX;
+      if (!this.contains(x, rawY)) return;
+      // Maintain guaranteed cross-map paths at the three validation lanes.
+      if ((code === 1 || code === 2) && x >= 68 && x <= 131
+        && ([62, 100, 137] as const).some((y) => Math.abs(y - rawY) <= 2)) return;
+      const index = this.index(x, rawY);
+      if (this.terrain[index] !== 0) return;
+      // Smooth broad chunks, plus a stable small-scale irregular outline.
+      const wave = Math.sin((localX + patch.x * 0.19) * 0.71)
+        + Math.cos((localY + patch.y * 0.31) * 0.43);
+      const hash = ((localX * 73856093) ^ (localY * 19349663) ^ (patch.x * 83492791) ^ (patch.y * 2654435761)) >>> 0;
+      if (wave * 0.38 + (hash % 100) / 100 > depth * 0.28 + 0.16) {
+        this.terrain[index] = code;
+      }
+    };
+    // Add mass beside the long edges and soften the hard rectangle corners.
+    const spread = patch.terrain === 'forest' ? 4 : patch.terrain === 'stone' ? 3 : 2;
+    for (let y = 0; y < patch.height; y++) {
+      for (let d = 1; d <= spread; d++) {
+        paintFringe(patch.x - d, patch.y + y, -d, y, d);
+        paintFringe(patch.x + patch.width - 1 + d, patch.y + y, patch.width - 1 + d, y, d);
+      }
+    }
+    for (let x = -1; x <= patch.width; x++) {
+      for (let d = 1; d <= spread; d++) {
+        paintFringe(patch.x + x, patch.y - d, x, -d, d);
+        paintFringe(patch.x + x, patch.y + patch.height - 1 + d, x, patch.height - 1 + d, d);
+      }
     }
   }
 

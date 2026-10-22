@@ -37,6 +37,26 @@ describe('Fase 1 map', () => {
     }
   });
 
+  it('adds non-rectangular coastlines and vegetation without blocking validated lanes', () => {
+    let waterFringe = 0;
+    let forestFringe = 0;
+    for (let y = 5; y <= 54; y++) {
+      for (const x of [74, 75, 82, 83]) {
+        if (map.cellAt(x, y)?.terrain === 'water') waterFringe++;
+      }
+    }
+    for (let y = 31; y <= 45; y++) {
+      for (const x of [33, 34, 35, 45, 46, 47]) {
+        if (map.cellAt(x, y)?.terrain === 'forest') forestFringe++;
+      }
+    }
+    expect(waterFringe).toBeGreaterThan(0);
+    expect(forestFringe).toBeGreaterThan(0);
+    for (const y of [62, 100, 137]) {
+      for (let x = 70; x <= 130; x++) expect(map.isPassable(x, y)).toBe(true);
+    }
+  });
+
   it('rejects terrain patches outside map bounds', () => {
     expect(() => new MapGrid({
       ...MAP_DEFINITION,

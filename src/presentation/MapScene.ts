@@ -32,10 +32,10 @@ const UNIT_COLORS: Record<UnitKind, number> = {
   shieldbearer: 0xb69ce3, scout: 0x69d7d5, builder: 0xdd8833,
 };
 const COLORS: Record<Terrain, number> = {
-  plain: 0x17252c,
-  water: 0x286276,
-  mountain: 0x68727a,
-  forest: 0x346b51,
+  plain: 0x375c42,
+  water: 0x235b74,
+  mountain: 0x778070,
+  forest: 0x2b5438,
   mine: 0xd5a64e,
   stone: 0x828b94,
 };
@@ -1359,7 +1359,7 @@ export class MapScene extends Phaser.Scene {
     if (supported) this.terrainTexture = this.add.renderTexture(0, 0, width, height).setOrigin(0);
     this.mapGraphics = this.add.graphics();
     if (this.terrainTexture) this.mapGraphics.setVisible(false);
-    if (!this.terrainTiles) this.mapGraphics.fillStyle(0x09141a).fillRect(0, 0, width, height);
+    if (!this.terrainTiles) this.mapGraphics.fillStyle(COLORS.plain).fillRect(0, 0, width, height);
     const dirty = this.visualFog.drainDirtyTerrain();
     for (const [x, y] of dirty) {
       const terrain = this.visualFog.cellAt(x, y)?.terrain;
@@ -1376,8 +1376,27 @@ export class MapScene extends Phaser.Scene {
   }
 
   private renderTerrainCell(x: number, y: number, terrain: Terrain): void {
-    if (!this.terrainTiles || terrain === 'water' || terrain === 'mountain') {
-      this.mapGraphics.fillStyle(COLORS[terrain]).fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    if (this.terrainTiles && terrain !== 'water' && terrain !== 'mountain') return;
+    const px = x * CELL_SIZE;
+    const py = y * CELL_SIZE;
+    const hash = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+    const base = COLORS[terrain];
+    const subtle = terrain === 'plain' ? [0x375c42, 0x3b6345, 0x34583f][hash % 3] : base;
+    this.mapGraphics.fillStyle(subtle).fillRect(px, py, CELL_SIZE, CELL_SIZE);
+    if (terrain === 'water') {
+      if (hash % 5 === 0) this.mapGraphics.fillStyle(0x5294a0, 0.7).fillRect(px + 2, py + 5, 6, 1);
+    } else if (terrain === 'mountain') {
+      this.mapGraphics.fillStyle(0x9aa694, 0.65).fillTriangle(px + 1, py + 9, px + 7, py + 2, px + 11, py + 9);
+      this.mapGraphics.fillStyle(0x455a53, 0.65).fillRect(px + 3, py + 9, 8, 2);
+    } else if (!this.terrainTiles && terrain === 'forest') {
+      this.mapGraphics.fillStyle(0x173d2d, 0.7).fillCircle(px + 7, py + 7, 5);
+      this.mapGraphics.fillStyle(0x477d4b, 0.75).fillCircle(px + 5, py + 4, 3);
+    } else if (!this.terrainTiles && terrain === 'stone') {
+      this.mapGraphics.fillStyle(0xb2b9a1, 0.65).fillTriangle(px + 2, py + 9, px + 6, py + 2, px + 10, py + 9);
+    } else if (!this.terrainTiles && terrain === 'mine') {
+      this.mapGraphics.fillStyle(0xffe29c).fillCircle(px + 6, py + 6, 3);
+    } else if (!this.terrainTiles && terrain === 'plain' && hash % 6 === 0) {
+      this.mapGraphics.fillStyle(0x527a48, 0.65).fillRect(px + 2, py + 3, 1, 3).fillRect(px + 8, py + 6, 1, 2);
     }
   }
 

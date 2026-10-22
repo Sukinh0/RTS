@@ -2,10 +2,40 @@
   "id": "MAP_TEST_01",
   "width": 200,
   "height": 200,
-  "notes": "Mapa manual e simétrico para validação. Coordenadas finais podem ser ajustadas durante implementação, preservando simetria e múltiplas rotas.",
+  "notes": "Mundo RTS orgânico V1.1.5: manchas e margens irregulares, simetria estratégica e três rotas livres preservadas; sem trilhos de MOBA.",
   "teamStarts": {
-    "blue": { "base": [20, 100], "workers": [[25, 99], [25, 101]] },
-    "red": { "base": [176, 100], "workers": [[174, 99], [174, 101]] }
+    "blue": {
+      "base": [
+        20,
+        100
+      ],
+      "workers": [
+        [
+          25,
+          99
+        ],
+        [
+          25,
+          101
+        ]
+      ]
+    },
+    "red": {
+      "base": [
+        176,
+        100
+      ],
+      "workers": [
+        [
+          174,
+          99
+        ],
+        [
+          174,
+          101
+        ]
+      ]
+    }
   },
   "designRequirements": {
     "symmetrical": true,
@@ -21,22 +51,156 @@
     ]
   },
   "terrainPatches": [
-    { "terrain": "water", "x": 76, "y": 0, "width": 6, "height": 58, "mirrorX": true },
-    { "terrain": "water", "x": 76, "y": 68, "width": 6, "height": 22, "mirrorX": true },
-    { "terrain": "water", "x": 76, "y": 110, "width": 6, "height": 23, "mirrorX": true },
-    { "terrain": "water", "x": 76, "y": 143, "width": 6, "height": 57, "mirrorX": true },
-    { "terrain": "mountain", "x": 89, "y": 26, "width": 6, "height": 21, "mirrorX": true },
-    { "terrain": "mountain", "x": 89, "y": 153, "width": 6, "height": 21, "mirrorX": true },
-    { "terrain": "mountain", "x": 96, "y": 76, "width": 4, "height": 9, "mirrorX": true },
-    { "terrain": "mountain", "x": 96, "y": 115, "width": 4, "height": 9, "mirrorX": true },
-    { "terrain": "forest", "x": 37, "y": 34, "width": 8, "height": 7, "mirrorX": true },
-    { "terrain": "forest", "x": 49, "y": 151, "width": 10, "height": 8, "mirrorX": true },
-    { "terrain": "forest", "x": 54, "y": 84, "width": 7, "height": 8, "mirrorX": true },
-    { "terrain": "forest", "x": 91, "y": 54, "width": 5, "height": 5, "mirrorX": true },
-    { "terrain": "forest", "x": 91, "y": 139, "width": 5, "height": 5, "mirrorX": true },
-    { "terrain": "mine", "x": 58, "y": 62, "width": 1, "height": 1, "mirrorX": true },
-    { "terrain": "mine", "x": 58, "y": 137, "width": 1, "height": 1, "mirrorX": true },
-    { "terrain": "stone", "x": 42, "y": 70, "width": 5, "height": 5, "mirrorX": true },
-    { "terrain": "stone", "x": 45, "y": 125, "width": 5, "height": 5, "mirrorX": true }
+    {
+      "terrain": "water",
+      "x": 76,
+      "y": 0,
+      "width": 6,
+      "height": 58,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "water",
+      "x": 76,
+      "y": 68,
+      "width": 6,
+      "height": 22,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "water",
+      "x": 76,
+      "y": 110,
+      "width": 6,
+      "height": 23,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "water",
+      "x": 76,
+      "y": 143,
+      "width": 6,
+      "height": 57,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "mountain",
+      "x": 89,
+      "y": 26,
+      "width": 6,
+      "height": 21,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "mountain",
+      "x": 89,
+      "y": 153,
+      "width": 6,
+      "height": 21,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "mountain",
+      "x": 96,
+      "y": 76,
+      "width": 4,
+      "height": 9,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "mountain",
+      "x": 96,
+      "y": 115,
+      "width": 4,
+      "height": 9,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "forest",
+      "x": 37,
+      "y": 34,
+      "width": 8,
+      "height": 7,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "forest",
+      "x": 49,
+      "y": 151,
+      "width": 10,
+      "height": 8,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "forest",
+      "x": 54,
+      "y": 84,
+      "width": 7,
+      "height": 8,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "forest",
+      "x": 91,
+      "y": 54,
+      "width": 5,
+      "height": 5,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "forest",
+      "x": 91,
+      "y": 139,
+      "width": 5,
+      "height": 5,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "mine",
+      "x": 58,
+      "y": 62,
+      "width": 1,
+      "height": 1,
+      "mirrorX": true
+    },
+    {
+      "terrain": "mine",
+      "x": 58,
+      "y": 137,
+      "width": 1,
+      "height": 1,
+      "mirrorX": true
+    },
+    {
+      "terrain": "stone",
+      "x": 42,
+      "y": 70,
+      "width": 5,
+      "height": 5,
+      "mirrorX": true,
+      "shape": "organic"
+    },
+    {
+      "terrain": "stone",
+      "x": 45,
+      "y": 125,
+      "width": 5,
+      "height": 5,
+      "mirrorX": true,
+      "shape": "organic"
+    }
   ]
 }
