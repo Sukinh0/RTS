@@ -42,3 +42,38 @@ npm run simulate -- --games=4 --seed=123 --max-seconds=1200 --out=reports-ci
 Compare the organic map against future seeds and GPU hardware before claiming
 balance or 60 FPS. GitHub Actions uploads a Vite build with base path `/RTS/`.
 The `main` branch is not modified by this PR.
+
+## Validação inicial de IA em MAP_ORGANIC_01 — 22/10/2026
+Testes com 20 partidas espelhadas, seeds 123–132 e até 1200 segundos:
+| Estratégia | Azul | Vermelho | Empates | Combate | Ataques à base |
+|---|---:|---:|---:|---:|---:|
+| Nova leva com marcha direta | 20 | 0 | 0 | 20/20 | 20/20 |
+| Nova leva com aproximação norte/sul (varia pela seed) | **3** | **9** | **8** | **20/20** | **20/20** |
+
+**Não declarar equilíbrio concluído.** A nova estratégia elimina a vitória azul
+obrigatória do primeiro experimento, mas 8 partidas ainda empatam e a vermelha
+vence 3 vezes mais que a azul nesta amostra. Os pontos de aproximação do
+primeiro avanço são (89, 62)/(89, 137) para blue e (110, 62)/(110, 137)
+para red, alternados pela seed. O objetivo conhecido prevalece sobre o
+ponto de aproximação; unidades inimigas ocultas continuam inacessíveis à IA.
+
+## Visual da prévia pública
+- O usuário pode escolher o arquivo oficial
+  `Tiny Swords (Free Pack).zip` no botão 🎨 do HUD.
+- O carregador de ZIP opera localmente com `DecompressionStream` do navegador;
+  nenhuma imagem é transmitida para serviço externo.
+- O carregador aceita apenas os nomes de arquivos previstos no manifesto
+  `tinySwordsLocalManifest`, com validação de estrutura e tamanho do ZIP.
+- A partida reinicia ao finalizar a importação para recriar terreno e sprites
+  com as texturas em memória. Recarregar a página descarta o pacote.
+- O pack não é versionado nem distribuído pelo CI. Para uso de construtor com
+  chapéu diferenciado, gerar derivados localmente (script documentado acima).
+
+## Ainda necessário antes de chamar de release estável
+1. Playwright completo na última SHA e teste visual com ZIP oficial verdadeiro.
+2. Torneio mais longo, múltiplos conjuntos de seeds e cenários jogador vs IA.
+3. Benchmark de FPS da versão atual com sprites instalados, incluindo GPU real.
+4. Revisão de direitos de arte/histórico Git (o commit anterior à branch
+   contém arquivos derivados).
+5. Publicação em ambiente com autorização de deploy da branch; o build
+   `v1-2-rts-preview-dist` não ativa hospedagem sozinho.
