@@ -110,3 +110,32 @@ danos, HP, renda ou visibilidade para compensar sem comparação controlada.
 
 A conclusão da V1.1.3 segue condicionada à verificação de browser/performance
 e distribuição de vitórias em amostra mais ampla. A PR é mantida como draft.
+
+## Validação ampliada — 20 partidas, com foco em suporte de reparos
+
+O teste com **20 partidas (seeds 123–132, cada seed com ordem de ativação
+alternada, 1200 segundos)** revelou que a IA vermelha conseguia causar até
+285 de dano acumulado contra a base azul, mas não a destruía por causa de
+reparos durante o cerco. A decisão tática agora prioriza **construtores
+inimigos visíveis** próximos à base, antes de voltar a atacá-la.
+A IA não lê tarefas nem posições ocultas de construtores adversários.
+
+| Versão | Vitórias azuis | Vitórias vermelhas | Empates | Partidas com combate | Partidas com ataque à base |
+|---|---:|---:|---:|---:|---:|
+| Com flancos, antes de priorizar construtores | 7 | 0 | 13 | 20 | 18 |
+| Com flancos e supressão de reparos visíveis | **8** | **8** | **4** | **20** | **18** |
+
+Este é um ganho de jogabilidade significativo, mas a amostra **não comprova
+equilíbrio de mapa**. As 16 vitórias ficaram com o time que percorreu a rota
+norte: o corredor sul não produziu nenhuma vitória. A alternância determinística
+da seed distribuiu 8 vitórias para cada equipe, mas a rota norte permanece
+preferencial na amostra. A V1.1.4 deverá abordar a topologia orgânica
+dos corredores e reavaliar os resultados com mais mapas e agentes.
+
+A CI agora falha se, nas 20 seeds pareadas, qualquer uma das equipes não
+obtiver vitória, se alguma partida não tiver combate ou se menos de dez
+partidas alcançarem ao menos um golpe contra uma base.
+
+As restrições mantidas são: nenhuma vantagem oculta para IA, nenhuma alteração
+nos valores de dano, HP, recursos, reparo ou condição de vitória, e manutenção
+da simulação determinística desacoplada da renderização.
