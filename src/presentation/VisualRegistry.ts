@@ -78,16 +78,25 @@ export function buildingKey(team: Team, kind: BuildingKind): string {
   return kind === 'barricade' ? 'tiny-stone' : `tiny-building-${team}-${kind}`;
 }
 
-export function preloadTinySwords(scene: Phaser.Scene): void {
+export interface TinySwordsAsset {
+  key: string;
+  path: string;
+  frameWidth?: number;
+  frameHeight?: number;
+  frames?: number;
+}
+
+/** The upload flow and normal boot use one source of truth for every texture. */
+export function tinySwordsManifest(): TinySwordsAsset[] {
+  const manifest: TinySwordsAsset[] = [];
   const loaded = new Set<string>();
   for (const [key, file] of Object.entries(staticAssets)) {
     const id = `tiny-${key}`;
-    if (key === 'tree1' || key === 'tree2') scene.load.spritesheet(id, encodeURI(root + file), { frameWidth: 192, frameHeight: key === 'tree1' ? 256 : 256 });
-    else if (key === 'bush') scene.load.spritesheet(id, encodeURI(root + file), { frameWidth: 128, frameHeight: 128 });
-    else if (key === 'waterRock') scene.load.spritesheet(id, encodeURI(root + file), { frameWidth: 64, frameHeight: 64 });
-    else if (key === 'dust') scene.load.spritesheet(id, encodeURI(root + file), { frameWidth: 64, frameHeight: 64 });
-    else if (key === 'explosion') scene.load.spritesheet(id, encodeURI(root + file), { frameWidth: 192, frameHeight: 192 });
-    else scene.load.image(id, encodeURI(root + file));
+    if (key === 'tree1' || key === 'tree2') manifest.push({ key: id, path: file, frameWidth: 192, frameHeight: 256 });
+    else if (key === 'bush') manifest.push({ key: id, path: file, frameWidth: 128, frameHeight: 128 });
+    else if (key === 'waterRock' || key === 'dust') manifest.push({ key: id, path: file, frameWidth: 64, frameHeight: 64 });
+    else if (key === 'explosion') manifest.push({ key: id, path: file, frameWidth: 192, frameHeight: 192 });
+    else manifest.push({ key: id, path: file });
   }
   for (const team of ['blue', 'red'] as const) {
     const color = teamColor[team];
@@ -97,14 +106,32 @@ export function preloadTinySwords(scene: Phaser.Scene): void {
         if (loaded.has(key)) continue;
         loaded.add(key);
         const size = sheet.frameSize ?? 192;
-        scene.load.spritesheet(key,
-          encodeURI(`${root}Units/${color} Units/${definition.family}/${sheet.file}.png`),
-          { frameWidth: size, frameHeight: size, endFrame: sheet.frames - 1 });
+        manifest.push({
+          key,
+          path: `Units/${color} Units/${definition.family}/${sheet.file}.png`,
+          frameWidth: size,
+          frameHeight: size,
+          frames: sheet.frames,
+        });
       }
     }
     for (const [kind, file] of Object.entries(buildingFiles) as [BuildingKind, string][]) {
-      if (file) scene.load.image(buildingKey(team, kind), encodeURI(`${root}Buildings/${color} Buildings/${file}.png`));
+      if (file) manifest.push({ key: buildingKey(team, kind), path: `Buildings/${color} Buildings/${file}.png` });
     }
+  }
+  return manifest;
+}
+
+export function preloadTinySwords(scene: Phaser.Scene): void {
+  for (const asset of tinySwordsManifest()) {
+    if (scene.textures.exists(asset.key)) continue;
+    const url = encodeURI(root + asset.path);
+    if (asset.frameWidth && asset.frameHeight) {
+      scene.load.spritesheet(asset.key, url, {
+        frameWidth: asset.frameWidth, frameHeight: asset.frameHeight,
+        ...(asset.frames ? { endFrame: asset.frames - 1 } : {}),
+      });
+    } else scene.load.image(asset.key, url);
   }
 }
 
