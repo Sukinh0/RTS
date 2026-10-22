@@ -23,7 +23,7 @@
   "terrainPatches": [
     { "terrain": "water", "x": 76, "y": 0, "width": 6, "height": 58, "mirrorX": true },
     { "terrain": "water", "x": 76, "y": 68, "width": 6, "height": 22, "mirrorX": true },
-    { "terrain": "water", "x": 76, "y": 110, "width": 6, "height": 23, "mirrorX": true },
+    { "terrain": "water", "x": 76, "y": 110, "width": 6, "height": 19, "mirrorX": true },
     { "terrain": "water", "x": 76, "y": 143, "width": 6, "height": 57, "mirrorX": true },
     { "terrain": "mountain", "x": 89, "y": 26, "width": 6, "height": 21, "mirrorX": true },
     { "terrain": "mountain", "x": 89, "y": 153, "width": 6, "height": 21, "mirrorX": true },
