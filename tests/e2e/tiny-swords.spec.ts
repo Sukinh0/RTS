@@ -18,3 +18,17 @@ test('installed Tiny Swords sheets load and gameplay remains interactive', async
   await expect(page.locator('#team-status')).toContainText('2/60 unidades');
   await expect(page.locator('#game')).toHaveAttribute('data-visible-cells', /[1-9]\d+/);
 });
+
+test('Tiny Swords upload rejects an invalid ZIP without leaving the page', async ({ page }) => {
+  await page.goto('/?noai=1');
+  await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('#btn-load-tiny')).toBeVisible();
+  await page.locator('#tiny-zip-file').setInputFiles({
+    name: 'not-a-pack.zip',
+    mimeType: 'application/zip',
+    buffer: Buffer.from('Not a ZIP'),
+  });
+  await expect(page.locator('#tiny-assets-status')).toContainText('ZIP válido');
+  await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('#btn-load-tiny')).toBeEnabled();
+});
