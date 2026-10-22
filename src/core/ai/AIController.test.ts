@@ -191,7 +191,31 @@ describe('Fase 8 IA', () => {
     simulation.entities.remove(invader.id);
     simulation.fog.update();
     advanceSeconds(simulation, 2);
-    expect(reserves.some((unit) => unit.moveTarget?.[0] === 24)).toBe(true);
+    // The first wave may use a side-corridor waypoint instead of a direct base march.
+    expect(reserves.some((unit) => unit.moveTarget !== null && unit.moveTarget[0] < 150)).toBe(true);
+  });
+
+  it('uses mirrored, seed-selected side corridors without sharing enemy vision', () => {
+    for (const seed of [42, 43]) {
+      const simulation = new Simulation(seed, true);
+      simulation.enableAI('blue');
+      const blueGuard = simulation.entities.spawnUnit('blue', 'soldier', 24, 98);
+      const blueRaiders = [26, 27].map((x) => simulation.entities.spawnUnit('blue', 'soldier', x, 98));
+      const redGuard = simulation.entities.spawnUnit('red', 'soldier', 174, 98);
+      const redRaiders = [173, 172].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
+      simulation.fog.update();
+
+      advanceSeconds(simulation, 2);
+
+      const north = seed % 2 === 0 ? 63 : 137;
+      const south = seed % 2 === 0 ? 137 : 63;
+      expect(blueRaiders.every((unit) => unit.moveTarget?.[1] === north)).toBe(true);
+      expect(redRaiders.every((unit) => unit.moveTarget?.[1] === south)).toBe(true);
+      expect(blueGuard.moveTarget).toBeNull();
+      expect(redGuard.moveTarget).toBeNull();
+      expect(simulation.redAI!.memory.enemyBaseLocation).toBeNull();
+      expect(simulation.blueAI!.memory.enemyBaseLocation).toBeNull();
+    }
   });
 
   it('keeps one fighter in reserve and one guard at home', () => {
