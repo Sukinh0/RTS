@@ -192,12 +192,45 @@ describe('Fase 8 IA', () => {
     simulation.entities.remove(invader.id);
     simulation.fog.update();
     advanceSeconds(simulation, 2);
-    expect(reserves.some((unit) => unit.moveTarget?.[0] === 24)).toBe(true);
+    expect(reserves.some((unit) => unit.moveTarget !== null && unit.moveTarget[0] < 150)).toBe(true);
   });
 
-  it('holds two attackers in reserve and keeps a guard at the base', () => {
+  it('uses walkable opposite staging corridors on the organic map, selected by seed', () => {
+    for (const seed of [42, 43]) {
+      const simulation = new Simulation(seed, true);
+      simulation.enableAI('blue');
+      const blueGuard = simulation.entities.spawnUnit('blue', 'soldier', 26, 98);
+      const redGuard = simulation.entities.spawnUnit('red', 'soldier', 174, 98);
+      const blues = [27, 28].map((x) => simulation.entities.spawnUnit('blue', 'soldier', x, 98));
+      const reds = [173, 172].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
+      simulation.fog.update();
+      advanceSeconds(simulation, 2);
+      const blueY = seed % 2 === 0 ? 62 : 137;
+      const redY = seed % 2 === 0 ? 137 : 62;
+      expect(simulation.map.isPassable(89, blueY)).toBe(true);
+      expect(simulation.map.isPassable(110, redY)).toBe(true);
+      expect(blues.some((e) => e.moveTarget && Math.abs(e.moveTarget[1] - blueY) <= 5)).toBe(true);
+      expect(reds.some((e) => e.moveTarget && Math.abs(e.moveTarget[1] - redY) <= 5)).toBe(true);
+      expect(blueGuard.moveTarget).toBeNull();
+      expect(redGuard.moveTarget).toBeNull();
+    }
+  });
+
+  it('uses a deterministic direct-center assault in one out of four seeds', () => {
+    const simulation = new Simulation(44, true);
+    simulation.entities.spawnUnit('red', 'soldier', 174, 98);
+    const raiders = [173, 172].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
+    simulation.fog.update();
+    advanceSeconds(simulation, 2);
+    expect(simulation.redAI!.currentIntent).toBe('AttackBase');
+    expect(raiders.some((unit) => unit.moveTarget
+      && unit.moveTarget[0] < 45
+      && Math.abs(unit.moveTarget[1] - 100) <= 5)).toBe(true);
+  });
+
+  it('keeps one reserve and a home guard', () => {
     const simulation = new Simulation(42, true);
-    const soldiers = [174, 173, 172].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
+    const soldiers = [174, 173].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
     simulation.fog.update();
 
     advanceSeconds(simulation, 2);
@@ -206,10 +239,10 @@ describe('Fase 8 IA', () => {
     expect(soldiers.every((unit) => unit.moveTarget === null)).toBe(true);
   });
 
-  it('launches three attackers together and keeps a guard and lone reinforcement home', () => {
+  it('launches two attackers together and keeps a guard and lone reinforcement home', () => {
     const simulation = new Simulation(42, true);
     const guard = simulation.entities.spawnUnit('red', 'soldier', 174, 98);
-    const raiders = [173, 172, 171].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
+    const raiders = [173, 172].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));
     simulation.fog.update();
     advanceSeconds(simulation, 2);
 
@@ -253,6 +286,34 @@ describe('Fase 8 IA', () => {
     advanceSeconds(simulation, 5);
 
     expect(raiders[0].moveTarget?.[0]).toBeGreaterThan(130);
+  });
+
+  it('presses a visible base with one surviving raider instead of immediately retreating', () => {
+    const simulation = new Simulation(42, true);
+    simulation.entities.spawnUnit('red', 'soldier', 174, 98);
+    const raiders = [26, 27].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 100));
+    simulation.fog.update();
+    advanceSeconds(simulation, 2);
+    expect(simulation.redAI!.currentIntent).toBe('AttackBase');
+    simulation.entities.remove(raiders[1].id);
+    simulation.fog.update();
+    advanceSeconds(simulation, 2);
+    expect(simulation.redAI!.currentIntent).toBe('AttackBase');
+  });
+
+  it('attacks visible builders sustaining enemy-base repairs before resuming siege', () => {
+    const simulation = new Simulation(42, true);
+    simulation.entities.spawnUnit('red', 'soldier', 174, 98);
+    simulation.entities.spawnUnit('red', 'soldier', 26, 100);
+    simulation.entities.spawnUnit('red', 'soldier', 27, 100);
+    const builder = simulation.entities.spawnUnit('blue', 'builder', 25, 103);
+    simulation.fog.update();
+    advanceSeconds(simulation, 2);
+    expect(simulation.redAI!.currentGoal).toBe('Disable Visible Repair Support');
+    simulation.entities.remove(builder.id);
+    simulation.fog.update();
+    advanceSeconds(simulation, 2);
+    expect(simulation.redAI!.currentIntent).toBe('AttackBase');
   });
 
   it('orders army assault towards enemy base when military threshold is reached', () => {

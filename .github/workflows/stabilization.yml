@@ -1,0 +1,107 @@
+name: RTS V1.2 — CI and organic-map AI
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+# Only the newest review commit needs the expensive browser and 40-game suite.
+concurrency:
+  group: rts-v12-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:assets
+      - run: npm run build
+  browser-e2e:
+    name: Browser E2E shard ${{ matrix.shard }}/2
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Prepare Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser E2E shard
+        run: npx playwright test --shard=${{ matrix.shard }}/2 --workers=1
+      - name: Collect failing browser evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1-2-playwright-shard-${{ matrix.shard }}-evidence
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+
+  organic-map-ai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify AI tests against current MAP_ORGANIC_01
+        run: npx vitest run src/core/ai/AIController.test.ts src/simulation/tournament.test.ts
+      - name: Seeded organic-map tournament
+        run: |
+          npm run simulate -- --games=20 --seed=123 --max-seconds=1200 --out=reports-ci
+          node -e "const r=require('./reports-ci/simulation-20games-seed123.json'); const n=r.matches.filter(m=>m.firstCombatSeconds!==null).length; const b=r.matches.filter(m=>m.firstBaseAttackSeconds!==null).length; console.log(JSON.stringify({wins:r.wins,draws:r.draws,combats:n,basePressure:b,matches:r.matches.map(m=>({seed:m.seed,order:m.aiOrder,winner:m.winner,first:m.firstCombatSeconds,firstBase:m.firstBaseAttackSeconds,damage:m.baseDamageDealt}))},null,2)); if(n!==r.games || b<15 || r.wins.blue===0 || r.wins.red===0) { console.error('Organic-map AI regression: missing combat, base pressure or team victories'); process.exit(1); }"
+      - name: Independent seeds — check strategy outside the tuning sample
+        run: |
+          npm run simulate -- --games=20 --seed=201 --max-seconds=1200 --out=reports-ci
+          node -e "const r=require('./reports-ci/simulation-20games-seed201.json'); console.log(JSON.stringify({sample:'201-210',wins:r.wins,draws:r.draws,combats:r.matches.filter(m=>m.firstCombatSeconds!==null).length,basePressure:r.matches.filter(m=>m.firstBaseAttackSeconds!==null).length},null,2))"
+      - name: Preserve tournament artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1-2-organic-ai-report
+          path: reports-ci/
+          if-no-files-found: ignore
+
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Build subpath-ready RTS preview
+        run: npm run build
+        env:
+          RTS_BASE_PATH: /RTS/
+          TINY_SWORDS_ARCHIVE_URL: ${{ secrets.TINY_SWORDS_ARCHIVE_URL }}
+          TINY_SWORDS_ARCHIVE_TOKEN: ${{ secrets.TINY_SWORDS_ARCHIVE_TOKEN }}
+          TINY_SWORDS_REQUIRED: ${{ secrets.TINY_SWORDS_ARCHIVE_URL != '' && '1' || '0' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v1-2-rts-preview-dist
+          path: dist/
+          if-no-files-found: error

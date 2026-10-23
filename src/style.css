@@ -1273,3 +1273,6 @@ body:not(.visual-calibration-mode) #hud { color: #f4efdd; font-size: 13px; }
   #hud #selection-details, #action-placeholder { margin-top: 3px; font-size: 12px; }
   #action-bar button { width: 68px; min-width: 58px; min-height: 38px; font-size: 11px; }
 }
+
+/* Keep the command dock inside the actual viewport, including its padding. */
+#bottom-command-hud { box-sizing: border-box; }

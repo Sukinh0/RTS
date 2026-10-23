@@ -1,4 +1,12 @@
 import Phaser from 'phaser';
+declare const __TINY_SWORDS_INSTALLED__: boolean;
+declare const __TINY_SWORDS_BUILDER_VARIANTS__: boolean;
+const missingAssetWarnings = new Set<string>();
+function warnMissingAsset(message: string): void {
+  if (!import.meta.env.DEV || !__TINY_SWORDS_INSTALLED__ || missingAssetWarnings.has(message)) return;
+  missingAssetWarnings.add(message);
+  console.warn(message);
+}
 import type { BuildingKind, UnitKind } from '../core/entities/EntityStore';
 import type { Team } from '../map/MapGrid';
 
@@ -198,7 +206,7 @@ export function ySortedWorldDepth(footCellY: number, tieBreak = 0): number {
     + tieBreak * WORLD_VISUAL_METRICS.ySortTieBreak;
 }
 
-const root = '/assets/tiny-swords/';
+const root = `${import.meta.env.BASE_URL}assets/tiny-swords/`;
 const teamColor: Record<Team, string> = { blue: 'Yellow', red: 'Red' };
 const staticAssets = {
   terrain: 'Terrain/Tileset/Tilemap_color3.png',
@@ -255,10 +263,15 @@ export function buildingKey(team: Team, kind: BuildingKind): string {
   return kind === 'barricade' ? 'tiny-stone' : `tiny-building-${team}-${kind}`;
 }
 
+
 export function preloadTinySwords(scene: Phaser.Scene): void {
+  // The original pack is only available after local install. Public builds use
+  // fallback rendering or the private ZIP importer instead of fetching 100+ 404s.
+  if (!__TINY_SWORDS_INSTALLED__) return;
   const loaded = new Set<string>();
   for (const [key, file] of Object.entries(staticAssets)) {
     const id = `tiny-${key}`;
+    if (scene.textures.exists(id)) continue;
     if (key === 'tree1' || key === 'tree2') scene.load.spritesheet(id, encodeURI(root + file), { frameWidth: 192, frameHeight: 256 });
     else if (key === 'tree3' || key === 'tree4') scene.load.spritesheet(id, encodeURI(root + file), { frameWidth: 192, frameHeight: 192 });
     else if (key === 'bush') scene.load.spritesheet(id, encodeURI(root + file), { frameWidth: 128, frameHeight: 128 });
@@ -275,7 +288,7 @@ export function preloadTinySwords(scene: Phaser.Scene): void {
     for (const [kind, definition] of Object.entries(UNIT_VISUALS) as [UnitKind, UnitVisualDefinition][]) {
       for (const [state, sheet] of Object.entries(definition.states) as [UnitVisualState, Sheet][]) {
         const key = unitSheetKey(team, kind, state);
-        if (loaded.has(key)) continue;
+        if (loaded.has(key) || scene.textures.exists(key)) continue;
         loaded.add(key);
         const size = sheet.frameSize ?? 192;
         scene.load.spritesheet(key,
@@ -284,15 +297,16 @@ export function preloadTinySwords(scene: Phaser.Scene): void {
       }
     }
     for (const [kind, file] of Object.entries(buildingFiles) as [BuildingKind, string][]) {
-      if (file) scene.load.image(buildingKey(team, kind), encodeURI(`${root}Buildings/${color} Buildings/${file}.png`));
+      if (file && !scene.textures.exists(buildingKey(team, kind))) scene.load.image(buildingKey(team, kind), encodeURI(`${root}Buildings/${color} Buildings/${file}.png`));
     }
+    if (!__TINY_SWORDS_BUILDER_VARIANTS__) continue;
     for (const [state, sheet] of Object.entries(UNIT_VISUALS.builder.states) as [UnitVisualState, Sheet][]) {
       const key = builderUnitSheetKey(team, state);
-      if (loaded.has(key)) continue;
+      if (loaded.has(key) || scene.textures.exists(key)) continue;
       loaded.add(key);
       const size = sheet.frameSize ?? 192;
       scene.load.spritesheet(key,
-        encodeURI(`/assets/generated/builder/${color} Units/Pawn/${sheet.file}.png`),
+        encodeURI(`${import.meta.env.BASE_URL}assets/generated/builder/${color} Units/Pawn/${sheet.file}.png`),
         { frameWidth: size, frameHeight: size, endFrame: sheet.frames - 1 });
     }
   }
@@ -307,9 +321,9 @@ export function availableUnitKey(scene: Phaser.Scene, team: Team, kind: UnitKind
   if (scene.textures.exists(requested)) return requested;
   const fallback = unitSheetKey(team, kind, 'idle');
   if (scene.textures.exists(fallback)) {
-    if (import.meta.env.DEV) console.warn(`Tiny Swords: missing ${requested}; using idle`);
+    warnMissingAsset(`Tiny Swords: missing ${requested}; using idle`);
     return fallback;
   }
-  if (import.meta.env.DEV) console.warn(`Tiny Swords: missing ${requested} and idle`);
+  warnMissingAsset(`Tiny Swords: missing ${requested} and idle`);
   return null;
 }

@@ -12,6 +12,15 @@ describe('headless tournament', () => {
     expect(first.matches.every((match) => match.durationSeconds > 0 && match.durationSeconds <= 90)).toBe(true);
   });
 
+  it('forces the real starting economies to initiate combat before fifteen minutes', () => {
+    const result = runTournament(1, 123, 900).matches[0];
+    expect(result.firstMilitarySeconds.blue).not.toBeNull();
+    expect(result.firstMilitarySeconds.red).not.toBeNull();
+    expect(result.firstCombatSeconds).not.toBeNull();
+    expect(result.firstCombatSeconds!).toBeLessThan(900);
+    expect(result.attacks.blue + result.attacks.red).toBeGreaterThan(0);
+  }, 60_000);
+
   it('rejects invalid batch parameters', () => {
     expect(() => runTournament(0)).toThrow(RangeError);
     expect(() => runTournament(1, 123, 0)).toThrow(RangeError);

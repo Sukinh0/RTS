@@ -3,24 +3,27 @@ import { expect, test, type Page } from '@playwright/test';
 async function screenCell(page: Page, x: number, y: number): Promise<{ x: number; y: number }> {
   const root = page.locator('#game');
   const canvas = root.locator('canvas');
-  await canvas.scrollIntoViewIfNeeded();
   await expect(root).toHaveAttribute('data-zoom', /\d/);
-  await expect(root).toHaveAttribute('data-camera-x', /-?\d/);
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas is not visible');
-  const zoom = Number(await root.getAttribute('data-zoom'));
+  // Phaser camera.scrollX/Y do not equal the world coordinates at the screen
+  // top-left when zoomed. Ask Phaser for the world point under canvas center,
+  // then map the target using zoom and canvas dimensions. No evaluate() needed.
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await expect(root).toHaveAttribute('data-pointer-world', /,/);
-  const pointerWorld = (await root.getAttribute('data-pointer-world'))!.split(',').map(Number);
-  const backingSize = await canvas.evaluate((element) => ({ width: (element as HTMLCanvasElement).width, height: (element as HTMLCanvasElement).height }));
+  const [worldX, worldY] = (await root.getAttribute('data-pointer-world'))!.split(',').map(Number);
+  const zoom = Number(await root.getAttribute('data-zoom'));
+  const backingWidth = Number(await canvas.getAttribute('width'));
+  const backingHeight = Number(await canvas.getAttribute('height'));
+  if (!zoom || !backingWidth || !backingHeight) throw new Error('Invalid Phaser canvas geometry');
   return {
-    x: box.x + box.width / 2 + ((x + 0.5) * 12 - pointerWorld[0]) * zoom * box.width / backingSize.width,
-    y: box.y + box.height / 2 + ((y + 0.5) * 12 - pointerWorld[1]) * zoom * box.height / backingSize.height,
+    x: box.x + box.width / 2 + ((x + 0.5) * 12 - worldX) * zoom * box.width / backingWidth,
+    y: box.y + box.height / 2 + ((y + 0.5) * 12 - worldY) * zoom * box.height / backingHeight,
   };
 }
 
 test('single click, Shift click, and box selection update the HUD', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('#team-status')).toHaveText(/Azul · \d+ moedas · 50 madeira · 0 pedra · 2\/60 unidades/);
 
@@ -54,7 +57,7 @@ test('single click, Shift click, and box selection update the HUD', async ({ pag
 });
 
 test('right click orders movement and starts cooldown', async ({ page }) => {
-  await page.goto('/?debug=1');
+  await page.goto('/?debug=1&noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
   const worker = await screenCell(page, 25, 99);
   await page.mouse.click(worker.x, worker.y);

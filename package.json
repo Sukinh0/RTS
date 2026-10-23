@@ -14,7 +14,12 @@
     "simulate": "node scripts/simulate.mjs",
     "benchmark": "node scripts/performance.mjs",
     "benchmark:browser": "node scripts/performance-browser.mjs",
-    "assets:install": "powershell -ExecutionPolicy Bypass -File scripts/install-tiny-swords.ps1"
+    "assets:install": "powershell -ExecutionPolicy Bypass -File scripts/install-tiny-swords.ps1",
+    "prebuild": "node scripts/prepare-tiny-swords.mjs",
+    "predev": "node scripts/prepare-tiny-swords.mjs",
+    "predev:sandbox": "node scripts/prepare-tiny-swords.mjs",
+    "assets:prepare": "node scripts/prepare-tiny-swords.mjs",
+    "test:assets": "node --test scripts/prepare-tiny-swords.test.mjs"
   },
   "dependencies": {
     "phaser": "^3.90.0"

@@ -35,6 +35,37 @@ Regra arquitetural principal: **a simulação do jogo NÃO deve depender do Phas
 - `config/map-test-01.json` — contrato inicial do mapa de teste
 - `references/visual_reference.png` — referência visual do protótipo
 
+## RTS V1.2 — como avaliar a versão atual
+
+O ramo de estabilização é `fix/v1-2-main-stabilization` ([PR #5](https://github.com/Sukinh0/RTS/pull/5)).
+Ele preserva o `MAP_ORGANIC_01`, HUD completo, FX, unidades, construções,
+formações e economia já incluídos na `main`, integrando correções de IA.
+
+**Tiny Swords automático:** o jogador não precisa importar ZIP. O Free Pack
+é preparado durante `npm run dev` ou `npm run build`, e o Phaser carrega
+os sprites na abertura da partida. O desenvolvedor obtém o original da
+[página do Pixel Frog](https://pixelfrog-assets.itch.io/tiny-swords) e
+guarda uma cópia em `external-assets/Tiny Swords (Free Pack).zip`
+(ignorado pelo Git) **somente na máquina que compila**. Para Vercel, configure
+`TINY_SWORDS_ARCHIVE_URL` (HTTPS privado),
+`TINY_SWORDS_ARCHIVE_TOKEN` (se exigir bearer) e
+`TINY_SWORDS_REQUIRED=1` para bloquear publicações sem sprites.
+Veja [o guia de implantação](docs/TINY_SWORDS_AUTO_DEPLOY.md).
+
+A origem da arte pode ser privada, mas texturas servidas a um navegador web
+podem ser recuperadas pelo usuário. Antes de publicar PNGs do Free Pack num
+jogo web aberto, confirme com o autor se esse formato se enquadra na licença.
+
+O construtor com chapéu cobre usa derivados gerados **somente localmente**
+por `python scripts/recolor-builder.py` (requer Pillow). Os 14 PNGs antigos
+foram retirados desta branch para não redistribuir arte licenciada.
+
+A CI executa lint, TypeScript, Vitest, torneios IA×IA e Playwright;
+os resultados reproduzíveis ficam nos artifacts do GitHub Actions. O build
+de prévia (com base `/RTS/`) está disponível para avaliação, mas não
+equivale a uma publicação pública automática. Ver
+[`docs/MAIN_STABILIZATION_V1_2.md`](docs/MAIN_STABILIZATION_V1_2.md).
+
 ## Como começar
 1. Crie o projeto TypeScript + Phaser + Vite.
 2. Copie este pacote para a raiz do repositório.
@@ -63,9 +94,14 @@ npm run test:e2e
 
 O estado de implementação está em `PROGRESS.md`.
 
-### Visual provisório Tiny Swords
+### Arte do Tiny Swords
 
-O jogo usa o pack [Tiny Swords, de Pixel Frog](https://pixelfrog-assets.itch.io/tiny-swords) como visual provisório. Coloque o ZIP obtido na página oficial em `external-assets/Tiny Swords (Free Pack).zip` e execute `npm run assets:install` antes de abrir o jogo. O ZIP e os PNGs extraídos ficam fora do Git por restrição de redistribuição do pack; sem eles, o jogo continua executando com formas simples. Mapeamentos, escala, placeholders e licença estão em [docs/ASSET_INTEGRATION.md](docs/ASSET_INTEGRATION.md).
+O RTS pré-carrega automaticamente a arte já embutida na build. Apenas quem
+prepara a build precisa disponibilizar o pacote oficial numa origem privada;
+o jogador não recebe botões de importação. Se a origem não estiver configurada,
+o jogo usa arte procedural, a menos que `TINY_SWORDS_REQUIRED=1` esteja ativo,
+caso em que a compilação falha. Veja
+[`docs/ASSET_INTEGRATION.md`](docs/ASSET_INTEGRATION.md).
 
 Para simular 100 partidas IA vs IA sem abrir o navegador e gerar relatórios em `reports/`:
 
@@ -75,7 +111,7 @@ npm run simulate -- --games=100 --seed=123
 
 O método e a leitura da linha de base estão em `docs/BALANCE_REPORT.md`.
 
-As correções do playtest de 2026-10-06 e o estado do novo aceite estão em `BACKLOG.md`. O HUD fica ao lado do mapa em telas largas e abaixo dele em telas compactas. Cada classe de unidade tem uma cor própria, com contorno azul ou vermelho para a equipe.
+As correções do playtest de 2026-10-06 e o estado do novo aceite estão em `BACKLOG.md`. O HUD atual é **fullscreen**, com comandos em uma barra inferior e recursos no topo. O mapa em `MAP_ORGANIC_01` é assimétrico e possui oito jazidas de ouro. Cada classe tem cor própria e identificação de equipe.
 
 Abra `/?debug=1` para clicar em uma célula e ver suas coordenadas, tipo de terreno e bloqueio. Clique em uma unidade ou base azul para selecionar; arraste com o botão esquerdo para seleção em caixa; use Shift para adicionar ou remover da seleção. Clique com o botão direito para ordenar movimento, ataque contra um inimigo visível, coleta ou mineração conforme o alvo. Arraste com o botão direito/meio ou use WASD/setas para pan; use a roda do mouse para zoom.
 

@@ -43,6 +43,8 @@ export class AIController {
   private lastDecisionTick = -999;
   private readonly openingForward: number;
   private readonly openingVertical: number;
+  private readonly assaultWaypoint: Point | null;
+  private waypointReached = false;
   private guardUnitId: string | null = null;
   private readonly raidUnitIds = new Set<string>();
   private readonly retreatingUnitIds = new Set<string>();
@@ -70,6 +72,16 @@ export class AIController {
     this.memory = new AIMemory(team);
     this.openingForward = 24 + Math.floor(simulation.rng.next() * 5) - 2;
     this.openingVertical = -12 + Math.floor(simulation.rng.next() * 5) - 2;
+    // On the new organic map, an always-straight march dominated one side.
+    // Seeds alternate strategic approaches without privileged enemy intelligence.
+    const blueNorth = (simulation.seed & 1) === 0;
+    const north = team === 'blue' ? blueNorth : !blueNorth;
+    // Vary strategy fairly for both teams: 1 in 4 seeds assaults the
+    // central objective directly; others stage a north/south flank.
+    // Strategic variety avoids teaching every opponent the same route.
+    const directOpening = Math.abs(simulation.seed) % 4 === 0;
+    this.assaultWaypoint = directOpening ? null
+      : [team === 'blue' ? 89 : 110, north ? 62 : 137];
   }
 
   getDebugState(): AIDebugState {
@@ -354,7 +366,12 @@ export class AIController {
     }
 
     // 9. Civilian Unit Production (Workers and Builders)
-    if (needsWorkers && stock.coins >= BALANCE.units.worker.coins
+    // Reserve the final open civilian slot for a builder once offensive troops
+    // exist. Otherwise workerTarget fills the first house and the AI cannot
+    // produce anyone capable of repairing / constructing fortifications.
+    const builderNeedsSlot = ownBuilders.length === 0 && ownAttackers.length >= 2
+      && capacity.civilianCapacity - (capacity.civilianUnits + capacity.civilianQueued) <= 1;
+    if (needsWorkers && !builderNeedsSlot && stock.coins >= BALANCE.units.worker.coins
       && capacity.civilianUnits + capacity.civilianQueued < capacity.civilianCapacity) {
       const readyHouses = ownHouses.filter((h) => !h.underConstruction);
       for (const building of readyHouses) {
@@ -479,8 +496,18 @@ export class AIController {
     }
 
     if (this.raidUnitIds.size === 1) {
-      for (const id of this.raidUnitIds) this.retreatingUnitIds.add(id);
-      this.raidUnitIds.clear();
+      const [lastId] = this.raidUnitIds;
+      const survivor = byId.get(lastId);
+      const target = this.simulation.entities.get(this.team === 'red' ? 'blue-base' : 'red-base');
+      // A breakthrough must not retreat just because it lost one raider.
+      // Keep the ordinary withdrawal outside visible enemy-base territory.
+      const nearVisibleBase = survivor && target?.category === 'building'
+        && target.hp > 0 && this.simulation.fog.isEntityVisible(this.team, target)
+        && Math.hypot(survivor.x - target.x, survivor.y - target.y) <= 30;
+      if (!nearVisibleBase) {
+        this.retreatingUnitIds.add(lastId);
+        this.raidUnitIds.clear();
+      }
     }
     for (const id of this.retreatingUnitIds) {
       const unit = byId.get(id)!;
@@ -499,12 +526,14 @@ export class AIController {
         this.raidUnitIds.add(unit.id);
       }
     }
-    // A new wave needs three fighters. Fresh reinforcements wait for another full wave.
-    if (!threat && reserves.length >= 3) {
+    // Two raiders plus a home guard can leave with natural starting resources.
+    // Waiting for three reserves kept both AIs in Rally for entire matches.
+    if (!threat && reserves.length >= 2) {
       for (const unit of reserves) this.raidUnitIds.add(unit.id);
     }
     const raidIds = attackers.filter((unit) => this.raidUnitIds.has(unit.id)).map((unit) => unit.id);
     if (raidIds.length === 0) {
+      this.waypointReached = false;
       if (threat) {
         this.setDecision('Defend', 95, 'Defend Base against Hostile Invaders', `Defenders engaging threat ${threat.id}`);
         return 'Defend';
@@ -519,6 +548,17 @@ export class AIController {
     if (this.memory.enemyBaseLocation) {
       const enemyBase = this.simulation.entities.get(this.team === 'red' ? 'blue-base' : 'red-base');
       if (enemyBase && this.simulation.fog.isEntityVisible(this.team, enemyBase)) {
+        // Only target support units perceived through normal fog-of-war.
+        // Builders close to the base can otherwise repair faster than a small wave attacks.
+        const repairSupport = visibleEnemies.find((enemy) => enemy.category === 'unit'
+          && enemy.kind === 'builder'
+          && Math.hypot(enemy.x - enemyBase.x, enemy.y - enemyBase.y) <= 12);
+        if (repairSupport) {
+          dispatchGroupAttack(this.simulation, this.team, raidIds, repairSupport.id);
+          this.setDecision('AttackArmy', 90, 'Disable Visible Repair Support',
+            `Raid targeting visible repair support ${repairSupport.id}`);
+          return 'AttackArmy';
+        }
         dispatchGroupAttack(this.simulation, this.team, raidIds, enemyBase.id);
         this.setDecision(
           threat ? 'Defend' : 'AttackBase',
@@ -612,11 +652,24 @@ export class AIController {
   }
 
   private marchRaid(raidIds: string[], destination: Point): void {
+    const waypoint = this.assaultWaypoint;
+    if (waypoint && !this.waypointReached) {
+      this.waypointReached = raidIds.some((id) => {
+        const unit = this.simulation.entities.get(id);
+        return unit?.category === 'unit'
+          && Math.max(Math.abs(unit.x - waypoint[0]), Math.abs(unit.y - waypoint[1])) <= 7;
+      });
+    }
+    // Once the enemy base is remembered, use the objective directly rather
+    // than forcing the army through a known detour. Pathfinding still respects
+    // the actual grid and blockers.
+    const route: Point = waypoint && !this.memory.enemyBaseLocation && !this.waypointReached
+      ? waypoint : destination;
     const ready = raidIds.filter((id) => {
       const unit = this.simulation.entities.get(id);
       return unit?.category === 'unit' && !unit.moveTarget && !this.simulation.engagements.statusFor(id);
     });
-    if (ready.length > 0) dispatchGroupAttackMove(this.simulation, this.team, ready, destination);
+    if (ready.length > 0) dispatchGroupAttackMove(this.simulation, this.team, ready, route);
   }
 
   private findHomeRallyPoint(base: BuildingEntity): Point | null {
