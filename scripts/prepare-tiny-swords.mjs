@@ -102,7 +102,16 @@ export async function prepareTinySwords() {
   const url = process.env.TINY_SWORDS_ARCHIVE_URL?.trim();
   if (url) {
     if (new URL(url).protocol !== 'https:') throw new Error('Asset source must use HTTPS');
-    const token = process.env.TINY_SWORDS_ARCHIVE_TOKEN?.trim();
+    const archiveUrl = new URL(url);
+    // Vercel Blob private storage injects this token into the linked project.
+    // Only send it to the store's HTTPS private Blob hostname, never to an
+    // arbitrary archive URL supplied via environment configuration.
+    const isPrivateBlob = archiveUrl.hostname.endsWith('.private.blob.vercel-storage.com');
+    const token = process.env.TINY_SWORDS_ARCHIVE_TOKEN?.trim()
+      || (isPrivateBlob ? process.env.BLOB_READ_WRITE_TOKEN?.trim() : undefined);
+    if (isPrivateBlob && !token) {
+      throw new Error('Private Blob source configured without BLOB_READ_WRITE_TOKEN');
+    }
     const response = await fetch(url, {
       headers: token ? { Authorization: 'Bearer ' + token } : {},
       redirect: 'error',
