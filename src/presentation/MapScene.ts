@@ -1273,8 +1273,8 @@ export class MapScene extends Phaser.Scene {
           const deathScale = event.targetKind === 'barricade' ? 0.75 : event.targetCategory === 'building' ? 1.45 : 1.15;
           this.addWorldEffect('dust', targetX, targetY, event.targetTeam, 0xd9c69a,
             FX_VISUALS.deathDurationMs, 3, deathScale);
-          if (event.targetCategory === 'building') this.addWorldEffect('debris', targetX, targetY,
-            event.targetTeam, 0x9b8569, FX_VISUALS.structureImpactDurationMs, 2, event.targetKind === 'barricade' ? 0.7 : 1.4);
+          if (event.targetCategory === 'building') this.addStructureDestructionEffect(
+            targetX, targetY, event.targetTeam, event.targetKind);
         } else if (event.targetCategory === 'unit') {
           this.addWorldEffect('hit', targetX, targetY, event.targetTeam, 0xfff1cc,
             FX_VISUALS.hitDurationMs, 4, 0.8);
@@ -2060,8 +2060,7 @@ export class MapScene extends Phaser.Scene {
           fx.impactKind === 'hit' ? 4 : fx.impactKind === 'dust' ? 3 : 2,
           fx.impactKind === 'dust' ? 1.2 : 0.8);
         if (fx.impactKind === 'dust' && fx.targetCategory === 'building') {
-          this.addWorldEffect('debris', fx.toX, fx.toY, fx.targetTeam, 0x9b8569,
-            FX_VISUALS.structureImpactDurationMs, 2, fx.targetKind === 'barricade' ? 0.7 : 1.4);
+          this.addStructureDestructionEffect(fx.toX, fx.toY, fx.targetTeam, fx.targetKind);
         }
         this.attackEffects.splice(i, 1);
         continue;
@@ -2080,6 +2079,18 @@ export class MapScene extends Phaser.Scene {
         fx.projectile.setRotation(Math.atan2(fx.toY - fx.fromY, fx.toX - fx.fromX));
         fx.projectile.setVisible(true);
       }
+    }
+  }
+
+  /** One restrained destruction accent for buildings, distinct from unit death dust.
+   * Respects existing world-FX priority limits and fog checks. */
+  private addStructureDestructionEffect(x: number, y: number, team: Team, kind: UnitKind | BuildingKind): void {
+    const isBarricade = kind === 'barricade';
+    this.addWorldEffect('debris', x, y, team, 0x9b8569,
+      FX_VISUALS.structureImpactDurationMs, 2, isBarricade ? 0.7 : 1.4);
+    if (!isBarricade) {
+      this.addWorldEffect('ring', x, y, team, 0xd7b789,
+        FX_VISUALS.structureImpactDurationMs, 2, 1.3);
     }
   }
 
