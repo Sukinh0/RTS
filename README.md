@@ -41,14 +41,20 @@ O ramo de estabilização é `fix/v1-2-main-stabilization` ([PR #5](https://gith
 Ele preserva o `MAP_ORGANIC_01`, HUD completo, FX, unidades, construções,
 formações e economia já incluídos na `main`, integrando correções de IA.
 
-**Primeiro uso local (arte do jogo):** o pacote oficial Tiny Swords precisa ser
-obtido diretamente do [Pixel Frog](https://pixelfrog-assets.itch.io/tiny-swords).
-Para visualizar sprites na prévia sem publicar os arquivos, clique no botão 🎨
-e selecione `Tiny Swords (Free Pack).zip` no navegador. Eles ficam apenas
-na memória da aba. A partida reinicia para aplicar as texturas; a página
-recarregada perde as texturas importadas. Alternativamente, instale os PNGs
-localmente em `external-assets/` e rode `npm run assets:install`, depois
-**reinicie o servidor de desenvolvimento**.
+**Tiny Swords automático:** o jogador não precisa importar ZIP. O Free Pack
+é preparado durante `npm run dev` ou `npm run build`, e o Phaser carrega
+os sprites na abertura da partida. O desenvolvedor obtém o original da
+[página do Pixel Frog](https://pixelfrog-assets.itch.io/tiny-swords) e
+guarda uma cópia em `external-assets/Tiny Swords (Free Pack).zip`
+(ignorado pelo Git) **somente na máquina que compila**. Para Vercel, configure
+`TINY_SWORDS_ARCHIVE_URL` (HTTPS privado),
+`TINY_SWORDS_ARCHIVE_TOKEN` (se exigir bearer) e
+`TINY_SWORDS_REQUIRED=1` para bloquear publicações sem sprites.
+Veja [o guia de implantação](docs/TINY_SWORDS_AUTO_DEPLOY.md).
+
+A origem da arte pode ser privada, mas texturas servidas a um navegador web
+podem ser recuperadas pelo usuário. Antes de publicar PNGs do Free Pack num
+jogo web aberto, confirme com o autor se esse formato se enquadra na licença.
 
 O construtor com chapéu cobre usa derivados gerados **somente localmente**
 por `python scripts/recolor-builder.py` (requer Pillow). Os 14 PNGs antigos
@@ -88,9 +94,14 @@ npm run test:e2e
 
 O estado de implementação está em `PROGRESS.md`.
 
-### Visual provisório Tiny Swords
+### Arte do Tiny Swords
 
-O jogo usa o pack [Tiny Swords, de Pixel Frog](https://pixelfrog-assets.itch.io/tiny-swords) como visual provisório. Coloque o ZIP obtido na página oficial em `external-assets/Tiny Swords (Free Pack).zip` e execute `npm run assets:install` antes de abrir o jogo. O ZIP e os PNGs extraídos ficam fora do Git por restrição de redistribuição do pack; sem eles, o jogo continua executando com formas simples. Mapeamentos, escala, placeholders e licença estão em [docs/ASSET_INTEGRATION.md](docs/ASSET_INTEGRATION.md).
+O RTS pré-carrega automaticamente a arte já embutida na build. Apenas quem
+prepara a build precisa disponibilizar o pacote oficial numa origem privada;
+o jogador não recebe botões de importação. Se a origem não estiver configurada,
+o jogo usa arte procedural, a menos que `TINY_SWORDS_REQUIRED=1` esteja ativo,
+caso em que a compilação falha. Veja
+[`docs/ASSET_INTEGRATION.md`](docs/ASSET_INTEGRATION.md).
 
 Para simular 100 partidas IA vs IA sem abrir o navegador e gerar relatórios em `reports/`:
 
