@@ -39,7 +39,7 @@ try {
       // Keep the same requested unit count for each team, or fail the benchmark explicitly.
       for (const team of ['blue', 'red']) {
         let placed = 0;
-        const anchorX = scenario === 'combat' ? (team === 'blue' ? 42 : 45) : team === 'blue' ? 30 : 65;
+        const anchorX = scenario === 'combat' ? 44 : team === 'blue' ? 30 : 65;
         for (let radius = 0; radius <= 45 && placed < unitsPerTeam; radius++) {
           for (let dy = -radius; dy <= radius && placed < unitsPerTeam; dy++) {
             for (let dx = -radius; dx <= radius && placed < unitsPerTeam; dx++) {
@@ -76,6 +76,21 @@ try {
       window.rtsPerformance.reset();
       const units=sim.entities.all().filter(e=>e.category==='unit');
       const startHp = units.reduce((sum, u) => sum + u.hp, 0);
+      let acceptedAttacks = 0;
+      if (scenario === 'combat') {
+        const blue = units.filter(u => u.team === 'blue' && u.damage > 0);
+        const red = units.filter(u => u.team === 'red');
+        for (const attacker of blue) {
+          const target = red.find(enemy => sim.entities.get(enemy.id) &&
+            sim.fog.isEntityVisible('blue', enemy) && sim.combat.distance(attacker, enemy) <= attacker.range);
+          if (!target) continue;
+          const outcome = sim.combat.issue({ type: 'attack', team: 'blue', unitId: attacker.id, targetId: target.id }, sim.clock.ticks);
+          if (outcome.accepted) acceptedAttacks++;
+        }
+        if (acceptedAttacks === 0) {
+          throw new Error('Combat setup invalid: no visible enemy in weapon range; adjust spawn layout');
+        }
+      }
       const start=performance.now();
       if (scenario==='move' || scenario==='formation') {
         for (const team of ['blue','red']) {
@@ -110,7 +125,7 @@ try {
       }
       const snapshot=window.rtsPerformance.snapshot();
       window.rtsPerformance.setEnabled(false);
-      return {scenario,commandMs,created,combatDamage,initialUnits:units.length,remainingUnits:survivors.length,memorySamples,...snapshot};
+      return {scenario,commandMs,created,acceptedAttacks,combatDamage,initialUnits:units.length,remainingUnits:survivors.length,memorySamples,...snapshot};
     },scenario);
     const {profile}=await cdp.send('Profiler.stop');
     await cdp.send('HeapProfiler.collectGarbage');
