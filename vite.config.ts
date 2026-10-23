@@ -9,6 +9,9 @@ export default defineConfig({
     __TINY_SWORDS_INSTALLED__: JSON.stringify(existsSync(resolve(
       process.cwd(), 'public/assets/tiny-swords/Units/Yellow Units/Pawn/Pawn_Idle.png',
     ))),
+    __TINY_SWORDS_BUILDER_VARIANTS__: JSON.stringify(existsSync(resolve(
+      process.cwd(), 'public/assets/generated/builder/Yellow Units/Pawn/Pawn_Idle.png',
+    ))),
   },
   base: process.env.RTS_BASE_PATH ?? '/',
   test: {

@@ -23,6 +23,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run test:assets
       - run: npm run build
   browser-e2e:
     name: Browser E2E shard ${{ matrix.shard }}/2
@@ -49,31 +50,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: v1-2-playwright-shard-${{ matrix.shard }}-evidence
-          path: |
-            playwright-report/
-            test-results/
-          if-no-files-found: ignore
-
-  zip-import-smoke:
-    name: Local ZIP import and scene restart
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci
-      - name: Prepare headless Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Test asset import and invalid ZIP handling
-        run: npx playwright test tests/e2e/tiny-swords-import.spec.ts tests/e2e/tiny-swords.spec.ts --workers=1
-      - name: Preserve import failure evidence
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: v1-2-zip-import-evidence
           path: |
             playwright-report/
             test-results/
@@ -121,6 +97,9 @@ jobs:
         run: npm run build
         env:
           RTS_BASE_PATH: /RTS/
+          TINY_SWORDS_ARCHIVE_URL: ${{ secrets.TINY_SWORDS_ARCHIVE_URL }}
+          TINY_SWORDS_ARCHIVE_TOKEN: ${{ secrets.TINY_SWORDS_ARCHIVE_TOKEN }}
+          TINY_SWORDS_REQUIRED: ${{ secrets.TINY_SWORDS_ARCHIVE_URL != '' && '1' || '0' }}
       - uses: actions/upload-artifact@v4
         with:
           name: v1-2-rts-preview-dist
