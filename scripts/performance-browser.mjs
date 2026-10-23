@@ -39,7 +39,7 @@ try {
       // Keep the same requested unit count for each team, or fail the benchmark explicitly.
       for (const team of ['blue', 'red']) {
         let placed = 0;
-        const anchorX = team === 'blue' ? 30 : scenario === 'combat' ? 45 : 65;
+        const anchorX = scenario === 'combat' ? (team === 'blue' ? 42 : 45) : team === 'blue' ? 30 : 65;
         for (let radius = 0; radius <= 45 && placed < unitsPerTeam; radius++) {
           for (let dy = -radius; dy <= radius && placed < unitsPerTeam; dy++) {
             for (let dx = -radius; dx <= radius && placed < unitsPerTeam; dx++) {
@@ -75,6 +75,7 @@ try {
       const sim=window.__simulation;
       window.rtsPerformance.reset();
       const units=sim.entities.all().filter(e=>e.category==='unit');
+      const startHp = units.reduce((sum, u) => sum + u.hp, 0);
       const start=performance.now();
       if (scenario==='move' || scenario==='formation') {
         for (const team of ['blue','red']) {
@@ -101,9 +102,15 @@ try {
         }
         requestAnimationFrame(frame);
       });
+      const survivors = units.filter(u => sim.entities.get(u.id));
+      const hpAfter = survivors.reduce((sum, u) => sum + u.hp, 0);
+      const combatDamage = startHp - hpAfter;
+      if (scenario === 'combat' && combatDamage <= 0) {
+        throw new Error('Combat scenario did not produce damage; FPS would not represent a battle');
+      }
       const snapshot=window.rtsPerformance.snapshot();
       window.rtsPerformance.setEnabled(false);
-      return {scenario,commandMs,created,memorySamples,...snapshot};
+      return {scenario,commandMs,created,combatDamage,initialUnits:units.length,remainingUnits:survivors.length,memorySamples,...snapshot};
     },scenario);
     const {profile}=await cdp.send('Profiler.stop');
     await cdp.send('HeapProfiler.collectGarbage');
