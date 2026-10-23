@@ -35,11 +35,29 @@ try {
     });
     await page.evaluate(({ scenario, unitsPerTeam }) => {
       const sim = window.__simulation;
-      for (let i=0;i<unitsPerTeam*2;i++) {
-        const j=Math.floor(i/2), team=i%2?'red':'blue';
-        sim.entities.spawnUnit(team, i%3===0?'archer':'soldier', (team==='blue'?30:scenario==='combat'?31:55)+(j%10)*2, 92+Math.floor(j/10)*2);
+      // Use actual passable/unoccupied cells: organic terrain can block fixed coordinates.
+      // Keep the same requested unit count for each team, or fail the benchmark explicitly.
+      for (const team of ['blue', 'red']) {
+        let placed = 0;
+        const anchorX = team === 'blue' ? 30 : scenario === 'combat' ? 45 : 65;
+        for (let radius = 0; radius <= 45 && placed < unitsPerTeam; radius++) {
+          for (let dy = -radius; dy <= radius && placed < unitsPerTeam; dy++) {
+            for (let dx = -radius; dx <= radius && placed < unitsPerTeam; dx++) {
+              if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+              const x = anchorX + dx, y = 100 + dy;
+              if (!sim.map.contains(x, y) || !sim.entities.isFreeForUnit(x, y, '')) continue;
+              sim.entities.spawnUnit(team, placed % 3 === 0 ? 'archer' : 'soldier', x, y);
+              placed++;
+            }
+          }
+        }
+        if (placed !== unitsPerTeam) throw new Error(`Insufficient passable slots: ${team} ${placed}/${unitsPerTeam}`);
       }
       sim.fog.update();
+      const counts = sim.entities.all().filter(e => e.category === 'unit').reduce((acc, unit) => {
+        acc[unit.team]++; return acc;
+      }, { blue: 0, red: 0 });
+      if (counts.blue !== unitsPerTeam || counts.red !== unitsPerTeam) throw new Error('Benchmark population mismatch');
     }, { scenario, unitsPerTeam });
     await page.locator('#sb-reveal-map').check();
     await page.evaluate(() => new Promise(resolve => {
