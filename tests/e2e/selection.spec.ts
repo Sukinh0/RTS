@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { Simulation } from '../../src/core/game/Simulation';
 
 async function screenCell(page: Page, x: number, y: number): Promise<{ x: number; y: number }> {
   const root = page.locator('#game');
