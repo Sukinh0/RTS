@@ -119,8 +119,13 @@ export async function prepareTinySwords() {
         throw new Error('Vercel Blob credential refers to a different storage store');
       }
     }
+    const isSignedBlobUrl = isPrivateBlob
+      && archiveUrl.searchParams.has('vercel-blob-delegation')
+      && archiveUrl.searchParams.has('vercel-blob-signature');
     const requestOptions = {
-      headers: token ? { Authorization: 'Bearer ' + token } : {},
+      // The temporary signed link authenticates via query signature; sending
+      // a separate bearer credential can cause Vercel to reject that request.
+      headers: token && !isSignedBlobUrl ? { Authorization: 'Bearer ' + token } : {},
       redirect: 'error',
       signal: AbortSignal.timeout(30000),
     };
