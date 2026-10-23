@@ -40,3 +40,7 @@ Há também um workflow manual `RTS V1.3 — Dense combat benchmark` em `.github
 O benchmark agora procura células livres e transitáveis do mapa orgânico, em vez de presumir que uma grade fixa de posições está sempre desocupada. Cada cenário verifica explicitamente a população **exata** dos dois lados e aborta quando não consegue alocar as unidades. Isso impede comparar uma carga nominal de 60v60 quando a partida realmente contém menos tropas.
 
 A configuração `combat` aproxima os pontos de origem dos dois exércitos, mas **não prova** que todos eles estejam atacando durante a janela de cinco segundos. Para diagnosticar o custo específico do combate, inspecionar as métricas `CombatSystem`, eventos de ataque e o perfil CPU; não tratar apenas o rótulo `combat` como prova de engajamento.
+
+## Gate de combate efetivo (novo)
+
+No cenário `combat`, as duas equipes são colocadas próximas (âncoras X=42/45) em células transitáveis. O benchmark registra `combatDamage`, `initialUnits` e `remainingUnits`, comparando HP total antes/depois dos cinco segundos. Se não houver qualquer redução de HP, o cenário **falha**, para que um FPS alto sem batalha não seja tomado como resultado válido. A janela e a densidade ainda precisam de validação empírica; verificar possível falta de engajamento em mapas alterados antes de interpretar desempenho.
