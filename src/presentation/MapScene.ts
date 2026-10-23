@@ -110,6 +110,7 @@ interface AttackEffect {
   totalMs: number;
   projectile?: Phaser.GameObjects.Image;
   impactKind: 'hit' | 'dust' | 'debris';
+  targetId?: string;
   targetTeam: Team;
   targetCategory: 'unit' | 'building';
   targetKind: UnitKind | BuildingKind;
@@ -1231,7 +1232,10 @@ export class MapScene extends Phaser.Scene {
 
       this.attackVisualUntil.set(event.attackerId, this.time.now + 420);
       this.attackVisualStartedAt.set(event.attackerId, this.time.now);
-      if (!event.targetDied) this.damageFlashUntil.set(event.targetId, this.time.now + 115);
+      // Melee flashes on contact; arrows flash only when their projectile reaches its target.
+      if (!event.targetDied && event.attackerKind !== 'archer') {
+        this.damageFlashUntil.set(event.targetId, this.time.now + 115);
+      }
       if (event.reflectedDamage > 0 && !event.attackerDied) {
         this.damageFlashUntil.set(event.attackerId, this.time.now + 115);
       }
@@ -1251,6 +1255,7 @@ export class MapScene extends Phaser.Scene {
             FX_VISUALS.arrowMinDurationMs, FX_VISUALS.arrowMaxDurationMs),
           projectile,
           impactKind: event.targetDied ? 'dust' : event.targetCategory === 'building' ? 'debris' : 'hit',
+          targetId: event.targetDied ? undefined : event.targetId,
           targetTeam: event.targetTeam,
           targetCategory: event.targetCategory,
           targetKind: event.targetKind,
@@ -1262,6 +1267,8 @@ export class MapScene extends Phaser.Scene {
       }
 
       if (!projectileQueued) {
+        // When the projectile pool is exhausted, fall back to an immediate hit cue.
+        if (isArrow && !event.targetDied) this.damageFlashUntil.set(event.targetId, this.time.now + 115);
         if (event.targetDied) {
           const deathScale = event.targetKind === 'barricade' ? 0.75 : event.targetCategory === 'building' ? 1.45 : 1.15;
           this.addWorldEffect('dust', targetX, targetY, event.targetTeam, 0xd9c69a,
@@ -2039,6 +2046,10 @@ export class MapScene extends Phaser.Scene {
       }
       fx.elapsedMs += delta;
       if (fx.elapsedMs >= fx.totalMs) {
+        // Delay ranged hit feedback until the visible arrow actually lands.
+        if (fx.targetId && this.simulation.entities.get(fx.targetId)) {
+          this.damageFlashUntil.set(fx.targetId, this.time.now + 115);
+        }
         if (fx.projectile) {
           fx.projectile.setVisible(false);
           this.projectilePool.push(fx.projectile);
