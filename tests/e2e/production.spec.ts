@@ -6,21 +6,21 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
   const root = page.locator('#game');
   const canvas = root.locator('canvas');
   await expect(root).toHaveAttribute('data-zoom', /\d/);
-  await expect(root).toHaveAttribute('data-camera-x', /-?\d/);
-  await expect(root).toHaveAttribute('data-camera-y', /-?\d/);
-  // Use Phaser's exposed camera measurements instead of forcing a mousemove
-  // and canvas JS evaluation. The latter blocks under CI software rendering.
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas is not visible');
+  // Phaser camera.scrollX/Y do not equal the world coordinates at the screen
+  // top-left when zoomed. Ask Phaser for the world point under canvas center,
+  // then map the target using zoom and canvas dimensions. No evaluate() needed.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(root).toHaveAttribute('data-pointer-world', /,/);
+  const [worldX, worldY] = (await root.getAttribute('data-pointer-world'))!.split(',').map(Number);
   const zoom = Number(await root.getAttribute('data-zoom'));
-  const cameraX = Number(await root.getAttribute('data-camera-x'));
-  const cameraY = Number(await root.getAttribute('data-camera-y'));
   const backingWidth = Number(await canvas.getAttribute('width'));
   const backingHeight = Number(await canvas.getAttribute('height'));
-  if (!zoom || !backingWidth || !backingHeight) throw new Error('Invalid Phaser camera/canvas geometry');
+  if (!zoom || !backingWidth || !backingHeight) throw new Error('Invalid Phaser canvas geometry');
   return {
-    x: box.x + ((x + 0.5) * 12 - cameraX) * zoom * box.width / backingWidth,
-    y: box.y + ((y + 0.5) * 12 - cameraY) * zoom * box.height / backingHeight,
+    x: box.x + box.width / 2 + ((x + 0.5) * 12 - worldX) * zoom * box.width / backingWidth,
+    y: box.y + box.height / 2 + ((y + 0.5) * 12 - worldY) * zoom * box.height / backingHeight,
   };
 }
 
