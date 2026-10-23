@@ -112,11 +112,26 @@ export async function prepareTinySwords() {
     if (isPrivateBlob && !token) {
       throw new Error('Private Blob source configured without BLOB_READ_WRITE_TOKEN');
     }
-    const response = await fetch(url, {
+    if (isPrivateBlob) {
+      const storeFromToken = token?.split('_')[3];
+      const storeFromUrl = archiveUrl.hostname.split('.')[0];
+      if (!storeFromToken || storeFromToken.toLowerCase() !== storeFromUrl.toLowerCase()) {
+        throw new Error('Vercel Blob credential refers to a different storage store');
+      }
+    }
+    const requestOptions = {
       headers: token ? { Authorization: 'Bearer ' + token } : {},
       redirect: 'error',
       signal: AbortSignal.timeout(30000),
-    });
+    };
+    let response = await fetch(url, requestOptions);
+    if (response.status === 404 && isPrivateBlob) {
+      // After a recent upload a CDN can temporarily cache a missing object.
+      // Vercel Blob supports cache=0 to revalidate at the origin.
+      const directOrigin = new URL(url);
+      directOrigin.searchParams.set('cache', '0');
+      response = await fetch(directOrigin, requestOptions);
+    }
     if (!response.ok) throw new Error('Private asset fetch failed, HTTP ' + response.status);
     if (Number(response.headers.get('content-length') || 0) > MAX_ZIP_BYTES) {
       throw new Error('Private asset archive too large');
