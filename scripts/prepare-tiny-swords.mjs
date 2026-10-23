@@ -54,15 +54,15 @@ export function installTinySwordsFromBuffer(source, destination = DESTINATION) {
     offset += 46 + nameSize + extras + comments;
     if (!name.startsWith(PREFIX) || !name.toLowerCase().endsWith('.png')) continue;
     const relative = name.slice(PREFIX.length);
-    if (!/^(Terrain|Units|Buildings|Particle FX)\//.test(relative)) continue;
-    // This game uses Yellow and Red armies; do not publish unused team colors.
-    if (relative.startsWith('Units/') && !/^Units\/(Yellow|Red) Units\//.test(relative)) continue;
-    if (relative.startsWith('Buildings/') && !/^Buildings\/(Yellow|Red) Buildings\//.test(relative)) continue;
     const pathParts = relative.split('/');
     if (relative.includes('\\') || relative.includes('\0')
         || pathParts.some(part => !part || part === '.' || part === '..')) {
       throw new Error('Unsafe ZIP asset path');
     }
+    if (!/^(Terrain|Units|Buildings|Particle FX)\//.test(relative)) continue;
+    // After security validation, filter unnecessary colors from the web build.
+    if (relative.startsWith('Units/') && !/^Units\/(Yellow|Red) Units\//.test(relative)) continue;
+    if (relative.startsWith('Buildings/') && !/^Buildings\/(Yellow|Red) Buildings\//.test(relative)) continue;
     const dest = resolve(root, relative);
     if (!dest.startsWith(root + sep)) throw new Error('ZIP path traversal');
     if (expandedSize > MAX_FILE_BYTES) throw new Error('Tiny Swords image exceeds 12 MB');
