@@ -1,0 +1,50 @@
+name: RTS V1.3 — Dense combat benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      units_per_team:
+        description: 'Comma-separated populations per team (1..60)'
+        required: true
+        default: '20,40,60'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Start preview server
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/rts-preview.log 2>&1 &
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/rts-preview.log
+          exit 1
+      - name: Benchmark browser (headless runner)
+        run: npm run benchmark:browser -- --url=http://127.0.0.1:4173 --label=v1-3-combat --units-per-team=${{ inputs.units_per_team }}
+      - name: Summarize density and performance
+        if: success()
+        run: node scripts/summarize-combat-performance.mjs reports/performance/v1-3-combat.json reports/performance/v1-3-combat-summary.md
+      - name: Upload reports and CPU profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dense-combat-performance
+          path: |
+            reports/performance/v1-3-combat*
+            reports/performance/*v*-*.cpuprofile
+          if-no-files-found: warn
+          retention-days: 14
