@@ -137,7 +137,17 @@ export async function prepareTinySwords() {
       directOrigin.searchParams.set('cache', '0');
       response = await fetch(directOrigin, requestOptions);
     }
-    if (!response.ok) throw new Error('Private asset fetch failed, HTTP ' + response.status);
+    if (!response.ok) {
+      // Report only short, non-secret diagnostic headers; never emit blob URL,
+      // delegation signatures, access tokens, or response bodies into CI logs.
+      const edgeCode = response.headers.get('x-vercel-error')
+        || response.headers.get('x-vercel-blob-error')
+        || response.headers.get('x-error-code') || 'none';
+      const contentType = response.headers.get('content-type') || 'unknown';
+      throw new Error('Private asset fetch failed, HTTP ' + response.status
+        + ', code=' + edgeCode.slice(0, 80)
+        + ', type=' + contentType.slice(0, 70));
+    }
     if (Number(response.headers.get('content-length') || 0) > MAX_ZIP_BYTES) {
       throw new Error('Private asset archive too large');
     }
