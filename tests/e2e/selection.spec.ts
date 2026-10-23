@@ -20,7 +20,7 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
 }
 
 test('single click, Shift click, and box selection update the HUD', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('#team-status')).toHaveText(/Azul · \d+ moedas · 50 madeira · 0 pedra · 2\/60 unidades/);
 
@@ -54,7 +54,7 @@ test('single click, Shift click, and box selection update the HUD', async ({ pag
 });
 
 test('right click orders movement and starts cooldown', async ({ page }) => {
-  await page.goto('/?debug=1');
+  await page.goto('/?debug=1&noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
   const worker = await screenCell(page, 25, 99);
   await page.mouse.click(worker.x, worker.y);
