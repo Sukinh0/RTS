@@ -45,6 +45,7 @@ function zipEntries(entries) {
 function sampleEntries() {
   return [
     {name:'Units/Yellow Units/Pawn/Pawn_Idle.png', data:SIGNATURE, method:8},
+    {name:'UI Elements/UI Elements/Buttons/BigBlueButton_Regular.png', data:SIGNATURE, method:8},
     ...Array.from({length:22}, (_,i)=>({
       name:'Terrain/Decorations/Rocks/Rock' + (i+1) + '.png',
       data:SIGNATURE, method:i%2===0?0:8,
@@ -57,11 +58,12 @@ describe('automatic Tiny Swords build installer', () => {
     const destination = mkdtempSync(join(tmpdir(),'rts-art-'));
     try {
       const count=installTinySwordsFromBuffer(zipEntries(sampleEntries()),destination);
-      assert.equal(count,23);
+      assert.equal(count,24);
       const pawn=join(destination,'Units/Yellow Units/Pawn/Pawn_Idle.png');
       assert.equal(existsSync(pawn),true);
       assert.deepEqual(readFileSync(pawn),SIGNATURE);
       assert.equal(existsSync(join(destination,'Terrain/Decorations/Rocks/Rock1.png')),true);
+      assert.equal(existsSync(join(destination,'UI Elements/UI Elements/Buttons/BigBlueButton_Regular.png')),true);
     } finally {
       rmSync(destination,{recursive:true,force:true});
     }
