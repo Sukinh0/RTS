@@ -22,7 +22,8 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
 }
 
 test('worker can build a house and the house can produce an operative', async ({ page }) => {
-  await page.goto('/');
+  // Gameplay interactions are isolated from autonomous red AI; battle AI is covered by seeded tournaments.
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   await page.evaluate(() => {
@@ -56,10 +57,10 @@ test('worker can build a house and the house can produce an operative', async ({
   await page.mouse.click(houseSpot.x, houseSpot.y);
   await expect(page.locator('#selection-count')).toHaveText('Casa');
 
-  // Wait for construction to finish (8 seconds build time)
-  await expect.poll(async () => {
-    return page.locator('#btn-produce-worker').isVisible();
-  }, { timeout: 20_000 }).toBe(true);
+  // Complete actual construction through deterministic simulation ticks rather
+  // than waiting on slow SwiftShader wall-clock frames in GitHub Actions.
+  await page.evaluate(() => (window as Window & { __simulation?: Simulation }).__simulation!.advance(20_000));
+  await expect(page.locator('#btn-produce-worker')).toBeVisible({ timeout: 20_000 });
 
   // Queue training of an operative
   const trainBtn = page.locator('#btn-produce-worker');
@@ -75,7 +76,8 @@ test('worker can build a house and the house can produce an operative', async ({
 });
 
 test('base does not produce units and requires house to train workers', async ({ page }) => {
-  await page.goto('/');
+  // Gameplay interactions are isolated from autonomous red AI; battle AI is covered by seeded tournaments.
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   // Select blue base at (21, 101)
@@ -89,7 +91,8 @@ test('base does not produce units and requires house to train workers', async ({
 });
 
 test('house can produce a builder and builder has construction action bar', async ({ page }) => {
-  await page.goto('/');
+  // Gameplay interactions are isolated from autonomous red AI; battle AI is covered by seeded tournaments.
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   await page.evaluate(() => {
@@ -112,7 +115,9 @@ test('house can produce a builder and builder has construction action bar', asyn
   await produceBuilderBtn.click();
   await expect(page.locator('#command-feedback')).toContainText('Construtor adicionado à fila');
 
-  // Wait for builder to spawn (6 seconds production)
+  // Training still runs through the genuine production system, but is
+  // clock-stepped to avoid timing-dependent failures in software-rendered CI.
+  await page.evaluate(() => (window as Window & { __simulation?: Simulation }).__simulation!.advance(8_000));
   await expect.poll(async () => {
     return page.evaluate(() => {
       const sim = (window as Window & { __simulation?: Simulation }).__simulation;
@@ -139,7 +144,8 @@ test('house can produce a builder and builder has construction action bar', asyn
 });
 
 test('builder can construct a barricade requiring wood and stone', async ({ page }) => {
-  await page.goto('/');
+  // Gameplay interactions are isolated from autonomous red AI; battle AI is covered by seeded tournaments.
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   await page.evaluate(() => {
@@ -184,7 +190,8 @@ test('builder can construct a barricade requiring wood and stone', async ({ page
 });
 
 test('HUD displays civilian and military capacity and reports capacity limits', async ({ page }) => {
-  await page.goto('/');
+  // Gameplay interactions are isolated from autonomous red AI; battle AI is covered by seeded tournaments.
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   // Verify starting capacity in HUD
@@ -218,7 +225,8 @@ test('HUD displays civilian and military capacity and reports capacity limits', 
 });
 
 test('builder can repair damaged building via right-click in browser', async ({ page }) => {
-  await page.goto('/');
+  // Gameplay interactions are isolated from autonomous red AI; battle AI is covered by seeded tournaments.
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   await page.evaluate(() => {
@@ -243,7 +251,8 @@ test('builder can repair damaged building via right-click in browser', async ({ 
   await page.mouse.click(barricadePos.x, barricadePos.y, { button: 'right' });
   await expect(page.locator('#command-feedback')).toContainText('Reparo de Barricada iniciado');
 
-  // Wait for HP to increase
+  // Let the real repair command finish without depending on wall-clock FPS.
+  await page.evaluate(() => (window as Window & { __simulation?: Simulation }).__simulation!.advance(15_000));
   await expect.poll(async () => {
     return page.evaluate(() => {
       const sim = (window as Window & { __simulation?: Simulation }).__simulation;
@@ -254,7 +263,8 @@ test('builder can repair damaged building via right-click in browser', async ({ 
 });
 
 test('builder can build watch tower and HUD displays tower 20x20 vision and counter description', async ({ page }) => {
-  await page.goto('/');
+  // Gameplay interactions are isolated from autonomous red AI; battle AI is covered by seeded tournaments.
+  await page.goto('/?noai=1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   await page.evaluate(() => {
