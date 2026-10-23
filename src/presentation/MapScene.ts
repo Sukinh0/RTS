@@ -151,6 +151,8 @@ export class MapScene extends Phaser.Scene {
   private readonly mountainFoliage: Phaser.GameObjects.Image[] = [];
   private readonly mountainRidges: Phaser.GameObjects.Image[] = [];
   private readonly attackVisualUntil = new Map<string, number>();
+  /** Presentation-only hit feedback; never affects simulation HP, targeting or fog. */
+  private readonly damageFlashUntil = new Map<string, number>();
   private readonly lastMovementDustAt = new Map<string, number>();
   private movementDustSecond = -1;
   private movementDustCount = 0;
@@ -1227,6 +1229,10 @@ export class MapScene extends Phaser.Scene {
         || !this.isWorldPointVisible(event.targetTeam, targetX, targetY)) continue;
 
       this.attackVisualUntil.set(event.attackerId, this.time.now + 420);
+      if (!event.targetDied) this.damageFlashUntil.set(event.targetId, this.time.now + 115);
+      if (event.reflectedDamage > 0 && !event.attackerDied) {
+        this.damageFlashUntil.set(event.attackerId, this.time.now + 115);
+      }
       const arrowKey = event.attackerTeam === 'blue' ? 'tiny-arrowYellow' : 'tiny-arrowRed';
       const isArrow = event.attackerKind === 'archer';
       const projectile = isArrow
@@ -1729,6 +1735,7 @@ export class MapScene extends Phaser.Scene {
         this.entitySprites.delete(id);
         this.spriteVisualCache.delete(id);
         this.attackVisualUntil.delete(id);
+        this.damageFlashUntil.delete(id);
       } else if (!this.visibleSpriteIds.has(id) && sprite.visible) {
         sprite.setVisible(false);
       }
@@ -1773,8 +1780,20 @@ export class MapScene extends Phaser.Scene {
     }
     if (!sprite.visible) sprite.setVisible(true);
     if (sprite.alpha !== 1) sprite.setAlpha(1);
+    this.applyDamageFlash(sprite, unit.id);
     this.spriteVisualCache.set(unit.id, { key, frame, x: px, y: py, size, depth });
     return sprite;
+  }
+
+  /** Tint is visual-only and is cleared immediately when the short flash expires. */
+  private applyDamageFlash(sprite: Phaser.GameObjects.Image, entityId: string): void {
+    const until = this.damageFlashUntil.get(entityId);
+    if (until !== undefined && until > this.time.now) {
+      if (!sprite.isTinted) sprite.setTintFill(0xffffff);
+    } else {
+      if (until !== undefined) this.damageFlashUntil.delete(entityId);
+      if (sprite.isTinted) sprite.clearTint();
+    }
   }
 
   private updateBuildingSprite(building: BuildingEntity): Phaser.GameObjects.Image | null {
@@ -1802,6 +1821,7 @@ export class MapScene extends Phaser.Scene {
     if (!sprite.visible) sprite.setVisible(true);
     const opacity = building.underConstruction ? 0.52 : 1;
     if (sprite.alpha !== opacity) sprite.setAlpha(opacity);
+    this.applyDamageFlash(sprite, building.id);
     return sprite;
   }
 
