@@ -3,9 +3,9 @@ import { expect, test, type Page } from '@playwright/test';
 async function screenCell(page: Page, x: number, y: number): Promise<{ x: number; y: number }> {
   const root = page.locator('#game');
   const canvas = root.locator('canvas');
-  await expect(root).toHaveAttribute('data-zoom', /\\d/);
-  await expect(root).toHaveAttribute('data-camera-x', /-?\\d/);
-  await expect(root).toHaveAttribute('data-camera-y', /-?\\d/);
+  await expect(root).toHaveAttribute('data-zoom', /\d/);
+  await expect(root).toHaveAttribute('data-camera-x', /-?\d/);
+  await expect(root).toHaveAttribute('data-camera-y', /-?\d/);
   // Use Phaser's exposed camera measurements instead of forcing a mousemove
   // and canvas JS evaluation. The latter blocks under CI software rendering.
   const box = await canvas.boundingBox();
