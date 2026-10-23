@@ -59,7 +59,7 @@ export function installTinySwordsFromBuffer(source, destination = DESTINATION) {
         || pathParts.some(part => !part || part === '.' || part === '..')) {
       throw new Error('Unsafe ZIP asset path');
     }
-    if (!/^(Terrain|Units|Buildings|Particle FX)\//.test(relative)) continue;
+    if (!/^(Terrain|Units|Buildings|Particle FX|UI Elements)\//.test(relative)) continue;
     // After security validation, filter unnecessary colors from the web build.
     if (relative.startsWith('Units/') && !/^Units\/(Yellow|Red) Units\//.test(relative)) continue;
     if (relative.startsWith('Buildings/') && !/^Buildings\/(Yellow|Red) Buildings\//.test(relative)) continue;
@@ -102,13 +102,85 @@ export async function prepareTinySwords() {
   const url = process.env.TINY_SWORDS_ARCHIVE_URL?.trim();
   if (url) {
     if (new URL(url).protocol !== 'https:') throw new Error('Asset source must use HTTPS');
-    const token = process.env.TINY_SWORDS_ARCHIVE_TOKEN?.trim();
-    const response = await fetch(url, {
-      headers: token ? { Authorization: 'Bearer ' + token } : {},
+    const archiveUrl = new URL(url);
+    // Vercel Blob private storage injects this token into the linked project.
+    // Only send it to the store's HTTPS private Blob hostname, never to an
+    // arbitrary archive URL supplied via environment configuration.
+    const isPrivateBlob = archiveUrl.hostname.endsWith('.private.blob.vercel-storage.com');
+    const token = process.env.TINY_SWORDS_ARCHIVE_TOKEN?.trim()
+      || (isPrivateBlob ? process.env.BLOB_READ_WRITE_TOKEN?.trim() : undefined);
+    if (isPrivateBlob && !token) {
+      throw new Error('Private Blob source configured without BLOB_READ_WRITE_TOKEN');
+    }
+    if (isPrivateBlob) {
+      const storeFromToken = token?.split('_')[3];
+      const storeFromUrl = archiveUrl.hostname.split('.')[0];
+      if (!storeFromToken || storeFromToken.toLowerCase() !== storeFromUrl.toLowerCase()) {
+        throw new Error('Vercel Blob credential refers to a different storage store');
+      }
+    }
+    const isSignedBlobUrl = isPrivateBlob
+      && archiveUrl.searchParams.has('vercel-blob-delegation')
+      && archiveUrl.searchParams.has('vercel-blob-signature');
+    const requestOptions = {
+      // The temporary signed link authenticates via query signature; sending
+      // a separate bearer credential can cause Vercel to reject that request.
+      headers: token && !isSignedBlobUrl ? { Authorization: 'Bearer ' + token } : {},
       redirect: 'error',
       signal: AbortSignal.timeout(30000),
-    });
-    if (!response.ok) throw new Error('Private asset fetch failed, HTTP ' + response.status);
+    };
+    let response = await fetch(url, requestOptions);
+    if (response.status === 404 && isPrivateBlob) {
+      // After a recent upload a CDN can temporarily cache a missing object.
+      // Vercel Blob supports cache=0 to revalidate at the origin.
+      const directOrigin = new URL(url);
+      directOrigin.searchParams.set('cache', '0');
+      response = await fetch(directOrigin, requestOptions);
+    }
+    if (response.status === 404 && isPrivateBlob && token) {
+      // Discover the canonical Blob URL from the authenticated store listing.
+      // This handles archive names containing spaces or escaped characters
+      // without guessing or including any signed link in source control.
+      const listResult = await fetch('https://vercel.com/api/blob?limit=10', {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'x-vercel-blob-store-id': token.split('_')[3],
+          'x-api-version': '13',
+          'x-api-blob-request-id': 'rts-build-asset-lookup',
+        },
+        redirect: 'error',
+        signal: AbortSignal.timeout(30000),
+      });
+      console.log('Private Blob inventory HTTP status: ' + listResult.status);
+      if (listResult.ok) {
+        const data = await listResult.json();
+        const candidate = Array.isArray(data.blobs)
+          ? data.blobs.find((blob) => typeof blob.pathname === 'string'
+              && blob.pathname.toLowerCase().endsWith('.zip')
+              && Number(blob.size) > 1000000)
+          : null;
+        if (candidate && typeof candidate.url === 'string') {
+          const canonical = new URL(candidate.url);
+          if (canonical.protocol === 'https:'
+              && canonical.hostname === archiveUrl.hostname
+              && canonical.pathname !== archiveUrl.pathname) {
+            response = await fetch(canonical, requestOptions);
+            if (response.ok) console.log('Tiny Swords: located ZIP by canonical private Blob path.');
+          }
+        }
+      }
+    }
+    if (!response.ok) {
+      // Report only short, non-secret diagnostic headers; never emit blob URL,
+      // delegation signatures, access tokens, or response bodies into CI logs.
+      const edgeCode = response.headers.get('x-vercel-error')
+        || response.headers.get('x-vercel-blob-error')
+        || response.headers.get('x-error-code') || 'none';
+      const contentType = response.headers.get('content-type') || 'unknown';
+      throw new Error('Private asset fetch failed, HTTP ' + response.status
+        + ', code=' + edgeCode.slice(0, 80)
+        + ', type=' + contentType.slice(0, 70));
+    }
     if (Number(response.headers.get('content-length') || 0) > MAX_ZIP_BYTES) {
       throw new Error('Private asset archive too large');
     }
