@@ -11,7 +11,7 @@ const SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 function zipEntries(entries) {
   const files = [], directory = [];
   let position = 0;
-  for (const [index, item] of entries.entries()) {
+  for (const item of entries) {
     const fileName = Buffer.from('Tiny Swords (Free Pack)/' + item.name);
     const compressed = item.method === 8 ? deflateRawSync(item.data) : item.data;
     const local = Buffer.alloc(30);
