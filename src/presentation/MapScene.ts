@@ -110,6 +110,7 @@ interface AttackEffect {
   totalMs: number;
   projectile?: Phaser.GameObjects.Image;
   impactKind: 'hit' | 'dust' | 'debris';
+  targetId?: string;
   targetTeam: Team;
   targetCategory: 'unit' | 'building';
   targetKind: UnitKind | BuildingKind;
@@ -151,6 +152,9 @@ export class MapScene extends Phaser.Scene {
   private readonly mountainFoliage: Phaser.GameObjects.Image[] = [];
   private readonly mountainRidges: Phaser.GameObjects.Image[] = [];
   private readonly attackVisualUntil = new Map<string, number>();
+  private readonly attackVisualStartedAt = new Map<string, number>();
+  /** Presentation-only hit feedback; never affects simulation HP, targeting or fog. */
+  private readonly damageFlashUntil = new Map<string, number>();
   private readonly lastMovementDustAt = new Map<string, number>();
   private movementDustSecond = -1;
   private movementDustCount = 0;
@@ -1227,6 +1231,14 @@ export class MapScene extends Phaser.Scene {
         || !this.isWorldPointVisible(event.targetTeam, targetX, targetY)) continue;
 
       this.attackVisualUntil.set(event.attackerId, this.time.now + 420);
+      this.attackVisualStartedAt.set(event.attackerId, this.time.now);
+      // Melee flashes on contact; arrows flash only when their projectile reaches its target.
+      if (!event.targetDied && event.attackerKind !== 'archer') {
+        this.damageFlashUntil.set(event.targetId, this.time.now + 115);
+      }
+      if (event.reflectedDamage > 0 && !event.attackerDied) {
+        this.damageFlashUntil.set(event.attackerId, this.time.now + 115);
+      }
       const arrowKey = event.attackerTeam === 'blue' ? 'tiny-arrowYellow' : 'tiny-arrowRed';
       const isArrow = event.attackerKind === 'archer';
       const projectile = isArrow
@@ -1243,6 +1255,7 @@ export class MapScene extends Phaser.Scene {
             FX_VISUALS.arrowMinDurationMs, FX_VISUALS.arrowMaxDurationMs),
           projectile,
           impactKind: event.targetDied ? 'dust' : event.targetCategory === 'building' ? 'debris' : 'hit',
+          targetId: event.targetDied ? undefined : event.targetId,
           targetTeam: event.targetTeam,
           targetCategory: event.targetCategory,
           targetKind: event.targetKind,
@@ -1254,12 +1267,14 @@ export class MapScene extends Phaser.Scene {
       }
 
       if (!projectileQueued) {
+        // When the projectile pool is exhausted, fall back to an immediate hit cue.
+        if (isArrow && !event.targetDied) this.damageFlashUntil.set(event.targetId, this.time.now + 115);
         if (event.targetDied) {
           const deathScale = event.targetKind === 'barricade' ? 0.75 : event.targetCategory === 'building' ? 1.45 : 1.15;
           this.addWorldEffect('dust', targetX, targetY, event.targetTeam, 0xd9c69a,
             FX_VISUALS.deathDurationMs, 3, deathScale);
-          if (event.targetCategory === 'building') this.addWorldEffect('debris', targetX, targetY,
-            event.targetTeam, 0x9b8569, FX_VISUALS.structureImpactDurationMs, 2, event.targetKind === 'barricade' ? 0.7 : 1.4);
+          if (event.targetCategory === 'building') this.addStructureDestructionEffect(
+            targetX, targetY, event.targetTeam, event.targetKind);
         } else if (event.targetCategory === 'unit') {
           this.addWorldEffect('hit', targetX, targetY, event.targetTeam, 0xfff1cc,
             FX_VISUALS.hitDurationMs, 4, 0.8);
@@ -1729,6 +1744,8 @@ export class MapScene extends Phaser.Scene {
         this.entitySprites.delete(id);
         this.spriteVisualCache.delete(id);
         this.attackVisualUntil.delete(id);
+        this.attackVisualStartedAt.delete(id);
+        this.damageFlashUntil.delete(id);
       } else if (!this.visibleSpriteIds.has(id) && sprite.visible) {
         sprite.setVisible(false);
       }
@@ -1747,7 +1764,12 @@ export class MapScene extends Phaser.Scene {
       const task = this.simulation.construction.taskFor(unit.id);
       if (task?.phase === 'building' || task?.phase === 'repairing') state = 'build';
     }
-    if ((this.attackVisualUntil.get(unit.id) ?? 0) > this.time.now) state = 'attack';
+    const attackActive = (this.attackVisualUntil.get(unit.id) ?? 0) > this.time.now;
+    if (attackActive) state = 'attack';
+    else if (this.attackVisualStartedAt.has(unit.id)) {
+      this.attackVisualStartedAt.delete(unit.id);
+      this.attackVisualUntil.delete(unit.id);
+    }
     const builderKey = unit.kind === 'builder' ? builderUnitSheetKey(unit.team, state) : null;
     const key = builderKey && this.textures.exists(builderKey)
       ? builderKey : availableUnitKey(this, unit.team, unit.kind, state);
@@ -1758,7 +1780,12 @@ export class MapScene extends Phaser.Scene {
       sprite = this.add.image(0, 0, key).setOrigin(0.5, visual.originY);
       this.entitySprites.set(unit.id, sprite);
     } else if (sprite.texture.key !== key) sprite.setTexture(key);
-    const frame = Math.floor(this.time.now / (state === 'attack' ? 85 : 130)) % frameCount(unit.kind, state);
+    // An attack always begins at frame zero, rather than at an arbitrary global-clock frame.
+    // This makes attack cues consistent while damage timing stays wholly in the simulation.
+    const frames = frameCount(unit.kind, state);
+    const frame = state === 'attack' && attackActive
+      ? Math.min(frames - 1, Math.floor((this.time.now - (this.attackVisualStartedAt.get(unit.id) ?? this.time.now)) / 85))
+      : Math.floor(this.time.now / 130) % frames;
     const size = visual.frameDisplaySize;
     const px = (x + 0.5) * CELL_SIZE;
     const py = (y + 1) * CELL_SIZE;
@@ -1773,8 +1800,20 @@ export class MapScene extends Phaser.Scene {
     }
     if (!sprite.visible) sprite.setVisible(true);
     if (sprite.alpha !== 1) sprite.setAlpha(1);
+    this.applyDamageFlash(sprite, unit.id);
     this.spriteVisualCache.set(unit.id, { key, frame, x: px, y: py, size, depth });
     return sprite;
+  }
+
+  /** Tint is visual-only and is cleared immediately when the short flash expires. */
+  private applyDamageFlash(sprite: Phaser.GameObjects.Image, entityId: string): void {
+    const until = this.damageFlashUntil.get(entityId);
+    if (until !== undefined && until > this.time.now) {
+      if (!sprite.isTinted) sprite.setTintFill(0xffffff);
+    } else {
+      if (until !== undefined) this.damageFlashUntil.delete(entityId);
+      if (sprite.isTinted) sprite.clearTint();
+    }
   }
 
   private updateBuildingSprite(building: BuildingEntity): Phaser.GameObjects.Image | null {
@@ -1802,6 +1841,7 @@ export class MapScene extends Phaser.Scene {
     if (!sprite.visible) sprite.setVisible(true);
     const opacity = building.underConstruction ? 0.52 : 1;
     if (sprite.alpha !== opacity) sprite.setAlpha(opacity);
+    this.applyDamageFlash(sprite, building.id);
     return sprite;
   }
 
@@ -2006,6 +2046,10 @@ export class MapScene extends Phaser.Scene {
       }
       fx.elapsedMs += delta;
       if (fx.elapsedMs >= fx.totalMs) {
+        // Delay ranged hit feedback until the visible arrow actually lands.
+        if (fx.targetId && this.simulation.entities.get(fx.targetId)) {
+          this.damageFlashUntil.set(fx.targetId, this.time.now + 115);
+        }
         if (fx.projectile) {
           fx.projectile.setVisible(false);
           this.projectilePool.push(fx.projectile);
@@ -2016,8 +2060,7 @@ export class MapScene extends Phaser.Scene {
           fx.impactKind === 'hit' ? 4 : fx.impactKind === 'dust' ? 3 : 2,
           fx.impactKind === 'dust' ? 1.2 : 0.8);
         if (fx.impactKind === 'dust' && fx.targetCategory === 'building') {
-          this.addWorldEffect('debris', fx.toX, fx.toY, fx.targetTeam, 0x9b8569,
-            FX_VISUALS.structureImpactDurationMs, 2, fx.targetKind === 'barricade' ? 0.7 : 1.4);
+          this.addStructureDestructionEffect(fx.toX, fx.toY, fx.targetTeam, fx.targetKind);
         }
         this.attackEffects.splice(i, 1);
         continue;
@@ -2036,6 +2079,18 @@ export class MapScene extends Phaser.Scene {
         fx.projectile.setRotation(Math.atan2(fx.toY - fx.fromY, fx.toX - fx.fromX));
         fx.projectile.setVisible(true);
       }
+    }
+  }
+
+  /** One restrained destruction accent for buildings, distinct from unit death dust.
+   * Respects existing world-FX priority limits and fog checks. */
+  private addStructureDestructionEffect(x: number, y: number, team: Team, kind: UnitKind | BuildingKind): void {
+    const isBarricade = kind === 'barricade';
+    this.addWorldEffect('debris', x, y, team, 0x9b8569,
+      FX_VISUALS.structureImpactDurationMs, 2, isBarricade ? 0.7 : 1.4);
+    if (!isBarricade) {
+      this.addWorldEffect('ring', x, y, team, 0xd7b789,
+        FX_VISUALS.structureImpactDurationMs, 2, 1.3);
     }
   }
 
@@ -2084,6 +2139,10 @@ export class MapScene extends Phaser.Scene {
     const buttons: Array<{ label: string; color: string; run: () => void }> = [
       { label: 'Impacto', color: '#a94c43', run: () => this.addWorldEffect('hit', previewX, previewY, 'blue', 0xfff1cc, FX_VISUALS.hitDurationMs, 4, 1) },
       { label: 'Morte', color: '#6d6659', run: () => this.addWorldEffect('dust', previewX, previewY, 'blue', 0xd9c69a, FX_VISUALS.deathDurationMs, 3, 1.15) },
+      { label: 'Destruição', color: '#806953', run: () => {
+        this.addWorldEffect('dust', previewX, previewY, 'blue', 0xd9c69a, FX_VISUALS.deathDurationMs, 3, 1.45);
+        this.addStructureDestructionEffect(previewX, previewY, 'blue', 'barracks');
+      } },
       { label: 'Flecha', color: '#426f7d', run: () => {
         const fromX = previewX - CELL_SIZE * 2;
         const fromY = previewY;
