@@ -352,15 +352,28 @@ test('house and barracks support defining, displaying, and removing rally points
   await expect(page.locator('#selection-count')).toHaveAttribute('data-tooltip-description', /Ponto de reunião: 28, 96/);
   await expect(page.locator('#btn-clear-rally')).toBeVisible();
 
-  // Train a worker and verify it receives order to march to rally point and arrives at (28, 96)
+  // Production and rally movement use simulation ticks, not headless FPS.
+  // Verify the queue was accepted before advancing the real production system.
   await page.locator('#btn-produce-worker').click();
-  await expect.poll(async () => {
-    return page.evaluate(() => {
-      const sim = (window as Window & { __simulation?: Simulation }).__simulation;
-      const worker = sim?.entities.all().find((e) => e.category === 'unit' && e.kind === 'worker' && e.id === 'blue-worker-3');
-      return worker ? { x: worker.x, y: worker.y } : null;
-    });
-  }, { timeout: 15_000 }).toEqual({ x: 28, y: 96 });
+  await expect(page.locator('#command-feedback')).toContainText('Operário adicionado à fila');
+  const workerState = await page.evaluate(() => {
+    const sim = (window as Window & { __simulation?: Simulation }).__simulation!;
+    const house = sim.entities.all().find((e) => e.category === 'building' && e.team === 'blue' && e.kind === 'house');
+    if (!house) return { error: 'house missing' };
+    const queued = sim.production.queueFor(house.id).map((item) => item.unitKind);
+    sim.advance(20_000); // genuine production, fog, movement and rally callback
+    const worker = sim.entities.get('blue-worker-3');
+    return {
+      queued,
+      worker: worker?.category === 'unit' ? { x: worker.x, y: worker.y } : null,
+      remaining: sim.production.queueFor(house.id).length,
+    };
+  });
+  expect(workerState).toEqual({
+    queued: ['worker'],
+    worker: { x: 28, y: 96 },
+    remaining: 0,
+  });
 
   // Remove rally point
   await page.locator('#btn-clear-rally').click();
