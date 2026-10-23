@@ -59,7 +59,7 @@ export function installTinySwordsFromBuffer(source, destination = DESTINATION) {
         || pathParts.some(part => !part || part === '.' || part === '..')) {
       throw new Error('Unsafe ZIP asset path');
     }
-    if (!/^(Terrain|Units|Buildings|Particle FX)\//.test(relative)) continue;
+    if (!/^(Terrain|Units|Buildings|Particle FX|UI Elements)\//.test(relative)) continue;
     // After security validation, filter unnecessary colors from the web build.
     if (relative.startsWith('Units/') && !/^Units\/(Yellow|Red) Units\//.test(relative)) continue;
     if (relative.startsWith('Buildings/') && !/^Buildings\/(Yellow|Red) Buildings\//.test(relative)) continue;
