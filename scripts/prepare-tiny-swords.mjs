@@ -137,6 +137,39 @@ export async function prepareTinySwords() {
       directOrigin.searchParams.set('cache', '0');
       response = await fetch(directOrigin, requestOptions);
     }
+    if (response.status === 404 && isPrivateBlob && token) {
+      // Discover the canonical Blob URL from the authenticated store listing.
+      // This handles archive names containing spaces or escaped characters
+      // without guessing or including any signed link in source control.
+      const listResult = await fetch('https://vercel.com/api/blob?limit=10', {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'x-vercel-blob-store-id': token.split('_')[3],
+          'x-api-version': '13',
+          'x-api-blob-request-id': 'rts-build-asset-lookup',
+        },
+        redirect: 'error',
+        signal: AbortSignal.timeout(30000),
+      });
+      console.log('Private Blob inventory HTTP status: ' + listResult.status);
+      if (listResult.ok) {
+        const data = await listResult.json();
+        const candidate = Array.isArray(data.blobs)
+          ? data.blobs.find((blob) => typeof blob.pathname === 'string'
+              && blob.pathname.toLowerCase().endsWith('.zip')
+              && Number(blob.size) > 1000000)
+          : null;
+        if (candidate && typeof candidate.url === 'string') {
+          const canonical = new URL(candidate.url);
+          if (canonical.protocol === 'https:'
+              && canonical.hostname === archiveUrl.hostname
+              && canonical.pathname !== archiveUrl.pathname) {
+            response = await fetch(canonical, requestOptions);
+            if (response.ok) console.log('Tiny Swords: located ZIP by canonical private Blob path.');
+          }
+        }
+      }
+    }
     if (!response.ok) {
       // Report only short, non-secret diagnostic headers; never emit blob URL,
       // delegation signatures, access tokens, or response bodies into CI logs.
