@@ -1,6 +1,11 @@
 name: RTS V1.3 — Dense combat benchmark
 
 on:
+  pull_request:
+    paths:
+      - 'scripts/performance-browser.mjs'
+      - 'scripts/summarize-combat-performance.mjs'
+      - '.github/workflows/combat-performance.yml'
   workflow_dispatch:
     inputs:
       units_per_team:
@@ -34,7 +39,9 @@ jobs:
           cat /tmp/rts-preview.log
           exit 1
       - name: Benchmark browser (headless runner)
-        run: npm run benchmark:browser -- --url=http://127.0.0.1:4173 --label=v1-3-combat --units-per-team=${{ inputs.units_per_team }}
+        env:
+          LOADS: ${{ inputs.units_per_team || '20,40,60' }}
+        run: npm run benchmark:browser -- --url=http://127.0.0.1:4173 --label=v1-3-combat --units-per-team="$LOADS"
       - name: Summarize density and performance
         if: success()
         run: node scripts/summarize-combat-performance.mjs reports/performance/v1-3-combat.json reports/performance/v1-3-combat-summary.md
