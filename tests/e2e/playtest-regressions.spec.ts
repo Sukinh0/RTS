@@ -37,27 +37,40 @@ test('a marching soldier engages a newly seen enemy and resumes the route in the
   const ids = await page.evaluate(() => {
     const simulation = (window as Window & { __simulation?: Simulation }).__simulation!;
     const soldier = simulation.entities.spawnUnit('blue', 'soldier', 95, 100);
+    // Hold the dummy defender in place so civilian economy tasks cannot
+    // reposition it before attack-move acquires the freshly visible target.
+    simulation.economy.cancel('red-worker-1');
+    simulation.movement.cancel('red-worker-1');
     simulation.entities.moveUnit('red-worker-1', 105, 100);
     simulation.fog.update();
     return { soldier: soldier.id, enemy: 'red-worker-1' };
   });
-  await page.evaluate(({ soldier }) => {
+  const order = await page.evaluate(({ soldier }) => {
     const simulation = (window as Window & { __simulation?: Simulation }).__simulation!;
-    simulation.issueCommand({ type: 'attack-move', team: 'blue', unitId: soldier, destination: [120, 100] });
+    return simulation.issueCommand({ type: 'attack-move', team: 'blue', unitId: soldier, destination: [120, 100] });
   }, ids);
-  await expect.poll(async () => page.evaluate(({ soldier }) => {
+  expect(order).toEqual({ accepted: true });
+  // In headless CI the browser may render slower than the combat clock.
+  // Verify the transient engagement on the real simulation immediately
+  // after precisely two seconds of deterministic ticks, as in unit tests.
+  const acquired = await page.evaluate(({ soldier }) => {
     const simulation = (window as Window & { __simulation?: Simulation }).__simulation!;
+    simulation.advance(2_000);
     return simulation.engagements.statusFor(soldier)?.targetId ?? null;
-  }, ids)).toBe(ids.enemy);
-  await expect.poll(async () => page.evaluate(({ enemy }) => {
+  }, ids);
+  expect(acquired).toBe(ids.enemy);
+  const defeated = await page.evaluate(({ enemy }) => {
     const simulation = (window as Window & { __simulation?: Simulation }).__simulation!;
+    simulation.advance(6_000);
     return simulation.entities.get(enemy) === undefined;
-  }, ids), { timeout: 15_000 }).toBe(true);
-  await expect.poll(async () => page.evaluate(({ soldier }) => {
+  }, ids);
+  expect(defeated).toBe(true);
+  const arrived = await page.evaluate(({ soldier }) => {
     const simulation = (window as Window & { __simulation?: Simulation }).__simulation!;
-    const entity = simulation.entities.get(soldier);
-    return entity?.x ?? -1;
-  }, ids), { timeout: 15_000 }).toBe(120);
+    simulation.advance(8_000);
+    return simulation.entities.get(soldier)?.x ?? -1;
+  }, ids);
+  expect(arrived).toBe(120);
 });
 
 test('HUD overlays the full map and the troop palette identifies each team', async ({ page }) => {
