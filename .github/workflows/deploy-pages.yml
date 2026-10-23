@@ -1,0 +1,47 @@
+name: Publish RTS to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages-rts
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and publish current main
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Build RTS for project subpath
+        run: npm run build
+        env:
+          RTS_BASE_PATH: /RTS/
+          # Optional private source for art licensed to the game's developer.
+          # Without it the game remains playable with its procedural fallback.
+          TINY_SWORDS_ARCHIVE_URL: ${{ secrets.TINY_SWORDS_ARCHIVE_URL }}
+          TINY_SWORDS_ARCHIVE_TOKEN: ${{ secrets.TINY_SWORDS_ARCHIVE_TOKEN }}
+          TINY_SWORDS_REQUIRED: ${{ vars.TINY_SWORDS_REQUIRED || '0' }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist/
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
