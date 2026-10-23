@@ -2139,6 +2139,10 @@ export class MapScene extends Phaser.Scene {
     const buttons: Array<{ label: string; color: string; run: () => void }> = [
       { label: 'Impacto', color: '#a94c43', run: () => this.addWorldEffect('hit', previewX, previewY, 'blue', 0xfff1cc, FX_VISUALS.hitDurationMs, 4, 1) },
       { label: 'Morte', color: '#6d6659', run: () => this.addWorldEffect('dust', previewX, previewY, 'blue', 0xd9c69a, FX_VISUALS.deathDurationMs, 3, 1.15) },
+      { label: 'Destruição', color: '#806953', run: () => {
+        this.addWorldEffect('dust', previewX, previewY, 'blue', 0xd9c69a, FX_VISUALS.deathDurationMs, 3, 1.45);
+        this.addStructureDestructionEffect(previewX, previewY, 'blue', 'barracks');
+      } },
       { label: 'Flecha', color: '#426f7d', run: () => {
         const fromX = previewX - CELL_SIZE * 2;
         const fromY = previewY;
