@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { Simulation } from '../../src/core/game/Simulation';
 
 async function screenCell(page: Page, x: number, y: number): Promise<{ x: number; y: number }> {
   const root = page.locator('#game');
@@ -78,7 +79,17 @@ test('right click orders movement and starts cooldown', async ({ page }) => {
   await expect(page.locator('#command-feedback')).toContainText('1 ordem(ns)');
   await expect(page.locator('#selection-details')).toContainText(/Movendo|Parado/);
   await expect(page.locator('#selection-details')).not.toContainText('(30, 99)');
-  await expect.poll(async () => Number(await page.locator('#game').getAttribute('data-selected-visual-x'))).toBe(30);
+  // The logical unit reaches the exact cell; the rendered sprite interpolates
+  // toward the endpoint and can settle at 29.92 with subpixel smoothing.
+  await expect.poll(async () => page.evaluate(() => {
+    const sim = (window as Window & { __simulation?: Simulation }).__simulation!;
+    const unit = sim.entities.get('blue-worker-1');
+    return unit?.category === 'unit' ? unit.x : null;
+  })).toBe(30);
+  await expect.poll(async () => {
+    const rendered = Number(await page.locator('#game').getAttribute('data-selected-visual-x'));
+    return Math.abs(rendered - 30) <= 0.1;
+  }).toBe(true);
   const visualSamples = await page.evaluate(() => (window as Window & { __motionTrace?: number[] }).__motionTrace ?? []);
   expect(visualSamples.some((x) => x > 25 && x < 30)).toBe(true);
   await expect(page.locator('#game')).toHaveAttribute('data-explored-cells', '0');
