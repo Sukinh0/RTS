@@ -57,17 +57,23 @@ primeiro avanço são (89, 62)/(89, 137) para blue e (110, 62)/(110, 137)
 para red, alternados pela seed. O objetivo conhecido prevalece sobre o
 ponto de aproximação; unidades inimigas ocultas continuam inacessíveis à IA.
 
-## Visual da prévia pública
-- O usuário pode escolher o arquivo oficial
-  `Tiny Swords (Free Pack).zip` no botão 🎨 do HUD.
-- O carregador de ZIP opera localmente com `DecompressionStream` do navegador;
-  nenhuma imagem é transmitida para serviço externo.
-- O carregador aceita apenas os nomes de arquivos previstos no manifesto
-  `tinySwordsLocalManifest`, com validação de estrutura e tamanho do ZIP.
-- A partida reinicia ao finalizar a importação para recriar terreno e sprites
-  com as texturas em memória. Recarregar a página descarta o pacote.
-- O pack não é versionado nem distribuído pelo CI. Para uso de construtor com
-  chapéu diferenciado, gerar derivados localmente (script documentado acima).
+## Tiny Swords embutido automaticamente no build
+
+Os jogadores não precisam importar ZIP. Os sprites são preparados no **build**
+a partir da cópia oficial do desenvolvedor, em
+`external-assets/Tiny Swords (Free Pack).zip` (gitignored) ou origem
+HTTPS privada definida por `TINY_SWORDS_ARCHIVE_URL` e
+`TINY_SWORDS_ARCHIVE_TOKEN` (opcional). Use
+`TINY_SWORDS_REQUIRED=1` para impedir deploy sem o pack.
+
+O Phaser carrega o material automaticamente quando o jogo abre. O botão 🎨
+e as rotinas de importação no navegador foram removidos. A integração só
+pode ser validada visualmente quando o ambiente de compilação contém o ZIP
+original. Consulte [o guia de deploy](TINY_SWORDS_AUTO_DEPLOY.md).
+
+O pacote permanece fora do GitHub público, mas texturas web distribuídas
+aos navegadores são recuperáveis. Solicitar confirmação ao autor sobre
+esse formato específico de distribuição é recomendado antes do deploy público.
 
 ## Estratégias de abertura mistas — resultado do torneio
 
