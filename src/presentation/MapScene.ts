@@ -151,6 +151,7 @@ export class MapScene extends Phaser.Scene {
   private readonly mountainFoliage: Phaser.GameObjects.Image[] = [];
   private readonly mountainRidges: Phaser.GameObjects.Image[] = [];
   private readonly attackVisualUntil = new Map<string, number>();
+  private readonly attackVisualStartedAt = new Map<string, number>();
   /** Presentation-only hit feedback; never affects simulation HP, targeting or fog. */
   private readonly damageFlashUntil = new Map<string, number>();
   private readonly lastMovementDustAt = new Map<string, number>();
@@ -1229,6 +1230,7 @@ export class MapScene extends Phaser.Scene {
         || !this.isWorldPointVisible(event.targetTeam, targetX, targetY)) continue;
 
       this.attackVisualUntil.set(event.attackerId, this.time.now + 420);
+      this.attackVisualStartedAt.set(event.attackerId, this.time.now);
       if (!event.targetDied) this.damageFlashUntil.set(event.targetId, this.time.now + 115);
       if (event.reflectedDamage > 0 && !event.attackerDied) {
         this.damageFlashUntil.set(event.attackerId, this.time.now + 115);
@@ -1735,6 +1737,7 @@ export class MapScene extends Phaser.Scene {
         this.entitySprites.delete(id);
         this.spriteVisualCache.delete(id);
         this.attackVisualUntil.delete(id);
+        this.attackVisualStartedAt.delete(id);
         this.damageFlashUntil.delete(id);
       } else if (!this.visibleSpriteIds.has(id) && sprite.visible) {
         sprite.setVisible(false);
@@ -1754,7 +1757,12 @@ export class MapScene extends Phaser.Scene {
       const task = this.simulation.construction.taskFor(unit.id);
       if (task?.phase === 'building' || task?.phase === 'repairing') state = 'build';
     }
-    if ((this.attackVisualUntil.get(unit.id) ?? 0) > this.time.now) state = 'attack';
+    const attackActive = (this.attackVisualUntil.get(unit.id) ?? 0) > this.time.now;
+    if (attackActive) state = 'attack';
+    else if (this.attackVisualStartedAt.has(unit.id)) {
+      this.attackVisualStartedAt.delete(unit.id);
+      this.attackVisualUntil.delete(unit.id);
+    }
     const builderKey = unit.kind === 'builder' ? builderUnitSheetKey(unit.team, state) : null;
     const key = builderKey && this.textures.exists(builderKey)
       ? builderKey : availableUnitKey(this, unit.team, unit.kind, state);
@@ -1765,7 +1773,12 @@ export class MapScene extends Phaser.Scene {
       sprite = this.add.image(0, 0, key).setOrigin(0.5, visual.originY);
       this.entitySprites.set(unit.id, sprite);
     } else if (sprite.texture.key !== key) sprite.setTexture(key);
-    const frame = Math.floor(this.time.now / (state === 'attack' ? 85 : 130)) % frameCount(unit.kind, state);
+    // An attack always begins at frame zero, rather than at an arbitrary global-clock frame.
+    // This makes attack cues consistent while damage timing stays wholly in the simulation.
+    const frames = frameCount(unit.kind, state);
+    const frame = state === 'attack' && attackActive
+      ? Math.min(frames - 1, Math.floor((this.time.now - (this.attackVisualStartedAt.get(unit.id) ?? this.time.now)) / 85))
+      : Math.floor(this.time.now / 130) % frames;
     const size = visual.frameDisplaySize;
     const px = (x + 0.5) * CELL_SIZE;
     const py = (y + 1) * CELL_SIZE;
