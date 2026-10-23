@@ -4,6 +4,12 @@ import os from 'node:os';
 
 const url = process.argv.find(a=>a.startsWith('--url='))?.slice(6) ?? 'http://127.0.0.1:4173';
 const label = process.argv.find(a=>a.startsWith('--label='))?.slice(8) ?? 'browser';
+// Each load uses a distinct population per team. Defaults cover the game's intended density.
+const loadArg = process.argv.find(a => a.startsWith('--units-per-team='))?.slice(17);
+const loads = loadArg ? loadArg.split(',').map(Number) : [20, 40, 60];
+if (loads.length === 0 || loads.some(n => !Number.isInteger(n) || n < 1 || n > 60)) {
+  throw new Error('Expected --units-per-team=20,40,60 (each value 1..60)');
+}
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 let gpu = null;
@@ -11,7 +17,7 @@ const errors = [];
 page.on('pageerror', e => errors.push(e.message));
 const results = [];
 try {
-  for (const scenario of ['idle', 'move', 'formation', 'combat', 'churn']) {
+  for (const unitsPerTeam of loads) for (const scenario of ['idle', 'move', 'formation', 'combat', 'churn']) {
     await page.goto(`${url}/?noai=1&perf=1&sandbox=1`);
     await page.waitForSelector('#game[data-ready="true"]');
     if (gpu === null) gpu = await page.evaluate(() => {
@@ -27,14 +33,14 @@ try {
       const sim = window.__simulation;
       for (const entity of sim.entities.all()) if (entity.category === 'unit') sim.entities.remove(entity.id);
     });
-    await page.evaluate(scenario => {
+    await page.evaluate(({ scenario, unitsPerTeam }) => {
       const sim = window.__simulation;
-      for (let i=0;i<100;i++) {
+      for (let i=0;i<unitsPerTeam*2;i++) {
         const j=Math.floor(i/2), team=i%2?'red':'blue';
         sim.entities.spawnUnit(team, i%3===0?'archer':'soldier', (team==='blue'?30:scenario==='combat'?31:55)+(j%10)*2, 92+Math.floor(j/10)*2);
       }
       sim.fog.update();
-    }, scenario);
+    }, { scenario, unitsPerTeam });
     await page.locator('#sb-reveal-map').check();
     await page.evaluate(() => new Promise(resolve => {
       let frames=60;
@@ -85,12 +91,12 @@ try {
     await cdp.send('HeapProfiler.collectGarbage');
     const heapAfter=(await cdp.send('Performance.getMetrics')).metrics.find(m=>m.name==='JSHeapUsedSize')?.value;
     await mkdir('reports/performance',{recursive:true});
-    await writeFile(`reports/performance/${label}-${scenario}.cpuprofile`,JSON.stringify(profile));
-    results.push({...result,heapBeforeGCBytes:heapBefore,heapAfterGCBytes:heapAfter});
-    console.log(`${scenario}: ${result.fps?.toFixed(1)} FPS, p95 ${result.metrics.frameInterval?.p95Ms.toFixed(1)}ms, max ${result.metrics.frameInterval?.maxMs.toFixed(1)}ms`);
+    await writeFile(`reports/performance/${label}-${unitsPerTeam}v${unitsPerTeam}-${scenario}.cpuprofile`,JSON.stringify(profile));
+    results.push({unitsPerTeam,...result,heapBeforeGCBytes:heapBefore,heapAfterGCBytes:heapAfter});
+    console.log(`${unitsPerTeam}v${unitsPerTeam} ${scenario}: ${result.fps?.toFixed(1)} FPS, p95 ${result.metrics.frameInterval?.p95Ms.toFixed(1)}ms, max ${result.metrics.frameInterval?.maxMs.toFixed(1)}ms`);
     await cdp.detach();
   }
   await page.screenshot({path:`reports/performance/${label}.png`});
-  await writeFile(`reports/performance/${label}.json`,JSON.stringify({date:new Date().toISOString(),cpu:os.cpus()[0].model,gpu,browser:browser.version(),viewport:{width:1440,height:1000},durationMs:5000,headless:true,instrumented:true,errors,results},null,2));
+  await writeFile(`reports/performance/${label}.json`,JSON.stringify({date:new Date().toISOString(),cpu:os.cpus()[0].model,gpu,browser:browser.version(),viewport:{width:1440,height:1000},durationMs:5000,unitsPerTeam:loads,headless:true,instrumented:true,errors,results},null,2));
 } finally { await browser.close(); }
 if(errors.length) throw new Error(errors.join('\n'));
