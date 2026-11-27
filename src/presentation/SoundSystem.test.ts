@@ -52,7 +52,7 @@ describe('SoundSystem', () => {
 
   it('throttles rapid duplicate sound requests to prevent spam', () => {
     // Mock AudioContext in node test environment
-    const mockAudioContext = vi.fn().mockImplementation(() => ({
+    const mockAudioContext = vi.fn().mockImplementation(function () { return {
       state: 'running',
       currentTime: 0,
       resume: vi.fn().mockResolvedValue(undefined),
@@ -68,7 +68,7 @@ describe('SoundSystem', () => {
         stop: vi.fn(),
       }),
       destination: {},
-    }));
+    }; });
     vi.stubGlobal('AudioContext', mockAudioContext);
 
     const activeSound = new SoundSystem();
@@ -88,7 +88,7 @@ describe('SoundSystem', () => {
       'buildingAttack', 'baseUnderAttack', 'enemySpotted', 'victory', 'defeat',
     ] as const;
 
-    const mockAudioContext = vi.fn().mockImplementation(() => ({
+    const mockAudioContext = vi.fn().mockImplementation(function () { return {
       state: 'running',
       currentTime: 0,
       resume: vi.fn().mockResolvedValue(undefined),
@@ -104,7 +104,7 @@ describe('SoundSystem', () => {
         stop: vi.fn(),
       }),
       destination: {},
-    }));
+    }; });
     vi.stubGlobal('AudioContext', mockAudioContext);
 
     const activeSound = new SoundSystem();
