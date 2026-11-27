@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Simulation } from '../../src/core/game/Simulation';
 
 test('AI: Red team runs autonomously in the browser, making decisions and issuing commands', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?seed=123');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   // Verify Red AI is attached and running
@@ -40,7 +40,7 @@ test('AI: Red team runs autonomously in the browser, making decisions and issuin
 });
 
 test('AI: Debug mode exposes observability in HUD and game DOM attributes', async ({ page }) => {
-  await page.goto('/?debug=1');
+  await page.goto('/?debug=1&seed=123');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   // Verify #ai-debug is visible

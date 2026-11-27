@@ -1,7 +1,12 @@
 import Phaser from 'phaser';
 import { MapScene } from './presentation/MapScene';
 import { VisualCalibrationScene } from './presentation/VisualCalibrationScene';
+import { applyUiArtVariables } from './presentation/uiArt';
 import './style.css';
+
+declare const __TINY_SWORDS_INSTALLED__: boolean;
+
+if (__TINY_SWORDS_INSTALLED__) applyUiArtVariables(document.documentElement.style, import.meta.env.BASE_URL);
 
 const params = new URLSearchParams(window.location.search);
 const fxDebug = params.has('fxdebug');

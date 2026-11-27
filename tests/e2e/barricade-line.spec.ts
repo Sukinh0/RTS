@@ -22,7 +22,7 @@ async function screenCell(page: Page, x: number, y: number): Promise<{ x: number
 
 test.describe('V1.1.2 — E2E Construção de Barricadas em Linha', () => {
   test('clique simples constrói uma única barricada normalmente', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?seed=123');
     await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
     // Spawn a builder for blue and give resources
@@ -65,7 +65,7 @@ test.describe('V1.1.2 — E2E Construção de Barricadas em Linha', () => {
   });
 
   test('arrasto de mouse cria linha horizontal válida e inicia construção sequencial', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?seed=123');
     await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
     await page.evaluate(() => {
@@ -119,7 +119,7 @@ test.describe('V1.1.2 — E2E Construção de Barricadas em Linha', () => {
   });
 
   test('arrasto sobre obstáculo exibe feedback inválido e rejeita confirmação', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?seed=123');
     await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
     await page.evaluate(() => {
@@ -164,7 +164,7 @@ test.describe('V1.1.2 — E2E Construção de Barricadas em Linha', () => {
   });
 
   test('tecla ESC cancela o modo de prévia de barricada sem construir', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?seed=123');
     await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
     await page.evaluate(() => {

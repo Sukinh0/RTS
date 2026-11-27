@@ -31,6 +31,9 @@ try {
     });
     await page.evaluate(() => {
       const sim = window.__simulation;
+      // Freeze the simulation during setup and warmup. Otherwise units auto-engage while
+      // the renderer warms up (seconds on slow runners) and start measurement on cooldown.
+      sim.gameSpeed = 0;
       for (const entity of sim.entities.all()) if (entity.category === 'unit') sim.entities.remove(entity.id);
     });
     await page.evaluate(({ scenario, unitsPerTeam }) => {
@@ -74,6 +77,7 @@ try {
     const result=await page.evaluate(async scenario => {
       const sim=window.__simulation;
       window.rtsPerformance.reset();
+      sim.gameSpeed = 1;
       const units=sim.entities.all().filter(e=>e.category==='unit');
       const startHp = units.reduce((sum, u) => sum + u.hp, 0);
       let acceptedAttacks = 0;
@@ -88,7 +92,7 @@ try {
           if (outcome.accepted) acceptedAttacks++;
         }
         if (acceptedAttacks === 0) {
-          throw new Error('Combat setup invalid: no visible enemy in weapon range; adjust spawn layout');
+          throw new Error('Combat setup invalid: no attack order accepted (check visibility, range and cooldown)');
         }
       }
       const start=performance.now();

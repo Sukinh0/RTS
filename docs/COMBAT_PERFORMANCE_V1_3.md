@@ -22,7 +22,7 @@ O script roda os cenários `idle`, `move`, `formation`, `combat` e `churn` para 
 - Repetir manualmente em GPU real com a build Tiny Swords e com o fallback, câmera acompanhando os combates.
 - Registrar resultados medidos e ambiente antes de definir limiares de FPS ou declarar performance aprovada.
 
-**Importante:** resultados de performance ainda não foram medidos nesta entrega; o script apenas amplia a cobertura reproduzível.
+A simulação fica congelada (`gameSpeed = 0`) durante a montagem e o aquecimento, e só volta a rodar no início da medição. Sem isso, as tropas lutavam durante o aquecimento e chegavam em cooldown, e o cenário `combat` abortava.
 ## Relatório comparativo
 
 Após gerar o JSON, rode:
