@@ -20,6 +20,24 @@ export interface AIStrategy {
   forwardTowerDistance: number;
   /** Barricades screening the forward tower (0 = none). */
   forwardBarricades: number;
+  /** Fighting units ordered before extra civilians (0 = chosen by the seed, 2 to 4). */
+  openingArmy: number;
+  /** Assault route: as the seed says, always straight through the centre, or always by a flank. */
+  route: 'seed' | 'direct' | 'flank';
+  /** Worker goal with fewer than 3, 3 to 5, and 6 or more fighters. */
+  workersEarly: number;
+  workersMid: number;
+  workersLate: number;
+  homeBarricades: number;
+  maxTowers: number;
+  /** Troops produced before saving for the forward tower (0 = after the opening army). */
+  forwardPostAfterTroops: number;
+  /** Archers and shieldbearers wanted per soldier. */
+  archerShare: number;
+  shieldShare: number;
+  trainScout: boolean;
+  /** With smart defense, extra intruders tolerated beyond the home defenders before recalling the raid. */
+  recallMargin: number;
 }
 
 /** The behaviour before strategies existed. Kept as the fixed opponent for duels and training. */
@@ -33,6 +51,18 @@ export const LEGACY_STRATEGY: Readonly<AIStrategy> = Object.freeze({
   reinforcementSize: 2,
   forwardTowerDistance: 0,
   forwardBarricades: 0,
+  openingArmy: 0,
+  route: 'seed',
+  workersEarly: 4,
+  workersMid: 6,
+  workersLate: 7,
+  homeBarricades: 2,
+  maxTowers: 2,
+  forwardPostAfterTroops: 0,
+  archerShare: 0.5,
+  shieldShare: 0.5,
+  trainScout: true,
+  recallMargin: 0,
 });
 
 /** Strategy used in the game. Values were chosen with duels against LEGACY_STRATEGY. */

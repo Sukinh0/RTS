@@ -17,6 +17,7 @@ import { BarricadeTopology } from './BarricadeTopology';
 import { registerBarricadeTextures } from './BarricadeVisuals';
 import { TooltipManager } from './TooltipManager';
 import { resolveMatchSeed } from './matchSeed';
+import { readChampion, TRAINED_AI_KEY, wantsTrainedAI } from './trainedAI';
 import {
   assignFormationSlots,
   getMarchDirection,
@@ -134,7 +135,11 @@ interface WorldEffect {
 export class MapScene extends Phaser.Scene {
   // All DOM controls are scoped to this scene instance and removed on shutdown.
   private readonly domListeners = new AbortController();
-  private readonly simulation = new Simulation(resolveMatchSeed(window.location.search), !new URLSearchParams(window.location.search).has('noai'));
+  private readonly trainedAI = wantsTrainedAI(window.location.search);
+  private readonly simulation = new Simulation(
+    resolveMatchSeed(window.location.search),
+    !this.trainedAI && !new URLSearchParams(window.location.search).has('noai'),
+  );
   private readonly map = this.simulation.map;
   private readonly selection = new SelectionModel(this.simulation.entities, 'blue');
   private readonly visualFog = new VisualFog(this.map, this.simulation.entities, 'blue');
@@ -211,12 +216,29 @@ export class MapScene extends Phaser.Scene {
     super('Map');
   }
 
+  /** `?ia=treinada`: the opponent plays the champion saved by the local training. */
+  private enableTrainedAI(): void {
+    const champion = readChampion(this.cache.text.get(TRAINED_AI_KEY));
+    this.simulation.enableAI('red', champion?.strategy);
+    const badge = document.createElement('div');
+    badge.id = 'trained-ai-badge';
+    badge.textContent = champion
+      ? `Adversário: IA campeã do treino (versão ${champion.version}, geração ${champion.generation})`
+      : 'Campeã não encontrada: rode o treino primeiro. Jogando contra a IA padrão.';
+    badge.style.cssText = 'position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:50;pointer-events:none;'
+      + 'padding:3px 10px;border-radius:4px;background:#000b;color:#fff;font:12px sans-serif';
+    document.body.append(badge);
+    this.events.once('shutdown', () => badge.remove());
+  }
+
   preload(): void {
     preloadTinySwords(this);
+    if (this.trainedAI) this.load.text(TRAINED_AI_KEY, `${import.meta.env.BASE_URL}${TRAINED_AI_KEY}.json`);
   }
 
   create(): void {
     this.events.once('shutdown', () => this.domListeners.abort());
+    if (this.trainedAI) this.enableTrainedAI();
     if (new URLSearchParams(window.location.search).has('perf')) this.events.once('create', () => this.installDiagnostics());
     const worldWidth = this.map.width * CELL_SIZE;
     const worldHeight = this.map.height * CELL_SIZE;

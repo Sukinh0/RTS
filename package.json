@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "simulate": "node scripts/simulate.mjs",
     "duel": "node scripts/duel.mjs",
+    "train": "node scripts/train.mjs",
     "benchmark": "node scripts/performance.mjs",
     "benchmark:browser": "node scripts/performance-browser.mjs",
     "assets:install": "powershell -ExecutionPolicy Bypass -File scripts/install-tiny-swords.ps1",

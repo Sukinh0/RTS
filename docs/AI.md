@@ -88,3 +88,33 @@ Saídas mínimas:
 - construções feitas;
 - composição final;
 - causa da vitória.
+
+## Treino por vitória (`npm run train`)
+
+Busca evolutiva (entropia cruzada) sobre os parâmetros de `AIStrategy` listados em
+`src/training/genome.ts`. O aprendizado vem somente do resultado das partidas:
+vitória 1, empate 0,25, derrota 0. Não há rede neural nem aprendizado durante a
+partida do jogador, e a IA treinada não recebe bônus.
+
+- **Geração:** várias versões jogam as mesmas seeds, dos dois lados, contra a campeã,
+  a IA padrão e uma campeã antiga. O melhor quarto orienta a geração seguinte.
+- **Promoção:** a melhor desafiante só substitui a campeã se vencê-la em seeds novas
+  (vitórias > derrotas × 1,15) sem pontuar menos que ela contra as IAs padrão e antiga.
+- **Medida de progresso:** a campeã é medida em seeds fixas (900000+), fora do treino.
+- **Variação no treino:** com a mesma estratégia, as seeds quase não mudam a partida
+  (12 seeds chegaram a gerar só 2 partidas). Por isso o treino sorteia, por cor, um
+  atraso inicial de 0 a 5 s e um intervalo de decisão de 0,8 a 1,2 s. O jogo e o
+  `duel` mantêm o ritmo fixo.
+- **Arquivos:** `estado.json` (retomada), `campea.json`, `relatorio.html` e
+  `historico.csv` na pasta `--out`. A campeã é copiada para `public/ia-treinada.json`;
+  `?ia=treinada` faz o adversário usá-la.
+- **Uso fácil no Windows:** copie `tools/treino/` para uma pasta `treino` ao lado de
+  `rts_v1_pack` e use os arquivos `.bat`.
+
+Opções: `--hours`, `--generations`, `--out`, `--workers`, `--population`, `--seeds`,
+`--promotion-seeds`, `--benchmark-seeds`, `--max-seconds`, `--seed`, `--game-copy`.
+Os tamanhos de uma sessão salva valem até apagar o `estado.json`.
+
+**Limites:** só os parâmetros listados são aprendidos; o mapa é sempre o mesmo; ser a
+melhor contra outras IAs não garante dificuldade contra uma pessoa; uma campeã que fixa
+`openingArmy` ou `route` varia menos de uma seed para outra.

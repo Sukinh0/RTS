@@ -119,8 +119,11 @@ export class Simulation {
     return this.aiControllers.get('blue');
   }
 
-  enableAI(team: Team = 'red', strategy: Readonly<AIStrategy> = DEFAULT_STRATEGY): AIController {
-    const controller = new AIController(this, team, strategy);
+  enableAI(
+    team: Team = 'red', strategy: Readonly<AIStrategy> = DEFAULT_STRATEGY,
+    timing: { intervalTicks?: number; startDelayTicks?: number } = {},
+  ): AIController {
+    const controller = new AIController(this, team, strategy, timing.intervalTicks, timing.startDelayTicks);
     this.aiControllers.set(team, controller);
     if (this.diagnostics.enabled) this.diagnostics.watch(controller, 'update', 'ai');
     return controller;
