@@ -38,12 +38,22 @@ export interface AIDebugState {
   chosenAction: string;
 }
 
+/** Deterministic integer in [0, options) for one strategic choice of one team. */
+function seededChoice(seed: number, team: Team, salt: number, options: number): number {
+  let hash = Math.imul((seed | 0) ^ (team === 'blue' ? 0x1f123bb5 : 0x5f356495), 0x2c1b3c6d) + salt;
+  hash = Math.imul(hash ^ (hash >>> 15), 0x297a2d39);
+  hash = Math.imul(hash ^ (hash >>> 13), 0x2c1b3c6d);
+  return ((hash ^ (hash >>> 16)) >>> 0) % options;
+}
+
 export class AIController {
   readonly memory: AIMemory;
   private lastDecisionTick = -999;
   private readonly openingForward: number;
   private readonly openingVertical: number;
-  private readonly assaultWaypoint: Point | null;
+  /** Fighting units the AI wants before it spends coins on extra civilians. */
+  readonly openingArmy: number;
+  readonly assaultWaypoint: Point | null;
   private waypointReached = false;
   private guardUnitId: string | null = null;
   private readonly raidUnitIds = new Set<string>();
@@ -80,8 +90,14 @@ export class AIController {
     // central objective directly; others stage a north/south flank.
     // Strategic variety avoids teaching every opponent the same route.
     const directOpening = Math.abs(simulation.seed) % 4 === 0;
+    // Per-seed, per-team variation. It is derived from the seed (not from the
+    // shared RNG stream) so AI creation order cannot change either strategy.
+    this.openingArmy = 2 + seededChoice(simulation.seed, team, 1, 3);
+    const stagingX = (team === 'blue' ? 89 : 110) + seededChoice(simulation.seed, team, 2, 17) - 8;
+    const stagingY = (north ? 62 : 137) + seededChoice(simulation.seed, team, 3, 5) - 2;
     this.assaultWaypoint = directOpening ? null
-      : [team === 'blue' ? 89 : 110, north ? 62 : 137];
+      : simulation.map.isPassable(stagingX, stagingY) ? [stagingX, stagingY]
+        : [team === 'blue' ? 89 : 110, north ? 62 : 137];
   }
 
   getDebugState(): AIDebugState {
@@ -192,7 +208,17 @@ export class AIController {
     const needsHouseForWorkers = needsWorkers && (capacity.civilianUnits + capacity.civilianQueued >= capacity.civilianCapacity);
     const readyOrBuildingBarracks = ownBarracks.length > 0;
     const readyOrBuildingHouses = ownHouses.length > 0;
-    const wantsHouse = hasOpeningTroop && readyOrBuildingBarracks && (!readyOrBuildingHouses || needsHouseForWorkers);
+    // Coins for the first fighting force come before extra civilians. Without
+    // this, house + workers left the AI with only its home guard for ~5 minutes.
+    const troopsOrdered = this.simulation.stats.snapshot()[this.team].troopsProduced + capacity.militaryQueued;
+    // Same priority when rebuilding after losses, but only with a working
+    // economy: a two-worker economy must still be able to grow.
+    const buildingOpeningArmy = ownBarracks.length > 0
+      && ownMilitary.length + capacity.militaryQueued < this.openingArmy
+      && (troopsOrdered < this.openingArmy || ownWorkers.length >= 3);
+    const holdOpeningHouse = ownHouses.length === 0 && ownBarracks.length > 0 && troopsOrdered < 2
+      && stock.coins < houseConfig.coins + BALANCE.units.soldier.coins;
+    const wantsHouse = hasOpeningTroop && readyOrBuildingBarracks && !holdOpeningHouse && (!readyOrBuildingHouses || needsHouseForWorkers);
 
     this.desiredResources = {
       coins: needsBarracks ? barracksConfig.coins : wantsHouse ? houseConfig.coins : BALANCE.units.soldier.coins,
@@ -374,7 +400,8 @@ export class AIController {
     // produce anyone capable of repairing / constructing fortifications.
     const builderNeedsSlot = ownBuilders.length === 0 && ownAttackers.length >= 2
       && capacity.civilianCapacity - (capacity.civilianUnits + capacity.civilianQueued) <= 1;
-    if (needsWorkers && !builderNeedsSlot && stock.coins >= BALANCE.units.worker.coins
+    const holdExtraWorkers = buildingOpeningArmy && ownWorkers.length >= 3;
+    if (needsWorkers && !builderNeedsSlot && !holdExtraWorkers && stock.coins >= BALANCE.units.worker.coins
       && capacity.civilianUnits + capacity.civilianQueued < capacity.civilianCapacity) {
       const readyHouses = ownHouses.filter((h) => !h.underConstruction);
       for (const building of readyHouses) {
@@ -427,7 +454,7 @@ export class AIController {
     const wantsTower = stats.troopsProduced >= 3 && ownTowers.length === 0
       && stock.stone >= 50 && stock.wood >= 100;
     const towerReserve = wantsTower ? towerConfig.coins : 0;
-    const reserve = (hasOpeningTroop && (!readyOrBuildingHouses || needsWorkers || wantsBuilder) ? BALANCE.units.worker.coins : 0) + towerReserve;
+    const reserve = (!buildingOpeningArmy && hasOpeningTroop && (!readyOrBuildingHouses || needsWorkers || wantsBuilder) ? BALANCE.units.worker.coins : 0) + towerReserve;
     const readyBarracks = ownBarracks.filter((b) => !b.underConstruction);
     if (capacity.militaryUnits + capacity.militaryQueued < capacity.militaryCapacity) {
       for (const barracks of readyBarracks) {

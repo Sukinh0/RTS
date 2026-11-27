@@ -133,11 +133,19 @@ describe('Fase 8 IA', () => {
 
   it('expands workers and income while sustaining troop production from starting resources', () => {
     const simulation = new Simulation(123, true);
+    // The passive opponent would otherwise lose before the economy has room to
+    // grow, freezing the match. Keep its base standing for the whole window.
+    const passiveBase = simulation.entities.get('blue-base');
+    if (passiveBase?.category !== 'building') throw new Error('blue base missing');
+    passiveBase.hp = 1_000_000;
     advanceSeconds(simulation, 600);
+    expect(simulation.result).toBeNull();
     const stats = simulation.stats.snapshot().red;
     expect(stats.workersProduced).toBeGreaterThan(0);
     expect(stats.troopsProduced).toBeGreaterThanOrEqual(3);
-    expect(stats.coinsCollected).toBeGreaterThan(850);
+    // The opening army now comes before extra workers, so early income is a
+    // little lower than with the old economy-first order (previous floor: 850).
+    expect(stats.coinsCollected).toBeGreaterThan(800);
     expect(simulation.redAI!.memory.discoveredMines.length).toBeGreaterThan(0);
   }, 60_000);
 
@@ -242,6 +250,34 @@ describe('Fase 8 IA', () => {
     advanceSeconds(simulation, 2);
     expect(simulation.redAI!.currentIntent).toBe('AttackBase');
   });
+
+  it('gives each team a seed-driven strategy that ignores AI creation order', () => {
+    const strategies = (seed: number, order: Array<'blue' | 'red'>) => {
+      const simulation = new Simulation(seed, true);
+      for (const team of order) simulation.enableAI(team);
+      return (['blue', 'red'] as const).map((team) => {
+        const ai = simulation.aiControllers.get(team)!;
+        return `${ai.openingArmy}:${ai.assaultWaypoint?.join(',') ?? 'direct'}`;
+      }).join('|');
+    };
+    const seeds = Array.from({ length: 24 }, (_, index) => index + 1);
+    for (const seed of seeds) {
+      expect(strategies(seed, ['blue', 'red'])).toBe(strategies(seed, ['red', 'blue']));
+    }
+    expect(new Set(seeds.map((seed) => strategies(seed, ['blue', 'red']))).size).toBeGreaterThan(12);
+  });
+
+  it('orders its first fighting units before building the first house', () => {
+    const simulation = new Simulation(42, true);
+    simulation.enableAI('red');
+    for (let second = 0; second < 600; second += 1) {
+      advanceSeconds(simulation, 1);
+      if (simulation.entities.all().some((e) => e.team === 'red' && e.kind === 'house')) break;
+    }
+    const capacity = simulation.production.getCapacity('red');
+    expect(simulation.entities.all().some((e) => e.team === 'red' && e.kind === 'house')).toBe(true);
+    expect(simulation.stats.snapshot().red.troopsProduced + capacity.militaryQueued).toBeGreaterThanOrEqual(2);
+  }, 60_000);
 
   it('keeps one reserve and a home guard', () => {
     const simulation = new Simulation(42, true);
