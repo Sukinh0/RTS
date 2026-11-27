@@ -33,7 +33,7 @@ test.describe('Ambiente de Testes / Sandbox', () => {
   });
 
   test('botão de alternar sandbox no cabeçalho abre e fecha o painel no jogo normal', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?seed=123');
     await page.waitForSelector('#game[data-ready="true"]');
 
     const sandboxSection = page.locator('#sandbox-section');

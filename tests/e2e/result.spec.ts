@@ -21,6 +21,7 @@ test('destroying the enemy base shows victory and restart begins a fresh match',
   await expect(page.locator('#result-duration')).toContainText('Duração');
   await expect(page.locator('#result-stats')).toContainText('Ouro coletado');
   await expect(page.locator('#result-stats')).toContainText('Madeira gasta');
+  await expect(page.locator('#result-stats')).toContainText('Pedra coletada');
   await expect(page.locator('#result-stats tbody tr').filter({ hasText: 'Tropas abatidas' }).locator('td').first()).toHaveText('1');
   await page.locator('#restart-game').click();
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
@@ -58,7 +59,7 @@ test('complete result report fits a compact screen and remains scrollable', asyn
     simulation.fog.update();
     simulation.issueCommand({ type: 'attack', team: 'blue', unitId: soldier.id, targetId: base.id });
   });
-  await expect(page.locator('#result-stats tbody tr')).toHaveCount(11);
+  await expect(page.locator('#result-stats tbody tr')).toHaveCount(14);
   const card = await page.locator('.result-card').boundingBox();
   expect(card).not.toBeNull();
   expect(card!.x).toBeGreaterThanOrEqual(0);

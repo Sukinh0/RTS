@@ -24,7 +24,7 @@ test('HUD clock follows simulation time and stops at the result', async ({ page 
 });
 
 test('browser loads and navigates the map', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?seed=123');
   await expect(page).toHaveTitle('RTS V1');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('#game canvas')).toBeVisible();
@@ -53,7 +53,7 @@ test('browser loads and navigates the map', async ({ page }) => {
 });
 
 test('debug mode inspects a cell', async ({ page }) => {
-  await page.goto('/?debug=1');
+  await page.goto('/?debug=1&seed=123');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
   await page.locator('#game canvas').click({ position: { x: 480, y: 300 } });
   await expect(page.locator('#inspect')).toContainText('Célula');

@@ -93,7 +93,7 @@ test('combat: worker can attack an adjacent enemy for four damage', async ({ pag
 });
 
 test('combat: soldier attacking adjacent shieldbearer receives reflected damage', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?seed=123');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
 
   // Spawn blue soldier at (26, 99) and red shieldbearer at (27, 99)

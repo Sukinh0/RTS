@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Fase 11 & 12 — Sons e Polimento Visual', () => {
   test('botão de controle de som alterna entre ON e OFF com persistência em localStorage', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?seed=123');
     await page.waitForSelector('#game[data-ready="true"]');
 
     const soundBtn = page.locator('#btn-sound-toggle');

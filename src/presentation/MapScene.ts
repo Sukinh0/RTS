@@ -16,6 +16,7 @@ import { SoundSystem } from './SoundSystem';
 import { BarricadeTopology } from './BarricadeTopology';
 import { registerBarricadeTextures } from './BarricadeVisuals';
 import { TooltipManager } from './TooltipManager';
+import { resolveMatchSeed } from './matchSeed';
 import {
   assignFormationSlots,
   getMarchDirection,
@@ -132,7 +133,7 @@ interface WorldEffect {
 export class MapScene extends Phaser.Scene {
   // All DOM controls are scoped to this scene instance and removed on shutdown.
   private readonly domListeners = new AbortController();
-  private readonly simulation = new Simulation(123, !new URLSearchParams(window.location.search).has('noai'));
+  private readonly simulation = new Simulation(resolveMatchSeed(window.location.search), !new URLSearchParams(window.location.search).has('noai'));
   private readonly map = this.simulation.map;
   private readonly selection = new SelectionModel(this.simulation.entities, 'blue');
   private readonly visualFog = new VisualFog(this.map, this.simulation.entities, 'blue');
@@ -853,8 +854,7 @@ export class MapScene extends Phaser.Scene {
 
     this.input.keyboard?.on('keydown-A', () => {
       if (this.simulation.result) return;
-      const blueUnits = this.selection.selectedEntities.filter((e): e is UnitEntity => e.category === 'unit' && e.team === 'blue');
-      if (blueUnits.length > 0) {
+      if (this.hasSelectedBlueUnits()) {
         this.toggleAttackMoveMode();
       }
     });
@@ -1104,6 +1104,10 @@ export class MapScene extends Phaser.Scene {
     }, { signal: this.domListeners.signal });
   }
 
+  private hasSelectedBlueUnits(): boolean {
+    return this.selection.selectedEntities.some((e) => e.category === 'unit' && e.team === 'blue');
+  }
+
   private toggleAttackMoveMode(): void {
     this.placementMode = null;
     this.rallyPlacementMode = false;
@@ -1180,7 +1184,9 @@ export class MapScene extends Phaser.Scene {
     if (movementFailures.length > 0) {
       const feedback = document.querySelector('#command-feedback');
       const failure = movementFailures[0];
-      if (feedback) feedback.textContent = `Marcha interrompida: ${failure.unitId} · ${rejection(failure.reason)}.`;
+      const failed = this.simulation.entities.get(failure.unitId);
+      const name = failed ? LABELS[failed.kind] : 'unidade';
+      if (feedback) feedback.textContent = `Marcha interrompida: ${name} · ${rejection(failure.reason)}.`;
     }
     for (const event of movementEvents) {
       const unit = this.simulation.entities.get(event.unitId);
@@ -1377,7 +1383,9 @@ export class MapScene extends Phaser.Scene {
     if (this.simulation.result) return;
     const camera = this.cameras.main;
     const movement = PAN_SPEED * delta / 1000 / camera.zoom;
-    if (this.keys.A?.isDown || this.keys.LEFT?.isDown) camera.scrollX -= movement;
+    // Com tropas selecionadas, A pertence ao Attack Move e não move a câmera.
+    const aPans = this.keys.A?.isDown && !this.hasSelectedBlueUnits();
+    if (aPans || this.keys.LEFT?.isDown) camera.scrollX -= movement;
     if (this.keys.D?.isDown || this.keys.RIGHT?.isDown) camera.scrollX += movement;
     if (this.keys.W?.isDown || this.keys.UP?.isDown) camera.scrollY -= movement;
     if (this.keys.S?.isDown || this.keys.DOWN?.isDown) camera.scrollY += movement;
@@ -1489,9 +1497,12 @@ export class MapScene extends Phaser.Scene {
         ['Ouro gasto', Math.floor(result.stats.blue.coinsSpent), Math.floor(result.stats.red.coinsSpent)],
         ['Madeira coletada', Math.floor(result.stats.blue.woodCollected), Math.floor(result.stats.red.woodCollected)],
         ['Madeira gasta', Math.floor(result.stats.blue.woodSpent), Math.floor(result.stats.red.woodSpent)],
+        ['Pedra coletada', Math.floor(result.stats.blue.stoneCollected), Math.floor(result.stats.red.stoneCollected)],
+        ['Pedra gasta', Math.floor(result.stats.blue.stoneSpent), Math.floor(result.stats.red.stoneSpent)],
         ['Unidades restantes', result.blueUnits, result.redUnits],
         ['Ouro restante', Math.floor(result.blueCoins), Math.floor(result.redCoins)],
         ['Madeira restante', Math.floor(result.blueWood), Math.floor(result.redWood)],
+        ['Pedra restante', Math.floor(result.blueStone), Math.floor(result.redStone)],
       ];
       for (const [label, blue, red] of entries) {
         const row = document.createElement('tr');
