@@ -15,6 +15,7 @@ test('FX debug controls preview bounded gameplay feedback on the map', async ({ 
   const previews = [
     { name: 'Impacto', file: 'artifacts/fx-hit.png', wait: 45 },
     { name: 'Morte', file: 'artifacts/fx-death.png', wait: 45 },
+    { name: 'Destruição', file: 'artifacts/fx-structure-death.png', wait: 45 },
     { name: 'Flecha', file: 'artifacts/fx-arrow.png', wait: 90 },
     { name: 'Construção', file: 'artifacts/fx-construction.png', wait: 20 },
     { name: 'Madeira', file: 'artifacts/fx-wood.png', wait: 20 },
@@ -25,7 +26,7 @@ test('FX debug controls preview bounded gameplay feedback on the map', async ({ 
   for (const preview of previews) {
     await panel.getByRole('button', { name: preview.name }).click();
     await page.waitForTimeout(preview.wait);
-    if (preview.name === 'Impacto' || preview.name === 'Morte') {
+    if (preview.name === 'Impacto' || preview.name === 'Morte' || preview.name === 'Destruição') {
       await expect.poll(async () => Number(await game.getAttribute('data-active-world-fx')), { intervals: [5, 10, 20] }).toBeGreaterThan(0);
     }
     if (preview.name === 'Flecha') {

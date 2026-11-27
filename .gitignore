@@ -9,3 +9,5 @@ reports/performance/tiny-swords*
 
 # Derived Tiny Swords sprites are generated locally; never redistribute the pack.
 public/assets/generated/builder/
+reports/performance/v1-3-combat*
+reports/performance/*v*-*.cpuprofile
