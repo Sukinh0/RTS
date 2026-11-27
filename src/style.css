@@ -430,10 +430,10 @@ body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; al
   --paper-light: #fff2d0;
   --ink: #49392b;
   --moss: #557d3c;
-  --ui-blue: url('/assets/tiny-swords/UI%20Elements/UI%20Elements/Buttons/BigBlueButton_Regular.png');
-  --ui-blue-down: url('/assets/tiny-swords/UI%20Elements/UI%20Elements/Buttons/BigBlueButton_Pressed.png');
-  --ui-red: url('/assets/tiny-swords/UI%20Elements/UI%20Elements/Buttons/BigRedButton_Regular.png');
-  --ui-ribbon: url('/assets/tiny-swords/UI%20Elements/UI%20Elements/Ribbons/BigRibbons.png');
+  --ui-blue: none;
+  --ui-blue-down: none;
+  --ui-red: none;
+  --ui-ribbon: none;
 }
 
 html, body {

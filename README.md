@@ -1,6 +1,6 @@
-# RTS V1 — Starter Pack
+# RTS V1
 
-Pacote consolidado para iniciar a implementação da primeira versão jogável do RTS.
+RTS de navegador, jogável contra IA. Para rodar localmente, veja “Como executar”.
 
 ## Objetivo da V1
 Entregar uma partida completa e testável no navegador:
@@ -66,16 +66,9 @@ de prévia (com base `/RTS/`) está disponível para avaliação, mas não
 equivale a uma publicação pública automática. Ver
 [`docs/MAIN_STABILIZATION_V1_2.md`](docs/MAIN_STABILIZATION_V1_2.md).
 
-## Como começar
-1. Crie o projeto TypeScript + Phaser + Vite.
-2. Copie este pacote para a raiz do repositório.
-3. Use `prompts/MASTER_PROMPT_ASTRA_CODEX.md` como instrução inicial para Astra/Codex.
-4. Implemente na ordem de `docs/IMPLEMENTATION_PLAN.md`.
-5. Nenhuma etapa deve ser considerada concluída sem os testes definidos em `docs/TEST_PLAN.md`.
+## Como executar
 
-## Executar a fundação (Fase 0)
-
-Na pasta `rts_v1_pack`:
+Na raiz do repositório:
 
 ```sh
 npm install
@@ -112,6 +105,8 @@ npm run simulate -- --games=100 --seed=123
 O método e a leitura da linha de base estão em `docs/BALANCE_REPORT.md`.
 
 As correções do playtest de 2026-10-06 e o estado do novo aceite estão em `BACKLOG.md`. O HUD atual é **fullscreen**, com comandos em uma barra inferior e recursos no topo. O mapa em `MAP_ORGANIC_01` é assimétrico e possui oito jazidas de ouro. Cada classe tem cor própria e identificação de equipe.
+
+Cada partida sorteia uma seed; use `/?seed=123` para reproduzir uma abertura específica da IA.
 
 Abra `/?debug=1` para clicar em uma célula e ver suas coordenadas, tipo de terreno e bloqueio. Clique em uma unidade ou base azul para selecionar; arraste com o botão esquerdo para seleção em caixa; use Shift para adicionar ou remover da seleção. Clique com o botão direito para ordenar movimento, ataque contra um inimigo visível, coleta ou mineração conforme o alvo. Arraste com o botão direito/meio ou use WASD/setas para pan; use a roda do mouse para zoom.
 

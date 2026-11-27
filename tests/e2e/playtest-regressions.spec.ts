@@ -107,7 +107,7 @@ test('HUD overlays the full map and the troop palette identifies each team', asy
 });
 
 test('a player order coexists with an active AI developing from starting resources', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?seed=123');
   await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
   const canvas = page.locator('#game canvas');
   const box = await canvas.boundingBox();
