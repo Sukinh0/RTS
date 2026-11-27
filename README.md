@@ -110,7 +110,7 @@ Cada partida sorteia uma seed; use `/?seed=123` para reproduzir uma abertura esp
 
 Abra `/?debug=1` para clicar em uma célula e ver suas coordenadas, tipo de terreno e bloqueio. Clique em uma unidade ou base azul para selecionar; arraste com o botão esquerdo para seleção em caixa; use Shift para adicionar ou remover da seleção. Clique com o botão direito para ordenar movimento, ataque contra um inimigo visível, coleta ou mineração conforme o alvo. Arraste com o botão direito/meio ou use WASD/setas para pan; use a roda do mouse para zoom.
 
-O terreno começa encoberto pela fog; mova os operários para explorar. Células exploradas permanecem descobertas com suas cores normais, enquanto tropas inimigas só aparecem na visão atual de uma unidade ou construção aliada. Clique com o botão direito numa floresta ou mina descoberta para ordenar coleta ou mineração com operários selecionados.
+O terreno começa encoberto pela fog; mova os operários para explorar. Células exploradas permanecem descobertas com suas cores normais, e tudo o que estiver nelas aparece ao vivo, inclusive tropas e construções inimigas; o Batedor inimigo mantém a furtividade. Clique com o botão direito numa floresta ou mina descoberta para ordenar coleta ou mineração com operários selecionados.
 
 ## Princípio da V1
 Não balancear excessivamente no papel. Os valores em `balance.v1.json` são a **baseline V0.1** e devem permanecer centralizados em configuração para facilitar playtests e simulações IA vs IA.

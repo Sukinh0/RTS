@@ -72,7 +72,7 @@ export class VisualFog {
           this.states[index] = next;
           changed = true;
         }
-        if (!this.visible[index]) continue;
+        if (!next) continue;
         const cell = this.map.cellAt(x, y)!;
         if (this.terrain[index] !== cell.terrain) {
           this.terrain[index] = cell.terrain;
@@ -110,6 +110,12 @@ export class VisualFog {
     return (['unknown', 'explored', 'visible'] as const)[this.states[this.index(x, y)]];
   }
 
+  /** A cell without fog: anything in it is shown live, even outside current vision radii. */
+  isRevealed(x: number, y: number): boolean {
+    const state = this.stateAt(x, y);
+    return state !== null && state !== 'unknown';
+  }
+
   cellAt(x: number, y: number): VisualCell | null {
     if (!this.map.contains(x, y)) return null;
     const index = this.index(x, y);
@@ -134,7 +140,7 @@ export class VisualFog {
     if (this.revealAll || entity.team === this.team) return true;
     if (entity.category === 'unit') {
       const position = this.position(entity);
-      if (this.stateAt(Math.round(position.x), Math.round(position.y)) !== 'visible') return false;
+      if (!this.isRevealed(Math.round(position.x), Math.round(position.y))) return false;
       if (entity.kind === 'scout') {
         return this.isWithinTowerVision(position.x, position.y) || this.scoutDetected(position, entity.team);
       }
@@ -142,7 +148,7 @@ export class VisualFog {
     }
     for (let y = entity.y; y < entity.y + entity.height; y += 1) {
       for (let x = entity.x; x < entity.x + entity.width; x += 1) {
-        if (this.stateAt(x, y) === 'visible') return true;
+        if (this.isRevealed(x, y)) return true;
       }
     }
     return false;

@@ -1733,15 +1733,6 @@ export class MapScene extends Phaser.Scene {
         }
       }
     }
-    for (const building of this.visualFog.knownBuildings()) {
-      if (this.visualFog.stateAt(building.x, building.y) === 'visible') continue;
-      if (!this.intersectsViewport(building.x, building.y, building.width, building.height)) continue;
-      const color = building.team === 'blue' ? 0x9bdbff : 0xffada9;
-      graphics.lineStyle(1, color, 0.4).strokeRect(
-        building.x * CELL_SIZE + 2, building.y * CELL_SIZE + 2,
-        building.width * CELL_SIZE - 4, building.height * CELL_SIZE - 4,
-      );
-    }
     const root = document.querySelector('#game');
     const visibleEnemies = this.visualFog.visibleEntities().filter((entity) => entity.team === 'red');
     root?.setAttribute('data-visible-enemy-ids', visibleEnemies.map((entity) => entity.id).join(','));
@@ -2045,8 +2036,8 @@ export class MapScene extends Phaser.Scene {
   private updateAttackEffects(delta: number): void {
     for (let i = this.attackEffects.length - 1; i >= 0; i -= 1) {
       const fx = this.attackEffects[i];
-      const fromVisible = this.visualFog.stateAt(Math.floor(fx.fromX / CELL_SIZE), Math.floor(fx.fromY / CELL_SIZE)) === 'visible';
-      const toVisible = this.visualFog.stateAt(Math.floor(fx.toX / CELL_SIZE), Math.floor(fx.toY / CELL_SIZE)) === 'visible';
+      const fromVisible = this.visualFog.isRevealed(Math.floor(fx.fromX / CELL_SIZE), Math.floor(fx.fromY / CELL_SIZE));
+      const toVisible = this.visualFog.isRevealed(Math.floor(fx.toX / CELL_SIZE), Math.floor(fx.toY / CELL_SIZE));
       if (!fromVisible || !toVisible) {
         if (fx.projectile) {
           fx.projectile.setVisible(false);
@@ -2080,7 +2071,7 @@ export class MapScene extends Phaser.Scene {
         const progress = fx.elapsedMs / fx.totalMs;
         const x = Phaser.Math.Linear(fx.fromX, fx.toX, progress);
         const y = Phaser.Math.Linear(fx.fromY, fx.toY, progress);
-        if (this.visualFog.stateAt(Math.floor(x / CELL_SIZE), Math.floor(y / CELL_SIZE)) !== 'visible') {
+        if (!this.visualFog.isRevealed(Math.floor(x / CELL_SIZE), Math.floor(y / CELL_SIZE))) {
           fx.projectile.setVisible(false);
           this.projectilePool.push(fx.projectile);
           this.attackEffects.splice(i, 1);
@@ -2107,7 +2098,7 @@ export class MapScene extends Phaser.Scene {
 
   private addWorldEffect(kind: WorldEffect['kind'], x: number, y: number,
     team: Team, color: number, totalMs: number, priority: 0 | 1 | 2 | 3 | 4 = 0, sizeScale = 1): void {
-    if (team === 'red' && this.visualFog.stateAt(Math.floor(x / CELL_SIZE), Math.floor(y / CELL_SIZE)) !== 'visible') return;
+    if (team === 'red' && !this.visualFog.isRevealed(Math.floor(x / CELL_SIZE), Math.floor(y / CELL_SIZE))) return;
     if (this.worldEffects.length >= FX_LIMITS.activeWorldEffects) {
       let replaceAt = this.worldEffects.findIndex((effect) => effect.priority < priority);
       if (replaceAt < 0 && priority > 0) replaceAt = this.worldEffects.findIndex((effect) => effect.priority === priority);
@@ -2196,7 +2187,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   private isWorldPointVisible(team: Team, x: number, y: number): boolean {
-    return team === 'blue' || this.visualFog.stateAt(Math.floor(x / CELL_SIZE), Math.floor(y / CELL_SIZE)) === 'visible';
+    return team === 'blue' || this.visualFog.isRevealed(Math.floor(x / CELL_SIZE), Math.floor(y / CELL_SIZE));
   }
 
   private acquireEffect(key: string): Phaser.GameObjects.Image | undefined {

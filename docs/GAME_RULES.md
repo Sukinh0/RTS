@@ -72,4 +72,4 @@ A partida termina imediatamente quando a base de uma equipe chega a 0 HP.
 - O movimento tem intervalo de 1 segundo entre ações; uma ordem longa continua por segmentos até o destino. O arqueiro anda até 3 células por ação. O ataque do arqueiro mantém intervalo de 4 segundos.
 - Tropas com dano que marcham detectam unidades e construções inimigas na própria visão, respeitando furtividade. Elas se aproximam, atacam e retomam o destino original quando o alvo morre ou some da visão. A ordem manual prevalece.
 - Ataques do mesmo tick são resolvidos em conjunto para que uma tropa abatida ainda complete o ataque já iniciado naquele instante. A disputa por uma mesma célula de movimento alterna a prioridade entre equipes a cada segundo.
-- A camada visual da fog acompanha a posição desenhada da unidade. Terreno e construções descobertos ficam na memória da última visão e só são atualizados quando vistos novamente.
+- A camada visual da fog acompanha a posição desenhada da unidade. Em células já reveladas, terreno, tropas e construções aparecem ao vivo, mesmo fora do raio de visão atual; só o Batedor furtivo continua oculto.

@@ -51,6 +51,8 @@ Na implementação atual, exploração, economia e produção continuam mesmo qu
 
 **Ataque e defesa.** Um atacante fica designado como guarda da base e os demais que estiverem por perto respondem a invasores. Uma leva ofensiva parte quando há ao menos duas reservas além da guarda e a base não está ameaçada; reforços entram na leva ativa em grupos de ao menos duas. O último sobrevivente de uma leva recebe ordem de recuo, exceto se já estiver junto à base inimiga visível. Se a guarda morrer, a IA escolhe uma substituta. Uma unidade em marcha pode receber novo destino durante o intervalo entre passos, sem mover antes do fim desse intervalo.
 
+Áreas reveladas mostram inimigos ao vivo para os dois lados. Para escolher defesa e alvos de ataque, a IA considera apenas o que está dentro do raio de visão atual das próprias unidades e construções.
+
 ## Princípios
 - Decisões determinísticas quando possível.
 - Seed configurável.

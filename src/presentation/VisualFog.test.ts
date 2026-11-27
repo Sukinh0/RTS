@@ -3,7 +3,7 @@ import { Simulation } from '../core/game/Simulation';
 import { VisualFog } from './VisualFog';
 
 describe('visual fog follows displayed positions and remembers explored cells', () => {
-  it('holds terrain and building memory until the cells become visible again', () => {
+  it('keeps terrain up to date in revealed cells and hides unknown cells', () => {
     const simulation = new Simulation(1);
     simulation.map.setTerrain(100, 20, 'plain');
     const fog = new VisualFog(simulation.map, simulation.entities, 'blue');
@@ -18,11 +18,8 @@ describe('visual fog follows displayed positions and remembers explored cells', 
     fog.drainDirtyTerrain();
     simulation.map.setTerrain(100, 20, 'forest');
     fog.update(positions);
-    expect(fog.cellAt(100, 20)?.terrain).toBe('plain');
-    expect(fog.drainDirtyTerrain()).not.toContainEqual([100, 20]);
-
-    positions.set('blue-worker-1', { x: 100, y: 20 });
-    fog.update(positions);
+    // The map editor path forces a refresh when terrain changes.
+    fog.update(positions, true);
     expect(fog.cellAt(100, 20)?.terrain).toBe('forest');
     expect(fog.drainDirtyTerrain()).toContainEqual([100, 20]);
   });
@@ -40,7 +37,7 @@ describe('visual fog follows displayed positions and remembers explored cells', 
     expect(fog.isEntityVisible(enemy)).toBe(true);
   });
 
-  it('keeps the last seen building snapshot while it is hidden', () => {
+  it('tracks buildings live once their area has been revealed', () => {
     const simulation = new Simulation(3);
     const fog = new VisualFog(simulation.map, simulation.entities, 'blue');
     const positions = new Map([['blue-worker-1', { x: 172, y: 100 }]]);
@@ -51,7 +48,8 @@ describe('visual fog follows displayed positions and remembers explored cells', 
     const base = simulation.entities.get('red-base')!;
     base.hp = 50;
     fog.update(positions);
-    expect(fog.knownBuildings().find((building) => building.id === 'red-base')?.hp).toBe(150);
+    expect(fog.isEntityVisible(base)).toBe(true);
+    expect(fog.knownBuildings().find((building) => building.id === 'red-base')?.hp).toBe(50);
     positions.set('blue-worker-1', { x: 172, y: 100 });
     fog.update(positions);
     expect(fog.knownBuildings().find((building) => building.id === 'red-base')?.hp).toBe(50);
