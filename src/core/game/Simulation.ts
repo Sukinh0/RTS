@@ -15,6 +15,7 @@ import { ProductionSystem } from '../systems/ProductionSystem';
 import { CombatSystem } from '../systems/CombatSystem';
 import { MarchEngagementSystem, findBlockingEnemyStructure } from '../systems/MarchEngagementSystem';
 import { FormationController } from '../formations/FormationController';
+import { DEFAULT_STRATEGY, type AIStrategy } from '../ai/AIStrategy';
 import { AIController } from '../ai/AIController';
 import type { Team } from '../../map/MapGrid';
 import { MatchStats, type MatchStatsSnapshot } from './MatchStats';
@@ -118,8 +119,8 @@ export class Simulation {
     return this.aiControllers.get('blue');
   }
 
-  enableAI(team: Team = 'red'): AIController {
-    const controller = new AIController(this, team);
+  enableAI(team: Team = 'red', strategy: Readonly<AIStrategy> = DEFAULT_STRATEGY): AIController {
+    const controller = new AIController(this, team, strategy);
     this.aiControllers.set(team, controller);
     if (this.diagnostics.enabled) this.diagnostics.watch(controller, 'update', 'ai');
     return controller;

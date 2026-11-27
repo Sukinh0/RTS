@@ -53,6 +53,23 @@ Na implementação atual, exploração, economia e produção continuam mesmo qu
 
 Áreas reveladas mostram inimigos ao vivo para os dois lados. Para escolher defesa e alvos de ataque, a IA considera apenas o que está dentro do raio de visão atual das próprias unidades e construções.
 
+## Estratégia parametrizada
+Decisões ajustáveis ficam em `src/core/ai/AIStrategy.ts`. `DEFAULT_STRATEGY` é usada no jogo; `LEGACY_STRATEGY` é o comportamento anterior, mantido como adversário fixo. Nenhum parâmetro concede recursos, visão ou cooldown extras.
+
+- **Economia:** com madeira ou pedra sobrando, coletores voltam para o ouro.
+- **Defesa:** foca primeiro o invasor armado mais próximo, socorre operários e construções afastados e chama a leva de volta quando há mais combatentes inimigos na base do que defensores (exceto se ela já estiver atacando a base inimiga).
+- **Aviso antecipado:** não lança nova leva enquanto dois ou mais combatentes inimigos aparecem, em área revelada, a até 60 casas da base.
+- **Torre avançada:** depois da força inicial, pede um construtor e tenta erguer a primeira torre a cerca de 35 casas da base, rumo ao inimigo; sem área revelada ali, a torre fica perto da base. A torre só dá visão, não ataca.
+- **Barricadas:** protegem a frente da torre avançada com até quatro peças espaçadas.
+
+Para medir uma mudança contra o comportamento anterior, com os lados trocados em cada seed:
+
+```
+npm run duel -- --games=100 --seed=5000 --strategy='{"smartDefense":false}'
+```
+
+O JSON em `--strategy` sobrepõe valores de `DEFAULT_STRATEGY`. A pontuação vale 1 por vitória e 0,5 por empate; 0,5 indica forças iguais.
+
 ## Princípios
 - Decisões determinísticas quando possível.
 - Seed configurável.
