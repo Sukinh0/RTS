@@ -66,7 +66,7 @@ export class AIMemory {
 
     // Prune enemy buildings if their location is currently visible and building is gone
     for (const [id, building] of this.knownEnemyBuildings.entries()) {
-      if (fog.stateAt(this.team, building.x, building.y) === 'visible') {
+      if (fog.isRevealed(this.team, building.x, building.y)) {
         const actual = entities.get(id);
         if (!actual || actual.hp <= 0) {
           this.knownEnemyBuildings.delete(id);

@@ -163,7 +163,10 @@ export class AIController {
 
     const stock = this.simulation.teams[this.team];
     const capacity = this.simulation.production.getCapacity(this.team);
-    const visibleEnemies = this.simulation.fog.visibleEntities(this.team).filter((e) => e.team !== this.team);
+    // Tactics react to what is within current sight. Revealed areas show far
+    // more than that, and chasing every distant sighting breaks up assaults.
+    const visibleEnemies = this.simulation.fog.visibleEntities(this.team)
+      .filter((e) => e.team !== this.team && this.isInCurrentSight(e));
 
     // Calculate desired resources for debug observability and decision weighting
     const barracksConfig = BALANCE.buildings.barracks;
@@ -502,7 +505,7 @@ export class AIController {
       // A breakthrough must not retreat just because it lost one raider.
       // Keep the ordinary withdrawal outside visible enemy-base territory.
       const nearVisibleBase = survivor && target?.category === 'building'
-        && target.hp > 0 && this.simulation.fog.isEntityVisible(this.team, target)
+        && target.hp > 0 && this.isInCurrentSight(target)
         && Math.hypot(survivor.x - target.x, survivor.y - target.y) <= 30;
       if (!nearVisibleBase) {
         this.retreatingUnitIds.add(lastId);
@@ -547,7 +550,7 @@ export class AIController {
 
     if (this.memory.enemyBaseLocation) {
       const enemyBase = this.simulation.entities.get(this.team === 'red' ? 'blue-base' : 'red-base');
-      if (enemyBase && this.simulation.fog.isEntityVisible(this.team, enemyBase)) {
+      if (enemyBase && this.isInCurrentSight(enemyBase)) {
         // Only target support units perceived through normal fog-of-war.
         // Builders close to the base can otherwise repair faster than a small wave attacks.
         const repairSupport = visibleEnemies.find((enemy) => enemy.category === 'unit'
@@ -649,6 +652,19 @@ export class AIController {
       `Raid force (${raidIds.length} units) marching to (${defaultMarch[0]}, ${defaultMarch[1]})`,
     );
     return threat ? 'Defend' : 'AttackBase';
+  }
+
+  /** Visible to this team and inside the current vision radius of a unit or building. */
+  private isInCurrentSight(entity: GameEntity): boolean {
+    const fog = this.simulation.fog;
+    if (!fog.isEntityVisible(this.team, entity)) return false;
+    if (entity.category === 'unit') return fog.stateAt(this.team, entity.x, entity.y) === 'visible';
+    for (let y = entity.y; y < entity.y + entity.height; y += 1) {
+      for (let x = entity.x; x < entity.x + entity.width; x += 1) {
+        if (fog.stateAt(this.team, x, y) === 'visible') return true;
+      }
+    }
+    return false;
   }
 
   private marchRaid(raidIds: string[], destination: Point): void {

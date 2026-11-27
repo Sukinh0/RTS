@@ -70,16 +70,22 @@ export class FogOfWar {
     return [...unique.values()].map((building) => ({ ...building }));
   }
 
+  /** A cell without fog: anything in it is observed live, even outside current vision radii. */
+  isRevealed(team: Team, x: number, y: number): boolean {
+    const state = this.stateAt(team, x, y);
+    return state !== null && state !== 'unknown';
+  }
+
   isEntityVisible(team: Team, entity: GameEntity): boolean {
     if (entity.team === team) return true;
     if (entity.category === 'unit') {
-      if (this.stateAt(team, entity.x, entity.y) !== 'visible') return false;
+      if (!this.isRevealed(team, entity.x, entity.y)) return false;
       if (entity.kind !== 'scout') return true;
       return this.isWithinTowerVision(team, entity.x, entity.y) || this.scoutDetected(entity);
     }
     for (let y = entity.y; y < entity.y + entity.height; y += 1) {
       for (let x = entity.x; x < entity.x + entity.width; x += 1) {
-        if (this.stateAt(team, x, y) === 'visible') return true;
+        if (this.isRevealed(team, x, y)) return true;
       }
     }
     return false;
@@ -144,14 +150,13 @@ export class FogOfWar {
     for (let y = 0; y < this.map.height; y += 1) {
       for (let x = 0; x < this.map.width; x += 1) {
         const index = this.index(x, y);
-        if (visible[index]) {
-          fog.state[index] = 2;
+        if (visible[index]) fog.state[index] = 2;
+        else if (fog.state[index] !== 0) fog.state[index] = 1;
+        if (fog.state[index] !== 0) {
           fog.terrain[index] = this.map.cellAt(x, y)!.terrain;
           const occupant = this.entities.atCell(x, y);
           if (occupant?.category === 'building') fog.buildings.set(index, this.snapshotBuilding(occupant));
           else fog.buildings.delete(index);
-        } else if (fog.state[index] !== 0) {
-          fog.state[index] = 1;
         }
       }
     }

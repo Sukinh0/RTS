@@ -2,14 +2,17 @@
 
 ## Estados da célula
 1. **Desconhecida** — nunca vista.
-2. **Explorada** — terreno conhecido, sem informação dinâmica atual.
-3. **Visível** — dentro da visão atual de pelo menos uma unidade/construção aliada.
+2. **Explorada** — já revelada, sem névoa, mesmo fora do raio de visão atual.
+3. **Visível** — dentro do raio de visão atual de pelo menos uma unidade/construção aliada.
 
-## Memória
-Ao perder visão:
-- terreno continua conhecido;
-- posição atual de tropas inimigas deixa de ser atualizada;
-- construções vistas permanecem como última informação conhecida.
+## Área revelada
+Sem névoa, o que está na célula aparece ao vivo, em células exploradas ou visíveis:
+- terreno, tropas e construções inimigas são mostrados no estado atual;
+- é possível ordenar ataque a esses alvos;
+- a exceção é o Batedor, que mantém a furtividade (ver abaixo);
+- a regra vale igualmente para o jogador e para a IA.
+
+A aquisição automática de alvos durante a marcha continua limitada ao raio de visão da própria unidade.
 
 ## Visão
 Cada unidade e construção possui raio próprio definido centralmente em `config/balance.v1.json`:
@@ -32,6 +35,6 @@ Cada unidade e construção possui raio próprio definido centralmente em `confi
 
 ## IA e fog
 A IA não pode consultar estado oculto diretamente. Ela usa apenas:
-- células visíveis;
+- células reveladas (sem névoa);
 - memória de informações já descobertas (`AIMemory`);
 - eventos que um jogador humano também receberia.

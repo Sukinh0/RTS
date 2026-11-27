@@ -49,6 +49,8 @@ Após o primeiro soldado, a IA reserva moedas para uma Casa e novos operários. 
 
 Na defesa, um atacante fica designado como guarda da base e os demais que estiverem por perto respondem a invasores. Uma leva ofensiva parte com ao menos três atacantes além da guarda. Reforços aguardam outra leva de três; o último sobrevivente de uma leva destruída recebe ordem de recuo. Se a guarda morrer, a IA escolhe uma substituta. Uma unidade em marcha pode receber novo destino durante o intervalo entre passos, sem mover antes do fim desse intervalo.
 
+Áreas reveladas mostram inimigos ao vivo para os dois lados. Para escolher defesa e alvos de ataque, a IA considera apenas o que está dentro do raio de visão atual das próprias unidades e construções.
+
 ## Princípios
 - Decisões determinísticas quando possível.
 - Seed configurável.

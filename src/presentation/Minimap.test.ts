@@ -80,7 +80,7 @@ describe('Fase 9 — Minimapa', () => {
     expect(blueWorkers.length).toBeGreaterThan(0);
   });
 
-  it('inimigos visíveis vs inimigos ocultos: tropas e construções inimigas só aparecem se atualmente visíveis', () => {
+  it('inimigos visíveis vs inimigos ocultos: tropas e construções inimigas só aparecem fora da névoa', () => {
     const sim = new Simulation(4);
     const fog = new VisualFog(sim.map, sim.entities, 'blue');
     fog.update(new Map());
@@ -110,11 +110,11 @@ describe('Fase 9 — Minimapa', () => {
     expect(foundEnemy?.team).toBe('red');
     expect(foundEnemy?.category).toBe('unit');
 
-    // Se o operário azul se afastar, o soldado inimigo volta a ficar oculto e DESAPARECE do minimapa
+    // Se o operário azul se afastar, a área continua sem névoa e o inimigo continua no minimapa
     positions.set('blue-worker-1', { x: 30, y: 100 });
     fog.update(positions);
     visible = minimap.getVisibleEntities(positions);
-    expect(visible.some((e) => e.id === enemySoldier.id)).toBe(false);
+    expect(visible.some((e) => e.id === enemySoldier.id)).toBe(true);
   });
 
   it('torre de vigilância: reflete visão 20x20 no minimapa e revela inimigos dentro da área', () => {

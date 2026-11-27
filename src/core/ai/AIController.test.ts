@@ -228,6 +228,21 @@ describe('Fase 8 IA', () => {
       && Math.abs(unit.moveTarget[1] - 100) <= 5)).toBe(true);
   });
 
+  it('does not divert a raid to a tower seen only in a revealed area', () => {
+    const simulation = new Simulation(44, true);
+    simulation.map.setTerrain(100, 40, 'plain');
+    const lookout = simulation.entities.spawnUnit('red', 'worker', 100, 40);
+    simulation.fog.update();
+    simulation.entities.remove(lookout.id);
+    const tower = simulation.entities.createBuilding('blue', 'tower', 100, 40);
+    simulation.entities.spawnUnit('red', 'soldier', 174, 98);
+    for (const x of [173, 172]) simulation.entities.spawnUnit('red', 'soldier', x, 98);
+    simulation.fog.update();
+    expect(simulation.fog.isEntityVisible('red', tower)).toBe(true);
+    advanceSeconds(simulation, 2);
+    expect(simulation.redAI!.currentIntent).toBe('AttackBase');
+  });
+
   it('keeps one reserve and a home guard', () => {
     const simulation = new Simulation(42, true);
     const soldiers = [174, 173].map((x) => simulation.entities.spawnUnit('red', 'soldier', x, 98));

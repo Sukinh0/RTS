@@ -22,21 +22,33 @@ describe('Fase 4 fog and stealth', () => {
     expect(simulation.fog.cell('blue', 100, 20)).toEqual({ state: 'explored', terrain: 'plain', building: null });
   });
 
-  it('keeps last known building data while hidden', () => {
+  it('shows buildings and troops live in revealed areas after vision leaves', () => {
     const simulation = new Simulation(1);
     expect(simulation.entities.moveUnit('blue-worker-1', 172, 100)).toBe(true);
     simulation.fog.update();
-    expect(simulation.fog.visibleEntities('blue').some((entity) => entity.id === 'red-base')).toBe(true);
-    expect(simulation.fog.knownBuildings('blue').find((building) => building.id === 'red-base')?.hp).toBe(150);
-
     expect(simulation.entities.moveUnit('blue-worker-1', 25, 99)).toBe(true);
     simulation.fog.update();
+    expect(simulation.fog.stateAt('blue', 176, 100)).toBe('explored');
     const redBase = simulation.entities.get('red-base');
     if (!redBase) throw new Error('Missing red base');
     redBase.hp = 50;
-    expect(simulation.fog.visibleEntities('blue').some((entity) => entity.id === 'red-base')).toBe(false);
-    expect(simulation.fog.knownBuildings('blue').find((building) => building.id === 'red-base')?.hp).toBe(150);
-    expect(simulation.fog.stateAt('blue', 176, 100)).toBe('explored');
+    const soldier = simulation.entities.spawnUnit('red', 'soldier', 172, 100);
+    simulation.fog.update();
+    const visible = simulation.fog.visibleEntities('blue').map((entity) => entity.id);
+    expect(visible).toEqual(expect.arrayContaining(['red-base', soldier.id]));
+    expect(simulation.fog.knownBuildings('blue').find((building) => building.id === 'red-base')?.hp).toBe(50);
+  });
+
+  it('keeps an undetected scout hidden in a revealed area', () => {
+    const simulation = new Simulation(1);
+    simulation.map.setTerrain(100, 20, 'plain');
+    expect(simulation.entities.moveUnit('blue-worker-1', 100, 20)).toBe(true);
+    simulation.fog.update();
+    expect(simulation.entities.moveUnit('blue-worker-1', 25, 99)).toBe(true);
+    const scout = simulation.entities.spawnUnit('red', 'scout', 100, 20);
+    simulation.fog.update();
+    expect(simulation.fog.stateAt('blue', 100, 20)).toBe('explored');
+    expect(simulation.fog.visibleEntities('blue').some((entity) => entity.id === scout.id)).toBe(false);
   });
 
   it('does not expose current positions of troops beyond vision', () => {
