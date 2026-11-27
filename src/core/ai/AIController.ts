@@ -1,3 +1,4 @@
+import { DEFAULT_STRATEGY, type AIStrategy } from './AIStrategy';
 import { BALANCE } from '../../config/balance';
 import type { Point, Team } from '../../map/MapGrid';
 import { dispatchGroupAttack } from '../commands/dispatchGroupAttack';
@@ -77,6 +78,7 @@ export class AIController {
   constructor(
     readonly simulation: Simulation,
     readonly team: Team,
+    readonly strategy: Readonly<AIStrategy> = DEFAULT_STRATEGY,
     readonly decisionIntervalTicks = 30,
   ) {
     this.memory = new AIMemory(team);
@@ -340,7 +342,10 @@ export class AIController {
 
     // 7. Construction: Build Barricade for perimeter fortification
     const barricadeConfig = BALANCE.buildings.barricade;
-    const wantsBarricade = hasOpeningTroop && ownAttackers.length >= 1 && ownBarricades.length < 2 && !ownBarricades.some((b) => b.underConstruction);
+    const homeBarricades = ownBarricades.filter((b) => Math.hypot(b.x - ownBase.x, b.y - ownBase.y) <= 16);
+    if (this.buildForwardScreen(ownBase, ownTowers, ownBarricades.length - homeBarricades.length,
+      ownBuilders, currentTick, militaryIntent)) return;
+    const wantsBarricade = hasOpeningTroop && ownAttackers.length >= 1 && homeBarricades.length < 2 && !ownBarricades.some((b) => b.underConstruction);
     if (wantsBarricade && stock.wood >= barricadeConfig.wood && stock.stone >= barricadeConfig.stone) {
       const freeBuilder = this.findFreeBuilder(ownBuilders, currentTick);
       if (freeBuilder) {
@@ -372,7 +377,7 @@ export class AIController {
       && stock.coins >= towerConfig.coins && stock.wood >= towerConfig.wood && stock.stone >= towerConfig.stone) {
       const freeBuilder = this.findFreeBuilder(ownBuilders, currentTick);
       if (freeBuilder) {
-        const spot = this.findPlacementSpot(ownBase, towerConfig.width, towerConfig.height);
+        const spot = this.findTowerSpot(ownBase, ownTowers);
         if (spot) {
           const res = this.simulation.issueCommand({
             type: 'build',
@@ -398,7 +403,8 @@ export class AIController {
     // Reserve the final open civilian slot for a builder once offensive troops
     // exist. Otherwise workerTarget fills the first house and the AI cannot
     // produce anyone capable of repairing / constructing fortifications.
-    const builderNeedsSlot = ownBuilders.length === 0 && ownAttackers.length >= 2
+    const scoutingPost = this.wantsForwardPost(ownBase, ownTowers, ownAttackers.length);
+    const builderNeedsSlot = ownBuilders.length === 0 && (ownAttackers.length >= 2 || scoutingPost)
       && capacity.civilianCapacity - (capacity.civilianUnits + capacity.civilianQueued) <= 1;
     const holdExtraWorkers = buildingOpeningArmy && ownWorkers.length >= 3;
     if (needsWorkers && !builderNeedsSlot && !holdExtraWorkers && stock.coins >= BALANCE.units.worker.coins
@@ -424,7 +430,7 @@ export class AIController {
           }
         }
       }
-    } else if (ownBuilders.length === 0 && ownAttackers.length >= 2 && stock.coins >= BALANCE.units.builder.coins
+    } else if (ownBuilders.length === 0 && (ownAttackers.length >= 2 || scoutingPost) && stock.coins >= BALANCE.units.builder.coins
       && capacity.civilianUnits + capacity.civilianQueued < capacity.civilianCapacity) {
       const readyHouses = ownHouses.filter((h) => !h.underConstruction);
       for (const building of readyHouses) {
@@ -451,8 +457,9 @@ export class AIController {
 
     const wantsBuilder = ownBuilders.length === 0 && ownAttackers.length >= 2;
     const stats = this.simulation.stats.snapshot()[this.team];
-    const wantsTower = stats.troopsProduced >= 3 && ownTowers.length === 0
-      && stock.stone >= 50 && stock.wood >= 100;
+    const wantsTower = (stats.troopsProduced >= 3 && ownTowers.length === 0
+      && stock.stone >= 50 && stock.wood >= 100)
+      || (scoutingPost && ownBuilders.length > 0 && stock.stone >= 50 && stock.wood >= 100);
     const towerReserve = wantsTower ? towerConfig.coins : 0;
     const reserve = (!buildingOpeningArmy && hasOpeningTroop && (!readyOrBuildingHouses || needsWorkers || wantsBuilder) ? BALANCE.units.worker.coins : 0) + towerReserve;
     const readyBarracks = ownBarracks.filter((b) => !b.underConstruction);
@@ -507,9 +514,12 @@ export class AIController {
     if (!this.guardUnitId) return null;
 
     const rallyPoint = this.findHomeRallyPoint(base);
-    const threat = visibleEnemies.find((enemy) =>
+    const intruders = visibleEnemies.filter((enemy) =>
       Math.hypot(enemy.x - base.x, enemy.y - base.y) <= 30);
+    const threat = this.strategy.smartDefense
+      ? this.mostDangerous(base, intruders) : intruders[0];
     const guard = byId.get(this.guardUnitId)!;
+    if (this.strategy.smartDefense) this.recallRaidIfOutnumbered(base, attackers, intruders);
     if (threat) {
       const defenders = attackers.filter((unit) => unit.id === guard.id
         || (!this.raidUnitIds.has(unit.id) && !this.retreatingUnitIds.has(unit.id)
@@ -521,6 +531,8 @@ export class AIController {
         'Defend Base against Hostile Invaders',
         `Defenders engaging hostile threat ${threat.id}`,
       );
+    } else if (this.strategy.smartDefense && this.protectOutposts(base, attackers, visibleEnemies)) {
+      // Home reserves are answering a raid on workers or an outpost.
     } else if (rallyPoint && Math.hypot(guard.x - base.x, guard.y - base.y) > 12) {
       dispatchGroupMove(this.simulation, this.team, [guard.id], rallyPoint);
     }
@@ -558,7 +570,8 @@ export class AIController {
     }
     // Two raiders plus a home guard can leave with natural starting resources.
     // Waiting for three reserves kept both AIs in Rally for entire matches.
-    if (!threat && reserves.length >= 2) {
+    const needed = this.raidUnitIds.size > 0 ? this.strategy.reinforcementSize : this.strategy.waveSize;
+    if (!threat && !this.isAttackIncoming(base) && reserves.length >= needed) {
       for (const unit of reserves) this.raidUnitIds.add(unit.id);
     }
     const raidIds = attackers.filter((unit) => this.raidUnitIds.has(unit.id)).map((unit) => unit.id);
@@ -694,6 +707,58 @@ export class AIController {
     return false;
   }
 
+  /** Armed units first, then whoever is closest to the base. */
+  private mostDangerous(base: BuildingEntity, enemies: GameEntity[]): GameEntity | undefined {
+    const rank = (enemy: GameEntity) => enemy.category === 'unit' ? (enemy.damage > 0 && enemy.kind !== 'worker' ? 0 : 1) : 2;
+    return [...enemies].sort((a, b) => rank(a) - rank(b)
+      || Math.hypot(a.x - base.x, a.y - base.y) - Math.hypot(b.x - base.x, b.y - base.y)
+      || a.id.localeCompare(b.id))[0];
+  }
+
+  private isFighter(entity: GameEntity): boolean {
+    return entity.category === 'unit' && entity.damage > 0 && entity.kind !== 'worker';
+  }
+
+  /** Brings the field army home when the base faces more fighters than its defenders. */
+  private recallRaidIfOutnumbered(base: BuildingEntity, attackers: UnitEntity[], intruders: GameEntity[]): void {
+    if (this.raidUnitIds.size === 0) return;
+    const near = (unit: UnitEntity, x: number, y: number) => Math.hypot(unit.x - x, unit.y - y) <= 30;
+    const enemies = intruders.filter((enemy) => this.isFighter(enemy)).length;
+    const home = attackers.filter((unit) => !this.raidUnitIds.has(unit.id) && near(unit, base.x, base.y)).length;
+    if (enemies <= home) return;
+    const target = this.simulation.entities.get(this.team === 'red' ? 'blue-base' : 'red-base');
+    const raiders = attackers.filter((unit) => this.raidUnitIds.has(unit.id));
+    // A raid already hitting the enemy base keeps racing for the win.
+    if (target?.category === 'building' && this.isInCurrentSight(target)
+      && raiders.some((unit) => near(unit, target.x, target.y))) return;
+    for (const unit of raiders) this.retreatingUnitIds.add(unit.id);
+    this.raidUnitIds.clear();
+  }
+
+  /** Sends home reserves after armed enemies that are hunting workers or hitting outposts. */
+  private protectOutposts(base: BuildingEntity, attackers: UnitEntity[], visibleEnemies: GameEntity[]): boolean {
+    const assets = this.simulation.entities.all().filter((entity) => entity.team === this.team
+      && (entity.category === 'building' ? entity.kind !== 'barricade' : entity.kind === 'worker' || entity.kind === 'builder')
+      && Math.hypot(entity.x - base.x, entity.y - base.y) <= 70);
+    const raider = this.mostDangerous(base, visibleEnemies.filter((enemy) => this.isFighter(enemy)
+      && assets.some((asset) => Math.hypot(enemy.x - asset.x, enemy.y - asset.y) <= 10)));
+    if (!raider) return false;
+    const responders = attackers.filter((unit) => !this.raidUnitIds.has(unit.id)
+      && !this.retreatingUnitIds.has(unit.id)
+      && Math.hypot(unit.x - raider.x, unit.y - raider.y) <= 45);
+    if (responders.length === 0) return false;
+    dispatchGroupAttack(this.simulation, this.team, responders.map((unit) => unit.id), raider.id);
+    return true;
+  }
+
+  /** Early warning uses everything revealed to this team, exactly as the player sees it. */
+  private isAttackIncoming(base: BuildingEntity): boolean {
+    const range = this.strategy.earlyWarningDistance;
+    if (range <= 0) return false;
+    return this.simulation.fog.visibleEntities(this.team).filter((enemy) => enemy.team !== this.team
+      && this.isFighter(enemy) && Math.hypot(enemy.x - base.x, enemy.y - base.y) <= range).length >= 2;
+  }
+
   private marchRaid(raidIds: string[], destination: Point): void {
     const waypoint = this.assaultWaypoint;
     if (waypoint && !this.waypointReached) {
@@ -802,7 +867,7 @@ export class AIController {
       // Ensure miners are assigned to mine (1 miner for <=3 workers, 2 for >=4 workers)
       const currentMiners = workers.filter((w) =>
         this.simulation.economy.taskFor(w.id)?.kind === 'mine').length;
-      const targetMiners = workers.length >= 4 ? 2 : 1;
+      const targetMiners = workers.length >= 4 ? this.strategy.minerTarget : 1;
       if (currentMiners < targetMiners && this.memory.discoveredMines.length > 0) {
         const nearestMine = this.findClosestPoint(worker, this.memory.discoveredMines);
         if (nearestMine) {
@@ -879,6 +944,8 @@ export class AIController {
       }
     }
 
+    this.rebalanceSurplus(workers, currentWood, currentStone);
+
     // Dynamic economy rebalancing: When wood reserves are healthy (>= 100),
     // reallocate workers from wood to stone, mining, or scouting so resources don't stall.
     if (currentWood >= 100) {
@@ -934,6 +1001,29 @@ export class AIController {
           }
         }
       }
+    }
+  }
+
+  /** Idle stock is wasted income: move surplus gatherers, and extra hands, to gold. */
+  private rebalanceSurplus(workers: UnitEntity[], wood: number, stone: number): void {
+    const { stoneSurplus, woodSurplus, minerTarget } = this.strategy;
+    const stoneIdle = stoneSurplus > 0 && stone >= Math.max(stoneSurplus, this.desiredStone);
+    const woodIdle = woodSurplus > 0 && wood >= woodSurplus;
+    let miners = workers.filter((w) => this.simulation.economy.taskFor(w.id)?.kind === 'mine').length;
+    for (const worker of workers) {
+      const task = this.simulation.economy.taskFor(worker.id);
+      if (task?.kind !== 'gather' || this.simulation.construction.taskFor(worker.id)) continue;
+      const surplus = task.resourceKind === 'stone' ? stoneIdle : woodIdle;
+      if (!surplus) continue;
+      // Keep one wood gatherer while wood is low; stone surplus never takes the last forest hand.
+      const wantsWood = task.resourceKind === 'stone' && wood < 150;
+      if (!wantsWood && miners >= Math.max(minerTarget, 2)) continue;
+      const target = this.findClosestPoint(worker,
+        wantsWood ? this.memory.discoveredForests : this.memory.discoveredMines);
+      if (!target) continue;
+      if (this.simulation.issueCommand({
+        type: wantsWood ? 'gather' : 'mine', team: this.team, unitId: worker.id, target,
+      }).accepted && !wantsWood) miners += 1;
     }
   }
 
@@ -1023,6 +1113,81 @@ export class AIController {
       }
     }
     return null;
+  }
+
+  /** True while the strategy's forward tower is still missing and the opening army exists. */
+  private wantsForwardPost(base: BuildingEntity, ownTowers: BuildingEntity[], attackers: number): boolean {
+    return this.strategy.forwardTowerDistance > 0 && attackers >= 2
+      && this.simulation.stats.snapshot()[this.team].troopsProduced >= this.openingArmy
+      && !ownTowers.some((tower) => this.isForward(base, tower));
+  }
+
+  private isForward(base: BuildingEntity, building: BuildingEntity): boolean {
+    return Math.hypot(building.x - base.x, building.y - base.y) > 20;
+  }
+
+  /** Point at the configured distance from the base, on the line towards the enemy. */
+  private forwardPoint(base: BuildingEntity, distance: number): Point {
+    const enemy = this.memory.enemyBaseLocation ?? (this.team === 'red' ? [24, 100] : [175, 100]);
+    const length = Math.hypot(enemy[0] - base.x, enemy[1] - base.y) || 1;
+    return [Math.round(base.x + (enemy[0] - base.x) / length * distance),
+      Math.round(base.y + (enemy[1] - base.y) / length * distance)];
+  }
+
+  /** The first tower goes forward when the strategy asks for it; others stay home. */
+  private findTowerSpot(base: BuildingEntity, ownTowers: BuildingEntity[]): Point | null {
+    const { width, height } = BALANCE.buildings.tower;
+    const distance = this.strategy.forwardTowerDistance;
+    if (distance > 0 && !ownTowers.some((tower) => this.isForward(base, tower))) {
+      const [px, py] = this.forwardPoint(base, distance);
+      for (let r = 0; r <= 8; r += 1) {
+        for (let dy = -r; dy <= r; dy += 1) {
+          for (let dx = -r; dx <= r; dx += 1) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+            if (this.canPlace(px + dx, py + dy, width, height)) return [px + dx, py + dy];
+          }
+        }
+      }
+    }
+    return this.findPlacementSpot(base, width, height);
+  }
+
+  private canPlace(x: number, y: number, width: number, height: number): boolean {
+    for (let cy = y; cy < y + height; cy += 1) {
+      for (let cx = x; cx < x + width; cx += 1) {
+        if (!this.simulation.map.contains(cx, cy) || this.simulation.fog.stateAt(this.team, cx, cy) === 'unknown') return false;
+      }
+    }
+    return this.simulation.entities.isAreaFreeForBuilding(x, y, width, height);
+  }
+
+  /** A staggered, gapped line in front of the forward tower slows attackers while units still pass. */
+  private buildForwardScreen(
+    base: BuildingEntity, ownTowers: BuildingEntity[], built: number,
+    builders: UnitEntity[], currentTick: number, militaryIntent: AIIntent | null,
+  ): boolean {
+    if (built >= this.strategy.forwardBarricades) return false;
+    const tower = ownTowers.find((t) => !t.underConstruction && this.isForward(base, t));
+    const config = BALANCE.buildings.barricade;
+    const stock = this.simulation.teams[this.team];
+    if (!tower || stock.wood < config.wood || stock.stone < config.stone) return false;
+    const builder = this.findFreeBuilder(builders, currentTick);
+    if (!builder) return false;
+    const direction = this.team === 'red' ? -1 : 1;
+    const front = direction === 1 ? tower.x + tower.width + 2 : tower.x - 3;
+    for (const dy of [0, 2, -2, 4, -4, 6, -6, 8, -8]) {
+      const x = front + (Math.abs(dy) % 4 === 2 ? direction : 0);
+      const y = tower.y + dy;
+      if (!this.canPlace(x, y, 1, 1) || !this.simulation.map.isPassable(x, y)) continue;
+      if (this.simulation.issueCommand({
+        type: 'build', team: this.team, builderId: builder.id, buildingKind: 'barricade', position: [x, y],
+      }).accepted) {
+        this.setDecision(militaryIntent ?? 'BuildBarricade', 56, 'Screen the Forward Watch Tower',
+          `Builder ${builder.id} constructing barricade at (${x}, ${y})`);
+        return true;
+      }
+    }
+    return false;
   }
 
   private findBarricadePlacementSpot(base: BuildingEntity): Point | null {
