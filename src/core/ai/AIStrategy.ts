@@ -38,6 +38,11 @@ export interface AIStrategy {
   trainScout: boolean;
   /** With smart defense, extra intruders tolerated beyond the home defenders before recalling the raid. */
   recallMargin: number;
+  /**
+   * With this many fighters alive, and no attack under way, save for the first
+   * watch tower: house, then builder, then tower (0 = never save).
+   */
+  defenseAfterTroops: number;
 }
 
 /** The behaviour before strategies existed. Kept as the fixed opponent for duels and training. */
@@ -63,6 +68,7 @@ export const LEGACY_STRATEGY: Readonly<AIStrategy> = Object.freeze({
   shieldShare: 0.5,
   trainScout: true,
   recallMargin: 0,
+  defenseAfterTroops: 0,
 });
 
 /** Strategy used in the game. Values were chosen with duels against LEGACY_STRATEGY. */
@@ -74,5 +80,6 @@ export const DEFAULT_STRATEGY: Readonly<AIStrategy> = Object.freeze({
   smartDefense: true,
   earlyWarningDistance: 60,
   forwardTowerDistance: 35,
+  defenseAfterTroops: 3,
   forwardBarricades: 4,
 });

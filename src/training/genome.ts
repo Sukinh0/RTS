@@ -29,6 +29,7 @@ export const GENES: readonly Gene[] = [
   { key: 'forwardTowerDistance', kind: 'int', min: 0, max: 65, step: 5 },
   { key: 'forwardBarricades', kind: 'int', min: 0, max: 8 },
   { key: 'forwardPostAfterTroops', kind: 'int', min: 0, max: 8 },
+  { key: 'defenseAfterTroops', kind: 'int', min: 0, max: 8 },
 ];
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));

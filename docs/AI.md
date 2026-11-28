@@ -119,3 +119,16 @@ Os tamanhos de uma sessão salva valem até apagar o `estado.json`.
 **Limites:** só os parâmetros listados são aprendidos; o mapa é sempre o mesmo; ser a
 melhor contra outras IAs não garante dificuldade contra uma pessoa; uma campeã que fixa
 `openingArmy` ou `route` varia menos de uma seed para outra.
+
+## Guardar para a primeira torre (`defenseAfterTroops`)
+
+Com essa quantidade de tropas de ataque vivas (padrão 3; 0 desliga), e sem ameaça perto
+da base, a IA reserva recursos na ordem casa → construtor → torre. Enquanto reserva, só
+treina tropas com o ouro que sobrar, não cria operários além de três, não faz um segundo
+quartel nem barricadas na base, e mantém coletores de madeira e pedra (sempre com pelo
+menos um minerador). Inimigos de combate a até 30 casas, ou o alerta antecipado,
+cancelam a reserva. Depois da primeira torre, o gasto volta ao normal.
+
+Motivo: soldados (100 de ouro) eram sempre comprados antes da casa e do construtor
+(150), e a torre quase nunca saía. Em 80 partidas espelhadas contra a IA antiga
+(seeds 5000+), a torre passou de 23 para 40 partidas; vitórias, de 46 para 44.
