@@ -102,3 +102,20 @@ test('right click orders movement and starts cooldown', async ({ page }) => {
   await page.mouse.click(nearby.x, nearby.y);
   await expect(page.locator('#inspect')).toContainText('fog visible');
 });
+
+test('a hurried click on the unit body still selects, and a shaky right click still orders', async ({ page }) => {
+  await page.goto('/?debug=1&noai=1');
+  await expect(page.locator('#game')).toHaveAttribute('data-ready', 'true');
+  const worker = await screenCell(page, 25, 99);
+  const above = await screenCell(page, 25, 98);
+  // Upper part of the sprite, one cell above the feet.
+  await page.mouse.click(worker.x, worker.y - (worker.y - above.y) * 0.65);
+  await expect(page.locator('#game')).toHaveAttribute('data-selected-ids', 'blue-worker-1');
+
+  const destination = await screenCell(page, 30, 99);
+  await page.mouse.move(destination.x, destination.y);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(destination.x + 6, destination.y + 4);
+  await page.mouse.up({ button: 'right' });
+  await expect(page.locator('#command-feedback')).toContainText('1 ordem(ns)');
+});

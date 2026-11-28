@@ -5,7 +5,7 @@ import { Simulation } from '../core/game/Simulation';
 import { dispatchGroupMove, dispatchGroupAttackMove } from '../core/commands/dispatchGroupMove';
 import { dispatchGroupAttack } from '../core/commands/dispatchGroupAttack';
 import type { CommandResult } from '../core/commands/MoveCommand';
-import type { BuildingEntity, BuildingKind, UnitEntity, UnitKind } from '../core/entities/EntityStore';
+import type { BuildingEntity, BuildingKind, GameEntity, UnitEntity, UnitKind } from '../core/entities/EntityStore';
 import type { MovementEvent } from '../core/systems/MovementSystem';
 import { TICKS_PER_SECOND } from '../config/runtime';
 import { SelectionModel } from '../input/SelectionModel';
@@ -17,6 +17,7 @@ import { BarricadeTopology } from './BarricadeTopology';
 import { registerBarricadeTextures } from './BarricadeVisuals';
 import { TooltipManager } from './TooltipManager';
 import { resolveMatchSeed } from './matchSeed';
+import { CLICK_SLOP, pickEntity } from './pointerPicking';
 import { readChampion, TRAINED_AI_KEY, wantsFabio, wantsTrainedAI } from './trainedAI';
 import {
   assignFormationSlots,
@@ -215,6 +216,11 @@ export class MapScene extends Phaser.Scene {
 
   constructor() {
     super('Map');
+  }
+
+  private pickAt(worldX: number, worldY: number, accepts: (entity: GameEntity) => boolean): GameEntity | undefined {
+    return pickEntity(worldX, worldY, this.simulation.entities.all().filter(accepts),
+      (entity) => (entity.category === 'unit' ? this.displayPositions.get(entity.id) ?? entity : entity));
   }
 
   /** `?ia=treinada`: the opponent plays the champion saved by the local training. */
@@ -587,7 +593,8 @@ export class MapScene extends Phaser.Scene {
       }
 
       if (!pointer.isDown || !this.dragStart || !this.lastPointer) return;
-      if (Math.hypot(pointer.x - this.dragStart.x, pointer.y - this.dragStart.y) > 4) this.dragged = true;
+      const slop = CLICK_SLOP[this.dragMode ?? 'select'];
+      if (Math.hypot(pointer.x - this.dragStart.x, pointer.y - this.dragStart.y) > slop) this.dragged = true;
       if (this.dragged && this.dragMode === 'pan') {
         this.cameras.main.scrollX -= (pointer.x - this.lastPointer.x) / this.cameras.main.zoom;
         this.cameras.main.scrollY -= (pointer.y - this.lastPointer.y) / this.cameras.main.zoom;
@@ -763,7 +770,9 @@ export class MapScene extends Phaser.Scene {
             Math.floor(world.x / CELL_SIZE), Math.floor(world.y / CELL_SIZE), shift,
           );
         } else {
-          this.selection.selectAt(Math.floor(world.x / CELL_SIZE), Math.floor(world.y / CELL_SIZE), shift);
+          const picked = this.pickAt(world.x, world.y, (entity) => entity.team === 'blue');
+          this.selection.selectAt(picked?.x ?? Math.floor(world.x / CELL_SIZE),
+            picked?.y ?? Math.floor(world.y / CELL_SIZE), shift);
           if (this.debug) this.inspect(pointer);
         }
         this.soundSystem.play('click');
@@ -771,10 +780,15 @@ export class MapScene extends Phaser.Scene {
       } else if (this.dragMode === 'pan' && !this.dragged && pointer.button === 2) {
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
         const destination: [number, number] = [Math.floor(world.x / CELL_SIZE), Math.floor(world.y / CELL_SIZE)];
-        const clickedEntity = this.simulation.entities.atCell(destination[0], destination[1]);
+        // Only an enemy or a repair target reacts to its drawn body; other clicks stay ground orders.
+        const canRepair = this.selection.selectedEntities.some((e) => e.kind === 'builder');
+        const clickedEntity = this.simulation.entities.atCell(destination[0], destination[1])
+          ?? this.pickAt(world.x, world.y, (e) => (e.team !== 'blue' && this.visualFog.isEntityVisible(e))
+            || (canRepair && e.category === 'building' && e.team === 'blue' && e.hp < e.maxHp));
         const isEnemyVisible = clickedEntity && clickedEntity.team !== 'blue' && this.visualFog.isEntityVisible(clickedEntity);
         if (isEnemyVisible && clickedEntity) {
-          const results = dispatchGroupAttack(this.simulation, 'blue', this.selection.selectedIds, clickedEntity.id);
+          const results = dispatchGroupAttack(this.simulation, 'blue', this.selection.selectedIds, clickedEntity.id,
+            { queueOnCooldown: true });
           const accepted = results.filter((item) => item.result.accepted).length;
           if (accepted > 0) {
             this.soundSystem.play('order');
