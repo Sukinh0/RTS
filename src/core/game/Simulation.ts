@@ -16,7 +16,8 @@ import { CombatSystem } from '../systems/CombatSystem';
 import { MarchEngagementSystem, findBlockingEnemyStructure } from '../systems/MarchEngagementSystem';
 import { FormationController } from '../formations/FormationController';
 import { DEFAULT_STRATEGY, type AIStrategy } from '../ai/AIStrategy';
-import { AIController } from '../ai/AIController';
+import { AIController, type TeamController } from '../ai/AIController';
+import { FabioController } from '../ai/FabioController';
 import type { Team } from '../../map/MapGrid';
 import { MatchStats, type MatchStatsSnapshot } from './MatchStats';
 
@@ -62,7 +63,7 @@ export class Simulation {
   readonly production = new ProductionSystem(this.entities, this.teams, this.fog);
   readonly combat: CombatSystem;
   readonly engagements = new MarchEngagementSystem(this);
-  readonly aiControllers = new Map<Team, AIController>();
+  readonly aiControllers = new Map<Team, TeamController>();
   readonly stats = new MatchStats();
   result: GameResult | null = null;
 
@@ -112,11 +113,24 @@ export class Simulation {
   }
 
   get redAI(): AIController | undefined {
-    return this.aiControllers.get('red');
+    return this.strategyAI('red');
   }
 
   get blueAI(): AIController | undefined {
-    return this.aiControllers.get('blue');
+    return this.strategyAI('blue');
+  }
+
+  private strategyAI(team: Team): AIController | undefined {
+    const controller = this.aiControllers.get(team);
+    return controller instanceof AIController ? controller : undefined;
+  }
+
+  /** The scripted opponent that plays like Fabio. */
+  enableFabio(team: Team = 'red', intervalTicks?: number): FabioController {
+    const controller = new FabioController(this, team, intervalTicks);
+    this.aiControllers.set(team, controller);
+    if (this.diagnostics.enabled) this.diagnostics.watch(controller, 'update', 'ai');
+    return controller;
   }
 
   enableAI(

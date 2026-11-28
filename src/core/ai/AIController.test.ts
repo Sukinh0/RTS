@@ -256,7 +256,7 @@ describe('Fase 8 IA', () => {
       const simulation = new Simulation(seed, true);
       for (const team of order) simulation.enableAI(team);
       return (['blue', 'red'] as const).map((team) => {
-        const ai = simulation.aiControllers.get(team)!;
+        const ai = (team === 'blue' ? simulation.blueAI : simulation.redAI)!;
         return `${ai.openingArmy}:${ai.assaultWaypoint?.join(',') ?? 'direct'}`;
       }).join('|');
     };

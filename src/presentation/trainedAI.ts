@@ -9,6 +9,12 @@ export const wantsTrainedAI = (search: string): boolean => {
   return params.get('ia') === 'treinada' && !params.has('noai');
 };
 
+/** `?ia=fabio`: the scripted opponent built from the player's own habits. */
+export const wantsFabio = (search: string): boolean => {
+  const params = new URLSearchParams(search);
+  return params.get('ia') === 'fabio' && !params.has('noai');
+};
+
 export interface Champion { version: number; generation: number; strategy: AIStrategy }
 
 /** A missing file may come back as the page's own HTML, so anything unreadable means "no champion". */

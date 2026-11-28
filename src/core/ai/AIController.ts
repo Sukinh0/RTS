@@ -39,6 +39,14 @@ export interface AIDebugState {
   chosenAction: string;
 }
 
+/** What the simulation needs from whoever plays a team automatically. */
+export interface TeamController {
+  readonly team: Team;
+  readonly memory: AIMemory;
+  update(currentTick: number): void;
+  getDebugState(): AIDebugState;
+}
+
 /** Deterministic integer in [0, options) for one strategic choice of one team. */
 function seededChoice(seed: number, team: Team, salt: number, options: number): number {
   let hash = Math.imul((seed | 0) ^ (team === 'blue' ? 0x1f123bb5 : 0x5f356495), 0x2c1b3c6d) + salt;
@@ -52,7 +60,7 @@ const THREAT_RADIUS = 30;
 
 interface DefensePlan { goal: 'house' | 'builder' | 'tower'; coins: number; wood: number; stone: number }
 
-export class AIController {
+export class AIController implements TeamController {
   readonly memory: AIMemory;
   private lastDecisionTick = -999;
   private readonly openingForward: number;

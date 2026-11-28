@@ -17,7 +17,7 @@ import { BarricadeTopology } from './BarricadeTopology';
 import { registerBarricadeTextures } from './BarricadeVisuals';
 import { TooltipManager } from './TooltipManager';
 import { resolveMatchSeed } from './matchSeed';
-import { readChampion, TRAINED_AI_KEY, wantsTrainedAI } from './trainedAI';
+import { readChampion, TRAINED_AI_KEY, wantsFabio, wantsTrainedAI } from './trainedAI';
 import {
   assignFormationSlots,
   getMarchDirection,
@@ -136,9 +136,10 @@ export class MapScene extends Phaser.Scene {
   // All DOM controls are scoped to this scene instance and removed on shutdown.
   private readonly domListeners = new AbortController();
   private readonly trainedAI = wantsTrainedAI(window.location.search);
+  private readonly fabio = wantsFabio(window.location.search);
   private readonly simulation = new Simulation(
     resolveMatchSeed(window.location.search),
-    !this.trainedAI && !new URLSearchParams(window.location.search).has('noai'),
+    !this.trainedAI && !this.fabio && !new URLSearchParams(window.location.search).has('noai'),
   );
   private readonly map = this.simulation.map;
   private readonly selection = new SelectionModel(this.simulation.entities, 'blue');
@@ -220,11 +221,20 @@ export class MapScene extends Phaser.Scene {
   private enableTrainedAI(): void {
     const champion = readChampion(this.cache.text.get(TRAINED_AI_KEY));
     this.simulation.enableAI('red', champion?.strategy);
+    this.showOpponentBadge(champion
+      ? `Adversário: IA campeã do treino (versão ${champion.version}, geração ${champion.generation})`
+      : 'Campeã não encontrada: rode o treino primeiro. Jogando contra a IA padrão.');
+  }
+
+  private enableFabio(): void {
+    this.simulation.enableFabio('red');
+    this.showOpponentBadge('Adversário: "Fabio" (joga como você descreveu)');
+  }
+
+  private showOpponentBadge(text: string): void {
     const badge = document.createElement('div');
     badge.id = 'trained-ai-badge';
-    badge.textContent = champion
-      ? `Adversário: IA campeã do treino (versão ${champion.version}, geração ${champion.generation})`
-      : 'Campeã não encontrada: rode o treino primeiro. Jogando contra a IA padrão.';
+    badge.textContent = text;
     badge.style.cssText = 'position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:50;pointer-events:none;'
       + 'padding:3px 10px;border-radius:4px;background:#000b;color:#fff;font:12px sans-serif';
     document.body.append(badge);
@@ -239,6 +249,7 @@ export class MapScene extends Phaser.Scene {
   create(): void {
     this.events.once('shutdown', () => this.domListeners.abort());
     if (this.trainedAI) this.enableTrainedAI();
+    if (this.fabio) this.enableFabio();
     if (new URLSearchParams(window.location.search).has('perf')) this.events.once('create', () => this.installDiagnostics());
     const worldWidth = this.map.width * CELL_SIZE;
     const worldHeight = this.map.height * CELL_SIZE;
