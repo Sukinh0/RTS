@@ -5,7 +5,7 @@ import { Simulation } from '../core/game/Simulation';
 import { dispatchGroupMove, dispatchGroupAttackMove } from '../core/commands/dispatchGroupMove';
 import { dispatchGroupAttack } from '../core/commands/dispatchGroupAttack';
 import type { CommandResult } from '../core/commands/MoveCommand';
-import type { BuildingEntity, BuildingKind, UnitEntity, UnitKind } from '../core/entities/EntityStore';
+import type { BuildingEntity, BuildingKind, GameEntity, UnitEntity, UnitKind } from '../core/entities/EntityStore';
 import type { MovementEvent } from '../core/systems/MovementSystem';
 import { TICKS_PER_SECOND } from '../config/runtime';
 import { SelectionModel } from '../input/SelectionModel';
@@ -17,6 +17,8 @@ import { BarricadeTopology } from './BarricadeTopology';
 import { registerBarricadeTextures } from './BarricadeVisuals';
 import { TooltipManager } from './TooltipManager';
 import { resolveMatchSeed } from './matchSeed';
+import { CLICK_SLOP, pickEntity } from './pointerPicking';
+import { readChampion, TRAINED_AI_KEY, wantsFabio, wantsTrainedAI } from './trainedAI';
 import {
   assignFormationSlots,
   getMarchDirection,
@@ -134,7 +136,12 @@ interface WorldEffect {
 export class MapScene extends Phaser.Scene {
   // All DOM controls are scoped to this scene instance and removed on shutdown.
   private readonly domListeners = new AbortController();
-  private readonly simulation = new Simulation(resolveMatchSeed(window.location.search), !new URLSearchParams(window.location.search).has('noai'));
+  private readonly trainedAI = wantsTrainedAI(window.location.search);
+  private readonly fabio = wantsFabio(window.location.search);
+  private readonly simulation = new Simulation(
+    resolveMatchSeed(window.location.search),
+    !this.trainedAI && !this.fabio && !new URLSearchParams(window.location.search).has('noai'),
+  );
   private readonly map = this.simulation.map;
   private readonly selection = new SelectionModel(this.simulation.entities, 'blue');
   private readonly visualFog = new VisualFog(this.map, this.simulation.entities, 'blue');
@@ -211,12 +218,44 @@ export class MapScene extends Phaser.Scene {
     super('Map');
   }
 
+  private pickAt(worldX: number, worldY: number, accepts: (entity: GameEntity) => boolean): GameEntity | undefined {
+    return pickEntity(worldX, worldY, this.simulation.entities.all().filter(accepts),
+      (entity) => (entity.category === 'unit' ? this.displayPositions.get(entity.id) ?? entity : entity));
+  }
+
+  /** `?ia=treinada`: the opponent plays the champion saved by the local training. */
+  private enableTrainedAI(): void {
+    const champion = readChampion(this.cache.text.get(TRAINED_AI_KEY));
+    this.simulation.enableAI('red', champion?.strategy);
+    this.showOpponentBadge(champion
+      ? `Adversário: IA campeã do treino (versão ${champion.version}, geração ${champion.generation})`
+      : 'Campeã não encontrada: rode o treino primeiro. Jogando contra a IA padrão.');
+  }
+
+  private enableFabio(): void {
+    this.simulation.enableFabio('red');
+    this.showOpponentBadge('Adversário: "Fabio" (joga como você descreveu)');
+  }
+
+  private showOpponentBadge(text: string): void {
+    const badge = document.createElement('div');
+    badge.id = 'trained-ai-badge';
+    badge.textContent = text;
+    badge.style.cssText = 'position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:50;pointer-events:none;'
+      + 'padding:3px 10px;border-radius:4px;background:#000b;color:#fff;font:12px sans-serif';
+    document.body.append(badge);
+    this.events.once('shutdown', () => badge.remove());
+  }
+
   preload(): void {
     preloadTinySwords(this);
+    if (this.trainedAI) this.load.text(TRAINED_AI_KEY, `${import.meta.env.BASE_URL}${TRAINED_AI_KEY}.json`);
   }
 
   create(): void {
     this.events.once('shutdown', () => this.domListeners.abort());
+    if (this.trainedAI) this.enableTrainedAI();
+    if (this.fabio) this.enableFabio();
     if (new URLSearchParams(window.location.search).has('perf')) this.events.once('create', () => this.installDiagnostics());
     const worldWidth = this.map.width * CELL_SIZE;
     const worldHeight = this.map.height * CELL_SIZE;
@@ -554,7 +593,8 @@ export class MapScene extends Phaser.Scene {
       }
 
       if (!pointer.isDown || !this.dragStart || !this.lastPointer) return;
-      if (Math.hypot(pointer.x - this.dragStart.x, pointer.y - this.dragStart.y) > 4) this.dragged = true;
+      const slop = CLICK_SLOP[this.dragMode ?? 'select'];
+      if (Math.hypot(pointer.x - this.dragStart.x, pointer.y - this.dragStart.y) > slop) this.dragged = true;
       if (this.dragged && this.dragMode === 'pan') {
         this.cameras.main.scrollX -= (pointer.x - this.lastPointer.x) / this.cameras.main.zoom;
         this.cameras.main.scrollY -= (pointer.y - this.lastPointer.y) / this.cameras.main.zoom;
@@ -730,7 +770,9 @@ export class MapScene extends Phaser.Scene {
             Math.floor(world.x / CELL_SIZE), Math.floor(world.y / CELL_SIZE), shift,
           );
         } else {
-          this.selection.selectAt(Math.floor(world.x / CELL_SIZE), Math.floor(world.y / CELL_SIZE), shift);
+          const picked = this.pickAt(world.x, world.y, (entity) => entity.team === 'blue');
+          this.selection.selectAt(picked?.x ?? Math.floor(world.x / CELL_SIZE),
+            picked?.y ?? Math.floor(world.y / CELL_SIZE), shift);
           if (this.debug) this.inspect(pointer);
         }
         this.soundSystem.play('click');
@@ -738,10 +780,15 @@ export class MapScene extends Phaser.Scene {
       } else if (this.dragMode === 'pan' && !this.dragged && pointer.button === 2) {
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
         const destination: [number, number] = [Math.floor(world.x / CELL_SIZE), Math.floor(world.y / CELL_SIZE)];
-        const clickedEntity = this.simulation.entities.atCell(destination[0], destination[1]);
+        // Only an enemy or a repair target reacts to its drawn body; other clicks stay ground orders.
+        const canRepair = this.selection.selectedEntities.some((e) => e.kind === 'builder');
+        const clickedEntity = this.simulation.entities.atCell(destination[0], destination[1])
+          ?? this.pickAt(world.x, world.y, (e) => (e.team !== 'blue' && this.visualFog.isEntityVisible(e))
+            || (canRepair && e.category === 'building' && e.team === 'blue' && e.hp < e.maxHp));
         const isEnemyVisible = clickedEntity && clickedEntity.team !== 'blue' && this.visualFog.isEntityVisible(clickedEntity);
         if (isEnemyVisible && clickedEntity) {
-          const results = dispatchGroupAttack(this.simulation, 'blue', this.selection.selectedIds, clickedEntity.id);
+          const results = dispatchGroupAttack(this.simulation, 'blue', this.selection.selectedIds, clickedEntity.id,
+            { queueOnCooldown: true });
           const accepted = results.filter((item) => item.result.accepted).length;
           if (accepted > 0) {
             this.soundSystem.play('order');

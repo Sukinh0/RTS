@@ -57,7 +57,7 @@ export const WORLD_LAYER_DEPTHS = {
 } as const;
 
 /**
- * Audited against alpha bounds of the pack's 192 px animation frames.
+ * Audited against alpha bounds of the pack's animation frames (192 px unless a sheet says otherwise).
  * The soldier's ~89 px opaque idle silhouette is the 1.0 visual reference.
  */
 export const UNIT_VISUALS: Record<UnitKind, UnitVisualDefinition> = {
@@ -96,11 +96,12 @@ export const UNIT_VISUALS: Record<UnitKind, UnitVisualDefinition> = {
     attack: { file: 'Warrior_Attack2', frames: 4 },
   } },
   // Foot scout: the Lancer's spear creates a distinct exploration silhouette without implying magic or a mount.
-  scout: { family: 'Lancer', frameDisplaySize: 46, visibleWidth: 16.5, visibleHeight: 34.5, originY: 1, states: {
-    idle: { file: 'Lancer_Idle', frames: 20 },
-    move: { file: 'Lancer_Run', frames: 10 },
-    attack: { file: 'Lancer_Down_Attack', frames: 5 },
-    guard: { file: 'Lancer_Down_Defence', frames: 10 },
+  // Unlike the other units, its sheets use 320 px frames, with the feet at y=198.
+  scout: { family: 'Lancer', frameDisplaySize: 74, visibleWidth: 16.5, visibleHeight: 34.5, originY: 0.619, states: {
+    idle: { file: 'Lancer_Idle', frames: 12, frameSize: 320 },
+    move: { file: 'Lancer_Run', frames: 6, frameSize: 320 },
+    attack: { file: 'Lancer_Down_Attack', frames: 3, frameSize: 320 },
+    guard: { file: 'Lancer_Down_Defence', frames: 6, frameSize: 320 },
   } },
 };
 

@@ -87,3 +87,54 @@ describe('AI strategy capabilities', () => {
     expect(simulation.redAI!.strategy).toEqual(DEFAULT_STRATEGY);
   });
 });
+
+describe('saving for the first watch tower', () => {
+  /** A red base with barracks, plenty of idle gold below the house price, and an army of `soldiers`. */
+  function army(defenseAfterTroops: number, soldiers: number, coins: number): Simulation {
+    const simulation = match({ defenseAfterTroops, openingArmy: 6, trainScout: false });
+    simulation.entities.createBuilding('red', 'barracks', 170, 106);
+    for (let i = 0; i < soldiers; i += 1) simulation.entities.spawnUnit('red', 'soldier', 172, 94 + i * 2);
+    Object.assign(simulation.teams.red, { coins, wood: 0, stone: 0 });
+    simulation.fog.update();
+    return simulation;
+  }
+  const ordered = (simulation: Simulation) => simulation.production.getCapacity('red').militaryQueued;
+
+  it('stops buying soldiers while the gold is needed for the house', () => {
+    const before = army(0, 3, 140);
+    advance(before, 2);
+    expect(ordered(before)).toBeGreaterThan(0);
+    const saving = army(3, 3, 140);
+    advance(saving, 2);
+    expect(ordered(saving)).toBe(0);
+  });
+
+  it('keeps buying soldiers while the army is below the threshold', () => {
+    const simulation = army(3, 2, 140);
+    advance(simulation, 2);
+    expect(ordered(simulation)).toBeGreaterThan(0);
+  });
+
+  it('spends on the army again when enemy fighters reach the base', () => {
+    const simulation = army(3, 3, 140);
+    for (const y of [96, 99]) simulation.entities.spawnUnit('blue', 'soldier', 164, y);
+    simulation.fog.update();
+    advance(simulation, 2);
+    expect(ordered(simulation)).toBeGreaterThan(0);
+  });
+
+  it('builds a tower in normal matches far more often than before', () => {
+    // Real matches, no spawned resources: the feature has to work end to end.
+    const towers = (defenseAfterTroops: number) => [1, 2, 3, 4, 5, 6].filter((seed) => {
+      const simulation = new Simulation(seed);
+      simulation.enableAI('blue', LEGACY_STRATEGY);
+      simulation.enableAI('red', { ...DEFAULT_STRATEGY, defenseAfterTroops });
+      for (let second = 0; second < 1200 && !simulation.result; second += 1) {
+        advance(simulation, 1);
+        if (simulation.entities.all().some((e) => e.team === 'red' && e.kind === 'tower')) return true;
+      }
+      return false;
+    }).length;
+    expect(towers(DEFAULT_STRATEGY.defenseAfterTroops)).toBeGreaterThan(towers(0));
+  }, 120_000);
+});

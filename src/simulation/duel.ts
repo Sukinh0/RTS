@@ -1,5 +1,5 @@
-import { Simulation } from '../core/game/Simulation';
 import { DEFAULT_STRATEGY, LEGACY_STRATEGY, type AIStrategy } from '../core/ai/AIStrategy';
+import { playMatch } from '../training/match';
 import type { Team } from '../map/MapGrid';
 
 export interface DuelReport {
@@ -24,20 +24,11 @@ export function runDuel(
   const durations: number[] = [];
   for (const seed of seeds) {
     for (const side of ['blue', 'red'] as const) {
-      const simulation = new Simulation(seed);
-      for (const team of ['blue', 'red'] as const) simulation.enableAI(team, team === side ? challenger : opponent);
-      let second = 0;
-      for (; second < maxSeconds && !simulation.result; second += 1) {
-        simulation.advance(1000);
-        simulation.movement.drainEvents();
-        simulation.movement.drainFailures();
-        simulation.map.drainDirtyCells();
-        simulation.combat.drainEvents();
-      }
-      if (!simulation.result) draws += 1;
+      const { result, seconds } = playMatch({ challenger, opponent, seed, side, maxSeconds, variation: false });
+      if (result === 'draw') draws += 1;
       else {
-        durations.push(second);
-        if (simulation.result.winner === side) {
+        durations.push(seconds);
+        if (result === 'win') {
           wins += 1;
           winsBySide[side] += 1;
         } else losses += 1;

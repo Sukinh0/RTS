@@ -51,6 +51,9 @@ describe('Tiny Swords unit visual readability', () => {
     expect(UNIT_VISUALS.scout.family).toBe('Lancer');
     expect(UNIT_VISUALS.scout.states.idle?.file).toBe('Lancer_Idle');
     expect(UNIT_VISUALS.scout.states.move?.file).toBe('Lancer_Run');
+    // 192 px slicing of these 320 px sheets cut the sprite apart and made it flicker.
+    expect(Object.values(UNIT_VISUALS.scout.states).map((sheet) => [sheet.frameSize, sheet.frames]))
+      .toEqual([[320, 12], [320, 6], [320, 3], [320, 6]]);
     expect(Object.values(UNIT_VISUALS.scout.states).some((sheet) => sheet.file.startsWith('Heal'))).toBe(false);
   });
 });

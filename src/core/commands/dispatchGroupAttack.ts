@@ -58,12 +58,26 @@ export function findReachableAttackCell(
   return candidates[0].cell;
 }
 
-/** Assigns attack orders to a group: units in range attack, units out of range move into attack range. */
+/** Drops whatever the unit was doing before it takes a queued order. */
+function interrupt(simulation: Simulation, unit: UnitEntity): void {
+  unit.attackMoveTarget = null;
+  simulation.formations.removeUnit(unit.id);
+  simulation.engagements.cancel(unit.id);
+  simulation.economy.cancel(unit.id);
+  simulation.construction.cancel(unit.id);
+}
+
+/**
+ * Assigns attack orders to a group: units in range attack, units out of range move into attack range.
+ * With `queueOnCooldown` (player clicks) an order given during the cooldown is kept instead of
+ * dropped; the blow itself still waits for the cooldown to end.
+ */
 export function dispatchGroupAttack(
   simulation: Simulation,
   team: Team,
   unitIds: readonly string[],
   targetId: string,
+  { queueOnCooldown = false }: { queueOnCooldown?: boolean } = {},
 ): GroupAttackResult[] {
   const target = simulation.entities.get(targetId);
   if (!target) {
@@ -96,7 +110,13 @@ export function dispatchGroupAttack(
 
     const dist = simulation.combat.distance(unit, target);
     if (dist <= unit.range) {
-      const result = simulation.issueCommand({ type: 'attack', team, unitId, targetId });
+      let result = simulation.issueCommand({ type: 'attack', team, unitId, targetId });
+      if (queueOnCooldown && !result.accepted && result.reason === 'cooldown') {
+        interrupt(simulation, unit);
+        simulation.movement.cancel(unitId);
+        simulation.combat.setManualTarget(unitId, targetId);
+        result = { accepted: true };
+      }
       results.push({ unitId, result });
     } else {
       if (unit.moveTarget !== null && simulation.combat.manualTargetFor(unitId) === targetId) {
@@ -108,7 +128,14 @@ export function dispatchGroupAttack(
         results.push({ unitId, result: { accepted: false, reason: 'no-path' } });
         continue;
       }
-      const moveRes = simulation.issueCommand({ type: 'move', team, unitId, destination: targetCell });
+      let moveRes = simulation.issueCommand({ type: 'move', team, unitId, destination: targetCell });
+      if (queueOnCooldown && !moveRes.accepted && moveRes.reason === 'cooldown'
+        && simulation.movement.hasStaticPath(unit, targetCell)) {
+        // The same queued march a ground order gets during the cooldown.
+        interrupt(simulation, unit);
+        unit.moveTarget = targetCell;
+        moveRes = { accepted: true };
+      }
       if (moveRes.accepted) {
         reserved.add(`${targetCell[0]},${targetCell[1]}`);
         simulation.combat.setManualTarget(unitId, targetId);

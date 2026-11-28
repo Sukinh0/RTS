@@ -1,0 +1,29 @@
+TREINO DA IA DO RTS
+
+1. TREINAR.bat
+   Dois cliques, escolha quantas horas e deixe rodando. O relatorio abre sozinho
+   e se atualiza (se nao abrir: resultados\relatorio.html).
+   - Deixe o computador ligado, sem suspender.
+   - Pode fechar quando quiser. O progresso e salvo a cada geracao; so a
+     geracao em andamento se perde. Abrir de novo continua de onde parou.
+   - Para recomecar do zero, apague a pasta resultados.
+   - O treino usa quase todos os nucleos do processador.
+
+2. JOGAR_CONTRA_CAMPEA.bat
+   Abre o jogo com voce (azul) contra a campea do treino (vermelho).
+
+3. JOGAR_CONTRA_FABIO.bat
+   Voce (azul) contra o "Fabio" (vermelho), um adversario que joga como o
+   questionario descreveu. Serve para dizer se ele parece com voce.
+   Obs.: no lado vermelho o mapa atrasa a descoberta de ouro e madeira.
+
+COMO O TREINO FUNCIONA
+   Cada geracao cria varias versoes da IA, que jogam dos dois lados do mapa.
+   Pontos: vitoria 1, empate 0,1, derrota 0.
+   30% da nota vem do lado (azul ou vermelho) em que ela se sai pior. As melhores geram a proxima.
+   Uma versao so vira campea se vencer a campea anterior em partidas novas
+   sem piorar contra as IAs fixas.
+
+O QUE OLHAR NO RELATORIO
+   O grafico mede a campea sempre nas mesmas partidas, que o treino nunca usa.
+   Linha subindo = evolucao de verdade.

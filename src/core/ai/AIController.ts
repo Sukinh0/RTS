@@ -39,6 +39,14 @@ export interface AIDebugState {
   chosenAction: string;
 }
 
+/** What the simulation needs from whoever plays a team automatically. */
+export interface TeamController {
+  readonly team: Team;
+  readonly memory: AIMemory;
+  update(currentTick: number): void;
+  getDebugState(): AIDebugState;
+}
+
 /** Deterministic integer in [0, options) for one strategic choice of one team. */
 function seededChoice(seed: number, team: Team, salt: number, options: number): number {
   let hash = Math.imul((seed | 0) ^ (team === 'blue' ? 0x1f123bb5 : 0x5f356495), 0x2c1b3c6d) + salt;
@@ -47,7 +55,12 @@ function seededChoice(seed: number, team: Team, salt: number, options: number): 
   return ((hash ^ (hash >>> 16)) >>> 0) % options;
 }
 
-export class AIController {
+/** Enemy fighters this close to the base cancel any saving. */
+const THREAT_RADIUS = 30;
+
+interface DefensePlan { goal: 'house' | 'builder' | 'tower'; coins: number; wood: number; stone: number }
+
+export class AIController implements TeamController {
   readonly memory: AIMemory;
   private lastDecisionTick = -999;
   private readonly openingForward: number;
@@ -80,6 +93,7 @@ export class AIController {
     readonly team: Team,
     readonly strategy: Readonly<AIStrategy> = DEFAULT_STRATEGY,
     readonly decisionIntervalTicks = 30,
+    private readonly startDelayTicks = 0,
   ) {
     this.memory = new AIMemory(team);
     this.openingForward = 24 + Math.floor(simulation.rng.next() * 5) - 2;
@@ -91,10 +105,11 @@ export class AIController {
     // Vary strategy fairly for both teams: 1 in 4 seeds assaults the
     // central objective directly; others stage a north/south flank.
     // Strategic variety avoids teaching every opponent the same route.
-    const directOpening = Math.abs(simulation.seed) % 4 === 0;
+    const directOpening = strategy.route === 'direct'
+      || (strategy.route === 'seed' && Math.abs(simulation.seed) % 4 === 0);
     // Per-seed, per-team variation. It is derived from the seed (not from the
     // shared RNG stream) so AI creation order cannot change either strategy.
-    this.openingArmy = 2 + seededChoice(simulation.seed, team, 1, 3);
+    this.openingArmy = strategy.openingArmy || 2 + seededChoice(simulation.seed, team, 1, 3);
     const stagingX = (team === 'blue' ? 89 : 110) + seededChoice(simulation.seed, team, 2, 17) - 8;
     const stagingY = (north ? 62 : 137) + seededChoice(simulation.seed, team, 3, 5) - 2;
     this.assaultWaypoint = directOpening ? null
@@ -118,7 +133,7 @@ export class AIController {
     this.memory.update(this.simulation.fog, this.simulation.entities, this.simulation.map, currentTick);
 
     // Periodic strategic decision cycle
-    if (currentTick - this.lastDecisionTick < this.decisionIntervalTicks) {
+    if (currentTick < this.startDelayTicks || currentTick - this.lastDecisionTick < this.decisionIntervalTicks) {
       return;
     }
     this.lastDecisionTick = currentTick;
@@ -153,10 +168,10 @@ export class AIController {
     if (hasDamagedStoneBuilding) return 30;
 
     const ownTowers = ownEntities.filter((e) => e.category === 'building' && e.kind === 'tower');
-    if (ownAttackers.length >= 2 && ownTowers.length < 2) return 100;
+    if (ownAttackers.length >= 2 && ownTowers.length < this.strategy.maxTowers) return 100;
 
     const ownBarricades = ownEntities.filter((e) => e.category === 'building' && e.kind === 'barricade');
-    if (ownBarricades.length < 2) return 15;
+    if (ownBarricades.length < this.strategy.homeBarricades) return 15;
 
     if (stats.troopsProduced >= 3) return 100;
     return 20;
@@ -193,7 +208,9 @@ export class AIController {
     // let the AI economy stall once the first attack wave had been traded.
     const wantsMoreMilitary = ownMilitary.length < 35;
     const hasUnderConstructionBarracks = ownBarracks.some((b) => b.underConstruction);
+    const plan = this.defensePlan(ownBase, ownAttackers, visibleEnemies, ownHouses, ownBuilders, ownTowers);
     const needsBarracks = ownBarracks.length === 0 || (
+      !plan &&
       hasOpeningTroop &&
       !hasUnderConstructionBarracks &&
       capacity.militaryUnits + capacity.militaryQueued >= capacity.militaryCapacity &&
@@ -203,7 +220,8 @@ export class AIController {
 
     // A slightly stronger economy gives the AI enough workers to replace
     // losses while still building its army instead of choosing one or the other.
-    const workerTarget = ownAttackers.length >= 6 ? 7 : ownAttackers.length >= 3 ? 6 : 4;
+    const { workersEarly, workersMid, workersLate } = this.strategy;
+    const workerTarget = ownAttackers.length >= 6 ? workersLate : ownAttackers.length >= 3 ? workersMid : workersEarly;
     const queuedWorkers = ownHouses.reduce((total, house) => total
       + this.simulation.production.queueFor(house.id).filter((item) => item.unitKind === 'worker').length, 0);
     const needsWorkers = ownWorkers.length + queuedWorkers < workerTarget;
@@ -220,7 +238,8 @@ export class AIController {
       && (troopsOrdered < this.openingArmy || ownWorkers.length >= 3);
     const holdOpeningHouse = ownHouses.length === 0 && ownBarracks.length > 0 && troopsOrdered < 2
       && stock.coins < houseConfig.coins + BALANCE.units.soldier.coins;
-    const wantsHouse = hasOpeningTroop && readyOrBuildingBarracks && !holdOpeningHouse && (!readyOrBuildingHouses || needsHouseForWorkers);
+    const wantsHouse = plan ? plan.goal === 'house'
+      : hasOpeningTroop && readyOrBuildingBarracks && !holdOpeningHouse && (!readyOrBuildingHouses || needsHouseForWorkers);
 
     this.desiredResources = {
       coins: needsBarracks ? barracksConfig.coins : wantsHouse ? houseConfig.coins : BALANCE.units.soldier.coins,
@@ -229,7 +248,8 @@ export class AIController {
     };
 
     // 1. Worker Economy Assignment across Gold, Wood, and Stone
-    this.assignIdleWorkers(ownWorkers, stock.wood, stock.stone);
+    this.assignIdleWorkers(ownWorkers, stock.wood, stock.stone, plan !== null);
+    if (plan) this.gatherForPlan(ownWorkers, plan);
 
     // 2. Exploration / Scouting
     if (!this.memory.enemyBaseLocation) {
@@ -345,7 +365,7 @@ export class AIController {
     const homeBarricades = ownBarricades.filter((b) => Math.hypot(b.x - ownBase.x, b.y - ownBase.y) <= 16);
     if (this.buildForwardScreen(ownBase, ownTowers, ownBarricades.length - homeBarricades.length,
       ownBuilders, currentTick, militaryIntent)) return;
-    const wantsBarricade = hasOpeningTroop && ownAttackers.length >= 1 && homeBarricades.length < 2 && !ownBarricades.some((b) => b.underConstruction);
+    const wantsBarricade = !plan && hasOpeningTroop && ownAttackers.length >= 1 && homeBarricades.length < this.strategy.homeBarricades && !ownBarricades.some((b) => b.underConstruction);
     if (wantsBarricade && stock.wood >= barricadeConfig.wood && stock.stone >= barricadeConfig.stone) {
       const freeBuilder = this.findFreeBuilder(ownBuilders, currentTick);
       if (freeBuilder) {
@@ -373,7 +393,7 @@ export class AIController {
 
     // 8. Construction: Build Watch Tower for strategic territory vision & defense
     const towerConfig = BALANCE.buildings.tower;
-    if (hasOpeningTroop && ownAttackers.length >= 2 && ownTowers.length < 2 && !ownTowers.some((t) => t.underConstruction)
+    if (hasOpeningTroop && ownAttackers.length >= 2 && ownTowers.length < this.strategy.maxTowers && !ownTowers.some((t) => t.underConstruction)
       && stock.coins >= towerConfig.coins && stock.wood >= towerConfig.wood && stock.stone >= towerConfig.stone) {
       const freeBuilder = this.findFreeBuilder(ownBuilders, currentTick);
       if (freeBuilder) {
@@ -406,7 +426,7 @@ export class AIController {
     const scoutingPost = this.wantsForwardPost(ownBase, ownTowers, ownAttackers.length);
     const builderNeedsSlot = ownBuilders.length === 0 && (ownAttackers.length >= 2 || scoutingPost)
       && capacity.civilianCapacity - (capacity.civilianUnits + capacity.civilianQueued) <= 1;
-    const holdExtraWorkers = buildingOpeningArmy && ownWorkers.length >= 3;
+    const holdExtraWorkers = (buildingOpeningArmy || plan !== null) && ownWorkers.length >= 3;
     if (needsWorkers && !builderNeedsSlot && !holdExtraWorkers && stock.coins >= BALANCE.units.worker.coins
       && capacity.civilianUnits + capacity.civilianQueued < capacity.civilianCapacity) {
       const readyHouses = ownHouses.filter((h) => !h.underConstruction);
@@ -430,7 +450,7 @@ export class AIController {
           }
         }
       }
-    } else if (ownBuilders.length === 0 && (ownAttackers.length >= 2 || scoutingPost) && stock.coins >= BALANCE.units.builder.coins
+    } else if (ownBuilders.length === 0 && (ownAttackers.length >= 2 || scoutingPost || plan?.goal === 'builder') && stock.coins >= BALANCE.units.builder.coins
       && capacity.civilianUnits + capacity.civilianQueued < capacity.civilianCapacity) {
       const readyHouses = ownHouses.filter((h) => !h.underConstruction);
       for (const building of readyHouses) {
@@ -461,7 +481,7 @@ export class AIController {
       && stock.stone >= 50 && stock.wood >= 100)
       || (scoutingPost && ownBuilders.length > 0 && stock.stone >= 50 && stock.wood >= 100);
     const towerReserve = wantsTower ? towerConfig.coins : 0;
-    const reserve = (!buildingOpeningArmy && hasOpeningTroop && (!readyOrBuildingHouses || needsWorkers || wantsBuilder) ? BALANCE.units.worker.coins : 0) + towerReserve;
+    const reserve = plan ? plan.coins : (!buildingOpeningArmy && hasOpeningTroop && (!readyOrBuildingHouses || needsWorkers || wantsBuilder) ? BALANCE.units.worker.coins : 0) + towerReserve;
     const readyBarracks = ownBarracks.filter((b) => !b.underConstruction);
     if (capacity.militaryUnits + capacity.militaryQueued < capacity.militaryCapacity) {
       for (const barracks of readyBarracks) {
@@ -491,6 +511,80 @@ export class AIController {
 
     if (militaryIntent) {
       this.currentIntent = militaryIntent;
+    }
+  }
+
+  /**
+   * What the AI is saving for, or null when it should spend freely. Without a
+   * reservation, 100-coin soldiers always came before the 150-coin house and
+   * builder, and the tower was almost never affordable.
+   */
+  private defensePlan(
+    base: BuildingEntity, attackers: UnitEntity[], visibleEnemies: GameEntity[],
+    houses: BuildingEntity[], builders: UnitEntity[], towers: BuildingEntity[],
+  ): DefensePlan | null {
+    const after = this.strategy.defenseAfterTroops;
+    if (after <= 0 || this.strategy.maxTowers <= 0 || towers.length > 0 || attackers.length < after) return null;
+    // An attack comes first: every coin goes back to the army.
+    if (this.isAttackIncoming(base) || visibleEnemies.some((enemy) => this.isFighter(enemy)
+      && Math.hypot(enemy.x - base.x, enemy.y - base.y) <= THREAT_RADIUS)) return null;
+    const cost = (goal: DefensePlan['goal'], price: { coins: number; wood: number; stone?: number }): DefensePlan => (
+      { goal, coins: price.coins, wood: price.wood, stone: price.stone ?? 0 });
+    if (houses.length === 0) return cost('house', BALANCE.buildings.house);
+    if (builders.length > 0) return cost('tower', BALANCE.buildings.tower);
+    const queued = houses.some((house) => this.simulation.production.queueFor(house.id)
+      .some((item) => item.unitKind === 'builder'));
+    if (queued) return cost('tower', BALANCE.buildings.tower);
+    const capacity = this.simulation.production.getCapacity(this.team);
+    if (capacity.civilianUnits + capacity.civilianQueued >= capacity.civilianCapacity) {
+      return cost('house', BALANCE.buildings.house);
+    }
+    return cost('builder', { coins: BALANCE.units.builder.coins, wood: 0 });
+  }
+
+  /**
+   * Keeps hands on whatever the plan still lacks, always leaving a gold miner.
+   * Looks one step ahead: the tower's wood and stone are gathered while the
+   * house and the builder are still pending.
+   */
+  private gatherForPlan(workers: UnitEntity[], plan: DefensePlan): void {
+    const free = workers.filter((worker) => !this.simulation.construction.taskFor(worker.id));
+    if (free.length < 2) return;
+    const stock = this.simulation.teams[this.team];
+    const tower = BALANCE.buildings.tower;
+    const needsWood = stock.wood < Math.max(plan.wood, tower.wood);
+    const needsStone = stock.stone < tower.stone && this.memory.discoveredStones.length > 0;
+    const stone = needsStone && (free.length >= 3 || !needsWood) ? 1 : 0;
+    const wood = needsWood && this.memory.discoveredForests.length > 0
+      ? Math.min(2, free.length - 1 - stone) : 0;
+    const roleOf = (worker: UnitEntity): 'mine' | 'wood' | 'stone' | null => {
+      const task = this.simulation.economy.taskFor(worker.id);
+      if (task?.kind === 'mine') return 'mine';
+      if (task?.kind !== 'gather') return null;
+      return task.resourceKind === 'stone' ? 'stone' : 'wood';
+    };
+    const wanted = { wood, stone, mine: free.length - wood - stone };
+    const have = { wood: 0, stone: 0, mine: 0 };
+    const spare: UnitEntity[] = [];
+    for (const worker of free) {
+      const role = roleOf(worker);
+      if (role && have[role] < wanted[role]) have[role] += 1;
+      // Walking workers without a task are exploring: leave them be.
+      else if (role || !worker.moveTarget) spare.push(worker);
+    }
+    for (const role of ['mine', 'wood', 'stone'] as const) {
+      while (have[role] < wanted[role] && spare.length > 0) {
+        const worker = spare.shift()!;
+        const sites = role === 'mine' ? this.memory.discoveredMines
+          : role === 'wood' ? this.memory.discoveredForests : this.memory.discoveredStones;
+        const target = this.findClosestPoint(worker, sites);
+        if (target) {
+          this.simulation.issueCommand({
+            type: role === 'mine' ? 'mine' : 'gather', team: this.team, unitId: worker.id, target,
+          });
+        }
+        have[role] += 1;
+      }
     }
   }
 
@@ -725,7 +819,7 @@ export class AIController {
     const near = (unit: UnitEntity, x: number, y: number) => Math.hypot(unit.x - x, unit.y - y) <= 30;
     const enemies = intruders.filter((enemy) => this.isFighter(enemy)).length;
     const home = attackers.filter((unit) => !this.raidUnitIds.has(unit.id) && near(unit, base.x, base.y)).length;
-    if (enemies <= home) return;
+    if (enemies <= home + this.strategy.recallMargin) return;
     const target = this.simulation.entities.get(this.team === 'red' ? 'blue-base' : 'red-base');
     const raiders = attackers.filter((unit) => this.raidUnitIds.has(unit.id));
     // A raid already hitting the enemy base keeps racing for the win.
@@ -831,7 +925,7 @@ export class AIController {
     return null;
   }
 
-  private assignIdleWorkers(workers: UnitEntity[], currentWood: number, currentStone: number): void {
+  private assignIdleWorkers(workers: UnitEntity[], currentWood: number, currentStone: number, saving: boolean): void {
     const hasIncomeWorker = workers.some((worker) =>
       this.simulation.economy.taskFor(worker.id)?.kind === 'mine');
     let stoneAssigned = workers.some((worker) => {
@@ -943,6 +1037,9 @@ export class AIController {
         }
       }
     }
+
+    // While saving, gatherForPlan decides who works where.
+    if (saving) return;
 
     this.rebalanceSurplus(workers, currentWood, currentStone);
 
@@ -1061,17 +1158,17 @@ export class AIController {
     if (archers === 0 && coins >= BALANCE.units.archer.coins) return 'archer';
     if (soldiers < 3 && coins >= BALANCE.units.soldier.coins) return 'soldier';
     const hasScout = ownMilitary.some((u) => u.kind === 'scout');
-    if (!hasScout && coins >= BALANCE.units.scout.coins) {
+    if (this.strategy.trainScout && !hasScout && coins >= BALANCE.units.scout.coins) {
       return 'scout';
     }
 
     const shieldbearers = ownMilitary.filter((u) => u.kind === 'shieldbearer').length;
 
     // Composition balance: 2 soldiers, 1 archer, 1 shieldbearer
-    if (archers < soldiers / 2 && coins >= BALANCE.units.archer.coins) {
+    if (archers < soldiers * this.strategy.archerShare && coins >= BALANCE.units.archer.coins) {
       return 'archer';
     }
-    if (shieldbearers < soldiers / 2 && coins >= BALANCE.units.shieldbearer.coins) {
+    if (shieldbearers < soldiers * this.strategy.shieldShare && coins >= BALANCE.units.shieldbearer.coins) {
       return 'shieldbearer';
     }
     if (coins >= BALANCE.units.soldier.coins) {
@@ -1117,8 +1214,9 @@ export class AIController {
 
   /** True while the strategy's forward tower is still missing and the opening army exists. */
   private wantsForwardPost(base: BuildingEntity, ownTowers: BuildingEntity[], attackers: number): boolean {
-    return this.strategy.forwardTowerDistance > 0 && attackers >= 2
-      && this.simulation.stats.snapshot()[this.team].troopsProduced >= this.openingArmy
+    return this.strategy.forwardTowerDistance > 0 && this.strategy.maxTowers > 0 && attackers >= 2
+      && this.simulation.stats.snapshot()[this.team].troopsProduced
+        >= (this.strategy.forwardPostAfterTroops || this.openingArmy)
       && !ownTowers.some((tower) => this.isForward(base, tower));
   }
 

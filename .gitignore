@@ -11,3 +11,7 @@ reports/performance/tiny-swords*
 public/assets/generated/builder/
 reports/performance/v1-3-combat*
 reports/performance/*v*-*.cpuprofile
+
+# AI training output (local only)
+treino-resultados/
+public/ia-treinada.json
