@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_STRATEGY, LEGACY_STRATEGY } from '../core/ai/AIStrategy';
-import { createState, DRAW_POINTS, runGeneration, tally, type TrainingConfig } from './evolution';
+import { createState, DRAW_POINTS, WEAK_SIDE_WEIGHT, runGeneration, tally, type TrainingConfig } from './evolution';
 import { decode, encode, GENES, sanitizeStrategy } from './genome';
 import type { MatchJob, MatchOutcome } from './match';
 import { renderReport } from './report';
@@ -30,10 +30,20 @@ describe('training', () => {
 
   it('scores a win far above a draw', () => {
     const result = tally([
-      { result: 'win', side: 'blue', seconds: 1 }, { result: 'draw', side: 'red', seconds: 1 },
+      { result: 'win', side: 'blue', seconds: 1 }, { result: 'draw', side: 'blue', seconds: 1 },
       { result: 'loss', side: 'red', seconds: 1 }, { result: 'win', side: 'red', seconds: 1 },
     ]);
-    expect(result).toMatchObject({ wins: 2, draws: 1, losses: 1, winsBlue: 1, winsRed: 1, score: (2 + DRAW_POINTS) / 4 });
+    expect(result).toMatchObject({ wins: 2, draws: 1, losses: 1, winsBlue: 1, winsRed: 1 });
+    // Blue has one win and one draw; red, one win and one loss (the weaker side).
+    expect(result.score).toBeCloseTo((2 + DRAW_POINTS) / 4 * (1 - WEAK_SIDE_WEIGHT) + 0.5 * WEAK_SIDE_WEIGHT);
+  });
+
+  it('prefers winning from both colours over the same wins from only one', () => {
+    const games = (winner: (side: 'blue' | 'red', i: number) => boolean) => (['blue', 'red'] as const).flatMap(
+      (side) => [0, 1, 2, 3].map((i) => ({ side, seconds: 1, result: winner(side, i) ? 'win' as const : 'loss' as const })));
+    expect(tally(games((_, i) => i < 2)).score).toBeGreaterThan(tally(games((side) => side === 'blue')).score);
+    expect(tally(games((side, i) => side === 'blue' || i < 1)).score)
+      .toBeGreaterThan(tally(games((_, i) => i < 2)).score);
   });
 
   it('learns what wins, promotes champions and resumes identically from a saved state', async () => {

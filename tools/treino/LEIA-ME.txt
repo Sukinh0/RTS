@@ -14,7 +14,8 @@ TREINO DA IA DO RTS
 
 COMO O TREINO FUNCIONA
    Cada geracao cria varias versoes da IA, que jogam dos dois lados do mapa.
-   Pontos: vitoria 1, empate 0,25, derrota 0. As melhores geram a proxima.
+   Pontos: vitoria 1, empate 0,1, derrota 0.
+   30% da nota vem do lado (azul ou vermelho) em que ela se sai pior. As melhores geram a proxima.
    Uma versao so vira campea se vencer a campea anterior em partidas novas
    sem piorar contra as IAs fixas.
 

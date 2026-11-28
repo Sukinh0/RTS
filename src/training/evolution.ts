@@ -8,7 +8,9 @@ import { decode, encode, GENES } from './genome';
 import type { MatchJob, MatchOutcome } from './match';
 
 export const WIN_POINTS = 1;
-export const DRAW_POINTS = 0.25;
+export const DRAW_POINTS = 0.1;
+/** Share of the score that depends only on the colour where the strategy does worse. */
+export const WEAK_SIDE_WEIGHT = 0.3;
 const SIDES = ['blue', 'red'] as const;
 /** Training and promotion seeds stay below this; benchmark seeds start here and are never trained on. */
 const BENCHMARK_SEED = 900_000;
@@ -62,12 +64,18 @@ export function createState(seed: number): TrainingState {
 
 export function tally(outcomes: readonly MatchOutcome[]): Tally {
   const wins = outcomes.filter((o) => o.result === 'win');
+  const points = (list: readonly MatchOutcome[]) => list.length ? list.reduce((sum, o) => sum
+    + (o.result === 'win' ? WIN_POINTS : o.result === 'draw' ? DRAW_POINTS : 0), 0) / list.length : 0;
+  const sides = SIDES.map((side) => outcomes.filter((o) => o.side === side)).filter((list) => list.length > 0);
+  const overall = points(outcomes);
+  const weakest = sides.length ? Math.min(...sides.map(points)) : 0;
   const draws = outcomes.filter((o) => o.result === 'draw').length;
   return {
     wins: wins.length, draws, losses: outcomes.length - wins.length - draws,
     winsBlue: wins.filter((o) => o.side === 'blue').length,
     winsRed: wins.filter((o) => o.side === 'red').length,
-    score: outcomes.length ? (wins.length * WIN_POINTS + draws * DRAW_POINTS) / outcomes.length : 0,
+    // Winning counts most; winning from both colours counts extra.
+    score: overall * (1 - WEAK_SIDE_WEIGHT) + weakest * WEAK_SIDE_WEIGHT,
   };
 }
 

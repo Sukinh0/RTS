@@ -93,7 +93,8 @@ Saídas mínimas:
 
 Busca evolutiva (entropia cruzada) sobre os parâmetros de `AIStrategy` listados em
 `src/training/genome.ts`. O aprendizado vem somente do resultado das partidas:
-vitória 1, empate 0,25, derrota 0. Não há rede neural nem aprendizado durante a
+vitória 1, empate 0,1, derrota 0. A nota combina 70% da média geral com 30% da média no
+lado (azul ou vermelho) em que a versão se sai pior. Não há rede neural nem aprendizado durante a
 partida do jogador, e a IA treinada não recebe bônus.
 
 - **Geração:** várias versões jogam as mesmas seeds, dos dois lados, contra a campeã,
